@@ -1,0 +1,81 @@
+/* Проводник БД (Database Explorer). */
+.explorer-filter {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.explorer-filter input {
+  width: 100%;
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
+.explorer-list {
+  height: 100%;
+  overflow: auto;
+  outline: none;
+}
+
+.tree-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  height: 22px;
+  gap: 4px;
+  padding-right: 8px;
+  white-space: nowrap;
+  cursor: default;
+}
+.tree-row:hover {
+  background: var(--bg-hover);
+}
+.tree-row.selected {
+  background: var(--bg-selected);
+}
+
+.tree-chevron {
+  flex-shrink: 0;
+  width: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.tree-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 4px;
+}
+
+.tree-icon {
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+}
+
+.tree-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tree-label-bold {
+  font-weight: 700;
+}
+
+.tree-secondary {
+  margin-left: auto;
+  padding-left: 12px;
+  font-size: 11px;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

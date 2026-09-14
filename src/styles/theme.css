@@ -1,0 +1,197 @@
+/* Темы QueryCraft. Тёмная — в духе Darcula/New UI DataGrip, светлая — IntelliJ Light. */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-app: #1e1f22;
+  --bg-panel: #2b2d30;
+  --bg-panel-alt: #26282b;
+  --bg-hover: #35373b;
+  --bg-active: #2e436e;
+  --bg-selected: #2e436e;
+  --bg-input: #1e1f22;
+  --bg-editor: #1e1f22;
+  --bg-grid: #1e1f22;
+  --bg-grid-alt: #232427;
+  --bg-grid-header: #2b2d30;
+  --bg-tooltip: #3c3f41;
+  --border: #393b40;
+  --border-strong: #4e5157;
+  --fg: #dfe1e5;
+  --fg-muted: #9da0a8;
+  --fg-dim: #6f737a;
+  --fg-null: #7a7e85;
+  --accent: #3574f0;
+  --accent-hover: #4a86f5;
+  --accent-fg: #ffffff;
+  --success: #5fad65;
+  --warning: #e6a23c;
+  --danger: #e55765;
+  --info: #4a9ede;
+  --cell-modified: #4b3a1c;
+  --cell-inserted: #1f3a25;
+  --cell-deleted: #4a2226;
+  --number: #6897bb;
+  --string: #6aab73;
+  --keyword: #cf8e6d;
+  --comment: #7a7e85;
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg-app: #f7f8fa;
+  --bg-panel: #ffffff;
+  --bg-panel-alt: #f2f3f5;
+  --bg-hover: #e8eaed;
+  --bg-active: #d4e2ff;
+  --bg-selected: #d4e2ff;
+  --bg-input: #ffffff;
+  --bg-editor: #ffffff;
+  --bg-grid: #ffffff;
+  --bg-grid-alt: #f7f8fa;
+  --bg-grid-header: #f2f3f5;
+  --bg-tooltip: #ffffff;
+  --border: #dfe1e5;
+  --border-strong: #c9ccd6;
+  --fg: #1e1f22;
+  --fg-muted: #6c707e;
+  --fg-dim: #a8adbd;
+  --fg-null: #9aa0ad;
+  --accent: #3574f0;
+  --accent-hover: #2b62d2;
+  --accent-fg: #ffffff;
+  --success: #369650;
+  --warning: #c98a1b;
+  --danger: #db3b4b;
+  --info: #2f7fd3;
+  --cell-modified: #fff3d6;
+  --cell-inserted: #e0f5e4;
+  --cell-deleted: #fde2e4;
+  --number: #1750eb;
+  --string: #067d17;
+  --keyword: #0033b3;
+  --comment: #8c8c8c;
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+code,
+pre,
+.mono {
+  font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 12.5px;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+button.primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+  padding: 4px 14px;
+}
+button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+button.outline {
+  border-color: var(--border-strong);
+  padding: 4px 12px;
+}
+button.icon {
+  padding: 3px 5px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 4px 8px;
+  outline: none;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent);
+}
+input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-dim);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.muted {
+  color: var(--fg-muted);
+}
+.danger {
+  color: var(--danger);
+}
+.success {
+  color: var(--success);
+}
+.text-select {
+  user-select: text;
+  cursor: text;
+}

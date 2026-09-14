@@ -1,0 +1,145 @@
+/* SQL-редактор (CodeMirror) и консоль. */
+.sql-editor {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  min-height: 0;
+}
+.sql-editor .cm-editor {
+  height: 100%;
+}
+.sql-editor .cm-scroller {
+  overflow: auto;
+}
+
+.console-tab {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.console-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 8px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.console-toolbar select {
+  max-width: 220px;
+}
+.console-toolbar .status {
+  font-size: 12px;
+  color: var(--fg-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.console-toolbar .spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.console-split {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Панель DDL/читаемых SQL-блоков */
+.ddl-tab {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.ddl-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.ddl-body {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Данные таблицы */
+.table-data-tab {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 8px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.where-input {
+  min-width: 220px;
+  flex: 1 1 220px;
+  max-width: 480px;
+}
+.order-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: var(--bg-hover);
+  font-size: 11px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+.order-chip .close {
+  cursor: pointer;
+  opacity: 0.7;
+}
+.order-chip .close:hover {
+  opacity: 1;
+}
+.table-body {
+  flex: 1;
+  min-height: 0;
+}
+.table-sql-preview {
+  height: 160px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+}
+.table-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 28px;
+  flex-shrink: 0;
+  padding: 0 10px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+}
