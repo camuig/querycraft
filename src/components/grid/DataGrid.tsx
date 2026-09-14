@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { CellValue, ColumnMeta } from "../../api/types";
 import { formatCell } from "../../lib/format";
+import { parseClipboardTable } from "../../lib/pasteParser";
+import { toast } from "../../store/toastStore";
+import { PopupMenu } from "../common/PopupMenu";
 import { GridCell } from "./GridCell";
 import { useGridSelection, type GridCellPos, type GridRange } from "./useGridSelection";
 import "../../styles/grid.css";
@@ -25,7 +28,20 @@ export interface DataGridProps {
   onSelectCell?: (cell: GridCellPos | null) => void;
   editable?: boolean;
   onEditCell?: (row: number, col: number, value: CellValue) => void;
+  /**
+   * Вставка из буфера (⌘/Ctrl+V) начиная с ячейки (row, col): values — матрица строк × колонок.
+   * Если не задан, вставка недоступна.
+   */
+  onPaste?: (row: number, col: number, values: CellValue[][]) => void;
   onKeyDown?: (e: KeyboardEvent<HTMLDivElement>) => void;
+}
+
+async function readClipboardText(): Promise<string> {
+  try {
+    return await readText();
+  } catch {
+    return (await navigator.clipboard?.readText()) ?? "";
+  }
 }
 
 function clamp(v: number, min: number, max: number): number {
@@ -59,7 +75,7 @@ function computeColumnWidths(columns: ColumnMeta[], rows: CellValue[][]): number
 
 /** Виртуализированный грид (строки и колонки) с выделением, редактированием и копированием. */
 export function DataGrid(props: DataGridProps) {
-  const { columns, rows, getCellValue, cellClass, sort, onSort, selectedCell, onSelectCell, editable, onEditCell } = props;
+  const { columns, rows, getCellValue, cellClass, sort, onSort, selectedCell, onSelectCell, editable, onEditCell, onPaste } = props;
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const headerInnerRef = useRef<HTMLDivElement | null>(null);
@@ -189,13 +205,48 @@ export function DataGrid(props: DataGridProps) {
   const totalWidth = colVirtualizer.getTotalSize();
   const totalHeight = rowVirtualizer.getTotalSize();
 
+  const pasteInFlight = useRef(false);
+  const handlePasteText = useCallback(
+    (text: string) => {
+      if (!onPaste || !editable) return;
+      const values = parseClipboardTable(text);
+      if (values.length === 0) return;
+      const start = sel.range ? { row: sel.range.minRow, col: sel.range.minCol } : { row: rows.length, col: 0 };
+      onPaste(start.row, start.col, values);
+    },
+    [onPaste, editable, sel.range, rows.length],
+  );
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && (e.key === "v" || e.key === "V") && editable && onPaste && !sel.editingCell) {
+      e.preventDefault();
+      if (pasteInFlight.current) return;
+      pasteInFlight.current = true;
+      readClipboardText()
+        .then(handlePasteText)
+        .catch((err) => toast.error(err))
+        .finally(() => {
+          pasteInFlight.current = false;
+        });
+      return;
+    }
+    sel.handleGridKeyDown(e);
+    props.onKeyDown?.(e);
+  };
+
   return (
     <div
       className="data-grid"
       tabIndex={0}
-      onKeyDown={(e) => {
-        sel.handleGridKeyDown(e);
-        props.onKeyDown?.(e);
+      onKeyDown={handleKeyDown}
+      onPaste={(e) => {
+        // Запасной путь: событие paste от системы (если чтение буфера через API недоступно).
+        if (pasteInFlight.current || sel.editingCell || !editable || !onPaste) return;
+        const text = e.clipboardData.getData("text/plain");
+        if (!text) return;
+        e.preventDefault();
+        handlePasteText(text);
       }}
     >
       <div className="grid-header-row">
@@ -290,7 +341,7 @@ export function DataGrid(props: DataGridProps) {
       </div>
 
       {contextMenu && editable && !columns[contextMenu.col]?.binary && (
-        <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}>
+        <PopupMenu x={contextMenu.x} y={contextMenu.y}>
           <div
             className="item"
             onClick={() => {
@@ -300,7 +351,18 @@ export function DataGrid(props: DataGridProps) {
           >
             Установить NULL
           </div>
-        </div>
+          {onPaste && (
+            <div
+              className="item"
+              onClick={() => {
+                setContextMenu(null);
+                readClipboardText().then(handlePasteText).catch((err) => toast.error(err));
+              }}
+            >
+              Вставить из буфера
+            </div>
+          )}
+        </PopupMenu>
       )}
     </div>
   );

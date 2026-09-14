@@ -196,6 +196,38 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
     setSelectedCell({ row: rowIndex, col: 0 });
   }, [tracker]);
 
+  /**
+   * Вставка матрицы значений начиная с (row, col): каждая строка буфера — своя строка грида,
+   * недостающие строки добавляются как новые (как в DataGrip).
+   */
+  const handlePaste = useCallback(
+    (row: number, col: number, values: CellValue[][]) => {
+      if (!tracker) return;
+      let next = tracker;
+      let added = 0;
+      for (let i = 0; i < values.length; i++) {
+        let r = row + i;
+        if (r >= next.rows.length) {
+          const ins = next.insertRow();
+          next = ins.tracker;
+          r = ins.rowIndex;
+          added++;
+        }
+        const line = values[i];
+        for (let j = 0; j < line.length; j++) {
+          const c = col + j;
+          if (c >= resultColumns.length) break;
+          if (resultColumns[c]?.binary) continue;
+          next = next.setCell(r, c, line[j]);
+        }
+      }
+      setTracker(next);
+      setSelectedCell({ row, col });
+      if (added > 0) toast.info(`Добавлено строк: ${added}. Нажмите Submit, чтобы сохранить.`);
+    },
+    [tracker, resultColumns],
+  );
+
   const handleToggleDeleteSelected = useCallback(() => {
     if (!tracker || !selectedCell) return;
     const r = selectedCell.row;
@@ -283,7 +315,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
         <button className="outline" onClick={() => setShowSql((s) => !s)}>
           {showSql ? "Скрыть SQL" : "Показать SQL"}
         </button>
-        <button className="icon" onClick={handleAddRow} disabled={!editable} title="Добавить строку">
+        <button className="icon" onClick={handleAddRow} disabled={!editable} title="Добавить строку (затем ⌘/Ctrl+V вставит строки из буфера)">
           +
         </button>
         <button className="icon" onClick={handleToggleDeleteSelected} disabled={!editable || !selectedCell} title="Удалить/восстановить строку">
@@ -303,6 +335,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
           rows={tracker ? tracker.rows : rows}
           editable={editable}
           onEditCell={handleEditCell}
+          onPaste={handlePaste}
           cellClass={cellClass}
           selectedCell={selectedCell}
           onSelectCell={setSelectedCell}
