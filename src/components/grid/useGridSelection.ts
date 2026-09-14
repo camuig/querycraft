@@ -52,7 +52,8 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
   );
   const [editingCell, setEditingCell] = useState<GridCellPos | null>(null);
   const [editingInitialValue, setEditingInitialValue] = useState("");
-  const draggingRef = useRef(false);
+  /** Что тянем мышью: ячейки, целые строки (по номерам) или ничего. */
+  const draggingRef = useRef<false | "cells" | "rows">(false);
 
   useEffect(() => {
     function onUp() {
@@ -67,9 +68,9 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
     const cell = opts.selectedCell;
     if (!cell) return;
     setSelectionState((sel) => {
-      if (sel && sel.anchor.row === cell.row && sel.anchor.col === cell.col && sel.focus.row === cell.row && sel.focus.col === cell.col) {
-        return sel;
-      }
+      // Если фокус уже в этой ячейке (это наше же уведомление onSelectCell), диапазон не трогаем —
+      // иначе любое расширение выделения схлопывалось бы обратно в одну ячейку.
+      if (sel && sel.focus.row === cell.row && sel.focus.col === cell.col) return sel;
       return { anchor: cell, focus: cell };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -133,19 +134,22 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
 
   const handleCellMouseDown = useCallback(
     (row: number, col: number, e: MouseEvent) => {
-      draggingRef.current = true;
+      if (e.button !== 0 && selection && rangeOf(selection).minRow <= row && row <= rangeOf(selection).maxRow && rangeOf(selection).minCol <= col && col <= rangeOf(selection).maxCol) {
+        return; // правый клик внутри выделения не сбрасывает его
+      }
+      draggingRef.current = e.button === 0 ? "cells" : false;
       setSelectionState((sel) => {
         const next: Selection = e.shiftKey && sel ? { anchor: sel.anchor, focus: { row, col } } : { anchor: { row, col }, focus: { row, col } };
         onSelectCell?.(next.focus);
         return next;
       });
     },
-    [onSelectCell],
+    [onSelectCell, selection],
   );
 
   const handleCellMouseEnter = useCallback(
     (row: number, col: number) => {
-      if (!draggingRef.current) return;
+      if (draggingRef.current !== "cells") return;
       setSelectionState((sel) => {
         const next: Selection = sel ? { anchor: sel.anchor, focus: { row, col } } : { anchor: { row, col }, focus: { row, col } };
         onSelectCell?.(next.focus);
@@ -154,6 +158,55 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
     },
     [onSelectCell],
   );
+
+  const lastCol = Math.max(0, colCount - 1);
+  const lastRow = Math.max(0, rowCount - 1);
+
+  /** Клик по номеру строки: выделить строку целиком; Shift — расширить; drag — несколько строк. */
+  const handleRowNumberMouseDown = useCallback(
+    (row: number, e: MouseEvent) => {
+      if (e.button !== 0) return;
+      draggingRef.current = "rows";
+      setSelectionState((sel) => {
+        const next: Selection =
+          e.shiftKey && sel ? { anchor: { row: sel.anchor.row, col: 0 }, focus: { row, col: lastCol } } : { anchor: { row, col: 0 }, focus: { row, col: lastCol } };
+        onSelectCell?.(next.focus);
+        return next;
+      });
+    },
+    [lastCol, onSelectCell],
+  );
+
+  const handleRowNumberMouseEnter = useCallback(
+    (row: number) => {
+      if (draggingRef.current !== "rows") return;
+      setSelectionState((sel) => {
+        const next: Selection = { anchor: sel ? { row: sel.anchor.row, col: 0 } : { row, col: 0 }, focus: { row, col: lastCol } };
+        onSelectCell?.(next.focus);
+        return next;
+      });
+    },
+    [lastCol, onSelectCell],
+  );
+
+  /** Клик по заголовку: выделить колонку целиком; Shift — диапазон колонок. */
+  const handleHeaderMouseDown = useCallback(
+    (col: number, e: MouseEvent) => {
+      if (e.button !== 0 || rowCount === 0) return;
+      setSelectionState((sel) => {
+        const next: Selection =
+          e.shiftKey && sel ? { anchor: { row: 0, col: sel.anchor.col }, focus: { row: lastRow, col } } : { anchor: { row: 0, col }, focus: { row: lastRow, col } };
+        onSelectCell?.(next.focus);
+        return next;
+      });
+    },
+    [lastRow, rowCount, onSelectCell],
+  );
+
+  const selectAll = useCallback(() => {
+    if (rowCount === 0 || colCount === 0) return;
+    setSelection({ anchor: { row: 0, col: 0 }, focus: { row: lastRow, col: lastCol } });
+  }, [rowCount, colCount, lastRow, lastCol, setSelection]);
 
   const handleCellDoubleClick = useCallback(
     (row: number, col: number) => {
@@ -177,6 +230,11 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
       }
       if (mod && (e.key === "c" || e.key === "C")) {
         onCopy?.(rangeOf(sel));
+        e.preventDefault();
+        return;
+      }
+      if (mod && !e.shiftKey && (e.key === "a" || e.key === "A")) {
+        selectAll();
         e.preventDefault();
         return;
       }
@@ -236,7 +294,7 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
       const focus = { row, col };
       setSelection({ anchor: e.shiftKey ? sel.anchor : focus, focus });
     },
-    [editingCell, selection, rowCount, colCount, pageSize, editable, canEdit, startEdit, onCopy, onSetNull, setSelection],
+    [editingCell, selection, rowCount, colCount, pageSize, editable, canEdit, startEdit, onCopy, onSetNull, setSelection, selectAll],
   );
 
   const range = selection ? rangeOf(selection) : null;
@@ -257,6 +315,11 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
     handleCellMouseDown,
     handleCellMouseEnter,
     handleCellDoubleClick,
+    handleRowNumberMouseDown,
+    handleRowNumberMouseEnter,
+    handleHeaderMouseDown,
+    selectAll,
+    setSelection,
     handleGridKeyDown,
     startEdit,
     commitEdit,

@@ -58,6 +58,17 @@ export function toTsv(columns: ColumnMeta[], rows: CellValue[][]): string {
   return [header, ...lines].join("\n");
 }
 
+export type CopyFormat = "tsv" | "csv";
+
+/** Текст для буфера обмена: диапазон значений в TSV или CSV, опционально с заголовками. */
+export function rowsToClipboardText(columns: ColumnMeta[], rows: CellValue[][], format: CopyFormat, withHeaders: boolean): string {
+  const field = format === "csv" ? csvField : tsvField;
+  const sep = format === "csv" ? "," : "\t";
+  const lines = rows.map((row) => row.map((v) => field(v)).join(sep));
+  if (withHeaders) lines.unshift(columns.map((c) => field(c.name)).join(sep));
+  return lines.join("\n");
+}
+
 /** JSON.stringify массива объектов {colName: value}, с отступом 2. */
 export function toJson(columns: ColumnMeta[], rows: CellValue[][]): string {
   const arr = rows.map((row) => {

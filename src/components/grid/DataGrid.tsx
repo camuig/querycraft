@@ -3,8 +3,8 @@ import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent } from
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { CellValue, ColumnMeta } from "../../api/types";
-import { formatCell } from "../../lib/format";
-import { parseClipboardTable } from "../../lib/pasteParser";
+import { formatCell, rowsToClipboardText, type CopyFormat } from "../../lib/format";
+import { expandToRange, parseClipboardTable } from "../../lib/pasteParser";
 import { toast } from "../../store/toastStore";
 import { PopupMenu } from "../common/PopupMenu";
 import { GridCell } from "./GridCell";
@@ -104,23 +104,26 @@ export function DataGrid(props: DataGridProps) {
     return () => window.removeEventListener("mousedown", close);
   }, [contextMenu]);
 
-  const handleCopyRange = useCallback(
-    (range: GridRange) => {
-      const lines: string[] = [];
+  const copyRange = useCallback(
+    (range: GridRange, format: CopyFormat, withHeaders: boolean) => {
+      const cols = columns.slice(range.minCol, range.maxCol + 1);
+      const data: CellValue[][] = [];
       for (let r = range.minRow; r <= range.maxRow; r++) {
-        const cells: string[] = [];
-        for (let c = range.minCol; c <= range.maxCol; c++) {
-          cells.push(formatCell(getValue(r, c), columns[c]));
-        }
-        lines.push(cells.join("\t"));
+        const line: CellValue[] = [];
+        for (let c = range.minCol; c <= range.maxCol; c++) line.push(getValue(r, c));
+        data.push(line);
       }
-      const text = lines.join("\n");
+      const text = rowsToClipboardText(cols, data, format, withHeaders);
       writeText(text).catch(() => {
         navigator.clipboard?.writeText(text).catch(() => undefined);
       });
+      const n = data.length * cols.length;
+      toast.info(n === 1 ? "Скопировано" : `Скопировано ячеек: ${n}`);
     },
     [getValue, columns],
   );
+
+  const handleCopyRange = useCallback((range: GridRange) => copyRange(range, "tsv", false), [copyRange]);
 
   const handleSetNullRange = useCallback(
     (range: GridRange) => {
@@ -209,9 +212,12 @@ export function DataGrid(props: DataGridProps) {
   const handlePasteText = useCallback(
     (text: string) => {
       if (!onPaste || !editable) return;
-      const values = parseClipboardTable(text);
-      if (values.length === 0) return;
-      const start = sel.range ? { row: sel.range.minRow, col: sel.range.minCol } : { row: rows.length, col: 0 };
+      const parsed = parseClipboardTable(text);
+      if (parsed.length === 0) return;
+      const range = sel.range;
+      const start = range ? { row: range.minRow, col: range.minCol } : { row: rows.length, col: 0 };
+      // Выделено несколько ячеек — значение (строка, колонка) размножается на весь диапазон, как в DataGrip.
+      const values = range ? expandToRange(parsed, range.maxRow - range.minRow + 1, range.maxCol - range.minCol + 1) : parsed;
       onPaste(start.row, start.col, values);
     },
     [onPaste, editable, sel.range, rows.length],
@@ -256,17 +262,31 @@ export function DataGrid(props: DataGridProps) {
             {colVirtualizer.getVirtualItems().map((vc) => {
               const col = columns[vc.index];
               const sorted = sort?.column === vc.index;
+              const colSelected = !!sel.range && vc.index >= sel.range.minCol && vc.index <= sel.range.maxCol;
               const style: CSSProperties = { position: "absolute", left: vc.start, top: 0, width: vc.size, height: HEADER_HEIGHT };
               return (
                 <div
                   key={vc.key}
-                  className={`grid-header-cell ${onSort ? "sortable" : ""}`}
+                  className={`grid-header-cell ${onSort ? "sortable" : ""} ${colSelected ? "col-selected" : ""}`}
                   style={style}
-                  onClick={() => onSort?.(vc.index)}
+                  title="Клик — выделить колонку, Shift+клик — диапазон колонок"
+                  onMouseDown={(e) => sel.handleHeaderMouseDown(vc.index, e)}
                 >
                   <div className="grid-header-name">
                     <span>{col.name}</span>
-                    {sorted && <span className="sort-indicator">{sort!.dir === "asc" ? "▲" : "▼"}</span>}
+                    {onSort && (
+                      <span
+                        className={`sort-indicator ${sorted ? "active" : ""}`}
+                        title="Сортировать"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSort(vc.index);
+                        }}
+                      >
+                        {sorted ? (sort!.dir === "asc" ? "▲" : "▼") : "⇅"}
+                      </span>
+                    )}
                   </div>
                   <div className="grid-header-type muted">{col.typeName.toLowerCase()}</div>
                   <div className="grid-col-resize" onMouseDown={(e) => handleResizeMouseDown(e, vc.index)} />
@@ -283,11 +303,14 @@ export function DataGrid(props: DataGridProps) {
             {rowVirtualizer.getVirtualItems().map((vr) => {
               const rowExtra = cellClass?.(vr.index, 0) ?? "";
               const alt = vr.index % 2 === 1 ? "row-alt" : "";
+              const rowSelected = !!sel.range && vr.index >= sel.range.minRow && vr.index <= sel.range.maxRow;
               return (
                 <div
                   key={vr.key}
-                  className={`grid-row-number ${alt} ${rowExtra.includes("cell-deleted") ? "cell-deleted" : ""}`}
+                  className={`grid-row-number ${alt} ${rowExtra.includes("cell-deleted") ? "cell-deleted" : ""} ${rowSelected ? "row-selected" : ""}`}
                   style={{ position: "absolute", top: vr.start, left: 0, width: gutterWidth, height: vr.size }}
+                  onMouseDown={(e) => sel.handleRowNumberMouseDown(vr.index, e)}
+                  onMouseEnter={() => sel.handleRowNumberMouseEnter(vr.index)}
                 >
                   {vr.index + 1}
                 </div>
@@ -329,6 +352,7 @@ export function DataGrid(props: DataGridProps) {
                       onContextMenu={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        if (!sel.isInRange(r, c)) sel.setSelection({ anchor: { row: r, col: c }, focus: { row: r, col: c } });
                         setContextMenu({ x: e.clientX, y: e.clientY, row: r, col: c });
                       }}
                     />
@@ -340,28 +364,39 @@ export function DataGrid(props: DataGridProps) {
         </div>
       </div>
 
-      {contextMenu && editable && !columns[contextMenu.col]?.binary && (
+      {contextMenu && (
         <PopupMenu x={contextMenu.x} y={contextMenu.y}>
-          <div
-            className="item"
-            onClick={() => {
-              onEditCell?.(contextMenu.row, contextMenu.col, null);
-              setContextMenu(null);
-            }}
-          >
-            Установить NULL
-          </div>
-          {onPaste && (
-            <div
-              className="item"
-              onClick={() => {
-                setContextMenu(null);
-                readClipboardText().then(handlePasteText).catch((err) => toast.error(err));
-              }}
-            >
-              Вставить из буфера
-            </div>
-          )}
+          {(() => {
+            const range = sel.range ?? { minRow: contextMenu.row, maxRow: contextMenu.row, minCol: contextMenu.col, maxCol: contextMenu.col };
+            const item = (label: string, action: () => void, disabled = false) => (
+              <div
+                className={`item ${disabled ? "disabled" : ""}`}
+                onClick={() => {
+                  setContextMenu(null);
+                  action();
+                }}
+              >
+                {label}
+              </div>
+            );
+            return (
+              <>
+                {item("Копировать", () => copyRange(range, "tsv", false))}
+                {item("Копировать как CSV", () => copyRange(range, "csv", false))}
+                {item("Копировать с заголовками (TSV)", () => copyRange(range, "tsv", true))}
+                {item("Копировать с заголовками (CSV)", () => copyRange(range, "csv", true))}
+                {editable && (
+                  <>
+                    <div className="divider" />
+                    {onPaste && item("Вставить", () => readClipboardText().then(handlePasteText).catch((err) => toast.error(err)))}
+                    {item("Установить NULL", () => handleSetNullRange(range))}
+                  </>
+                )}
+                <div className="divider" />
+                {item("Выделить всё", () => sel.selectAll())}
+              </>
+            );
+          })()}
         </PopupMenu>
       )}
     </div>

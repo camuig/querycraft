@@ -63,8 +63,32 @@
   text-overflow: ellipsis;
 }
 .sort-indicator {
-  color: var(--accent);
+  color: var(--fg-dim);
   font-size: 10px;
+  padding: 0 3px;
+  border-radius: 3px;
+  opacity: 0;
+  cursor: pointer;
+}
+.grid-header-cell:hover .sort-indicator,
+.sort-indicator.active {
+  opacity: 1;
+}
+.sort-indicator.active {
+  color: var(--accent);
+}
+.sort-indicator:hover {
+  background: var(--bg-hover);
+}
+.grid-header-cell.col-selected {
+  background: var(--bg-active);
+}
+.grid-row-number {
+  cursor: pointer;
+}
+.grid-row-number.row-selected {
+  background: var(--bg-active);
+  color: var(--fg);
 }
 .grid-header-type {
   font-size: 10.5px;

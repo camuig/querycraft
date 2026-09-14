@@ -67,3 +67,26 @@ export function parseClipboardTable(text: string): CellValue[][] {
     return cells.map(toCellValue);
   });
 }
+
+/**
+ * Растягивает вставляемую матрицу на выделенный диапазон (как DataGrip): одно значение
+ * заполняет все ячейки, одна строка повторяется по строкам, одна колонка — по колонкам.
+ * Если диапазон 1×1 или матрица больше диапазона — возвращается как есть.
+ */
+export function expandToRange(values: CellValue[][], rangeRows: number, rangeCols: number): CellValue[][] {
+  if (values.length === 0) return values;
+  const vRows = values.length;
+  const vCols = Math.max(...values.map((r) => r.length));
+  if (rangeRows <= 1 && rangeCols <= 1) return values;
+  if (vRows > rangeRows || vCols > rangeCols) return values;
+  const rows = rangeRows % vRows === 0 ? rangeRows : vRows;
+  const cols = rangeCols % vCols === 0 ? rangeCols : vCols;
+  const out: CellValue[][] = [];
+  for (let i = 0; i < rows; i++) {
+    const src = values[i % vRows];
+    const line: CellValue[] = [];
+    for (let j = 0; j < cols; j++) line.push(src[j % vCols] ?? null);
+    out.push(line);
+  }
+  return out;
+}

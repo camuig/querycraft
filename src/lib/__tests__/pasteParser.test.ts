@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectDelimiter, parseClipboardTable, splitLine } from "../pasteParser";
+import { detectDelimiter, expandToRange, parseClipboardTable, splitLine } from "../pasteParser";
 
 describe("parseClipboardTable", () => {
   it("каждая строка без разделителя — одна колонка", () => {
@@ -46,5 +46,40 @@ describe("parseClipboardTable", () => {
   it("detectDelimiter пропускает пустые строки в начале", () => {
     expect(detectDelimiter(["", "a\tb"])).toBe("\t");
     expect(detectDelimiter(["plain"])).toBeNull();
+  });
+});
+
+describe("expandToRange", () => {
+  it("одно значение заполняет весь диапазон", () => {
+    expect(expandToRange([["x"]], 3, 2)).toEqual([
+      ["x", "x"],
+      ["x", "x"],
+      ["x", "x"],
+    ]);
+  });
+
+  it("одна строка повторяется по строкам диапазона", () => {
+    expect(expandToRange([["a", "b"]], 2, 2)).toEqual([
+      ["a", "b"],
+      ["a", "b"],
+    ]);
+  });
+
+  it("одна колонка повторяется по колонкам", () => {
+    expect(expandToRange([["a"], ["b"]], 2, 3)).toEqual([
+      ["a", "a", "a"],
+      ["b", "b", "b"],
+    ]);
+  });
+
+  it("диапазон 1×1 — вставка как есть", () => {
+    const v = [["a"], ["b"]];
+    expect(expandToRange(v, 1, 1)).toBe(v);
+  });
+
+  it("матрица больше диапазона — как есть; некратный диапазон — по размеру матрицы", () => {
+    const v = [["a"], ["b"]];
+    expect(expandToRange(v, 1, 1)).toBe(v);
+    expect(expandToRange(v, 3, 1)).toEqual([["a"], ["b"]]);
   });
 });
