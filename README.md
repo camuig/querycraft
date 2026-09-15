@@ -65,8 +65,17 @@ The keymap lives in [`src/lib/keymap.ts`](src/lib/keymap.ts).
 ## Installation
 
 Download the installer for your platform from the
-[Releases](https://github.com/camuig/querycraft/releases) page (`.dmg` for macOS, `.msi` / `.exe` for Windows,
-`.AppImage` / `.deb` for Linux), or build from source as described below.
+[Releases](https://github.com/camuig/querycraft/releases) page (`.dmg` for macOS on Apple Silicon and Intel,
+`.msi` / `.exe` for Windows, `.AppImage` / `.deb` / `.rpm` for Linux), or build from source as described below.
+
+The binaries are not code-signed yet. On macOS, Gatekeeper reports the app as damaged after the download;
+remove the quarantine attribute once and it opens normally:
+
+```bash
+xattr -d com.apple.quarantine /Applications/QueryCraft.app
+```
+
+On Windows, SmartScreen shows an "unknown publisher" warning: choose *More info* → *Run anyway*.
 
 ## Development
 

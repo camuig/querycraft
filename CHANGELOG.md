@@ -6,8 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-15
+
 ### Added
 
+- Initial MVP: connections with keyring-stored passwords, database explorer, SQL console with
+  schema-aware autocomplete, virtualized results grid, table data editing with deferred submit,
+  DDL view, CSV/JSON/TSV/SQL export.
 - Native application menu (File, Edit, View, Run, Data, Help) with a Theme submenu and a Settings entry.
 - DataGrip-style keymap: refresh, submit/revert, add/delete row, set NULL, paging, tab switching,
   duplicate/delete/move line in the editor, F4 / Cmd+B in the explorer.
@@ -28,10 +33,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - macOS Dock icon no longer looks oversized next to other applications.
 - Text inputs no longer trigger the WebView autocorrect (`account_id` → `Account_id`).
 
-## [0.1.0] - 2026-09-14
-
-### Added
-
-- Initial MVP: connections with keyring-stored passwords, database explorer, SQL console with
-  schema-aware autocomplete, virtualized results grid, table data editing with deferred submit,
-  DDL view, CSV/JSON/TSV/SQL export.
+[Unreleased]: https://github.com/camuig/querycraft/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/camuig/querycraft/releases/tag/v0.1.0
