@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { NO_AUTOCORRECT } from "../../lib/inputProps";
 import { applySuggestion, suggestWhere, type WhereSuggestion } from "../../lib/whereSuggest";
 

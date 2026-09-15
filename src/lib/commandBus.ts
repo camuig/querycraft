@@ -8,7 +8,7 @@
  * (Cmd+Enter is both "execute" and "submit changes"), dispatch also tries the
  * other actions bound to the same shortcut.
  */
-import { actionsSharingShortcut, detectPlatform, type AppAction, type Platform } from "./keymap";
+import { type AppAction, actionsSharingShortcut, detectPlatform, type Platform } from "./keymap";
 
 export type CommandHandler = () => boolean | void;
 

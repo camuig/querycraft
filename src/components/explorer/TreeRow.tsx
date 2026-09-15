@@ -26,7 +26,16 @@ interface TreeRowProps {
 }
 
 /** A single explorer tree row: indent, chevron, icon, name, extra text on the right. */
-export function TreeRow({ node, selected, expanded, style, onSelect, onToggleExpand, onDoubleClick, onContextMenu }: TreeRowProps) {
+export function TreeRow({
+  node,
+  selected,
+  expanded,
+  style,
+  onSelect,
+  onToggleExpand,
+  onDoubleClick,
+  onContextMenu,
+}: TreeRowProps) {
   const isPlain = node.kind === "loading" || node.kind === "error";
 
   return (
@@ -61,7 +70,11 @@ export function TreeRow({ node, selected, expanded, style, onSelect, onToggleExp
       )}
 
       {KIND_ICON[node.kind] && <span className="tree-icon">{KIND_ICON[node.kind]}</span>}
-      {node.keyGlyph && <span className="tree-icon" title={node.keyGlyph === "🔑" ? "primary key" : "index"}>{node.keyGlyph}</span>}
+      {node.keyGlyph && (
+        <span className="tree-icon" title={node.keyGlyph === "🔑" ? "primary key" : "index"}>
+          {node.keyGlyph}
+        </span>
+      )}
 
       <span className={`tree-label ${node.bold ? "tree-label-bold" : ""} ${isPlain ? "muted" : ""}`}>{node.label}</span>
 

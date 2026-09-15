@@ -113,11 +113,7 @@ describe("buildStatements — UPDATE", () => {
   });
 
   it("WHERE with multiple pk columns", () => {
-    const cols2: ColumnMeta[] = [
-      col("a", { primaryKey: true }),
-      col("b", { primaryKey: true }),
-      col("v"),
-    ];
+    const cols2: ColumnMeta[] = [col("a", { primaryKey: true }), col("b", { primaryKey: true }), col("v")];
     const rows2: CellValue[][] = [[1, 2, "x"]];
     const t = new ChangeTracker(rows2, cols2, ["a", "b"]).setCell(0, 2, "y");
     const stmts = t.buildStatements(null, "t2");

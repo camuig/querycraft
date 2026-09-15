@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
+import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CellValue, ColumnMeta } from "../../api/types";
-import { formatCell, rowsToClipboardText, type CopyFormat } from "../../lib/format";
+import { type CopyFormat, formatCell, rowsToClipboardText } from "../../lib/format";
 import { expandToRange, parseClipboardTable } from "../../lib/pasteParser";
 import { toast } from "../../store/toastStore";
 import { PopupMenu } from "../common/PopupMenu";
 import { GridCell } from "./GridCell";
-import { useGridSelection, type GridCellPos, type GridRange } from "./useGridSelection";
+import { type GridCellPos, type GridRange, useGridSelection } from "./useGridSelection";
 import "../../styles/grid.css";
 
 export type { GridCellPos, GridRange } from "./useGridSelection";
@@ -79,7 +79,19 @@ function computeColumnWidths(columns: ColumnMeta[], rows: CellValue[][]): number
 
 /** Virtualized grid (rows and columns) with selection, editing, and copying. */
 export function DataGrid(props: DataGridProps) {
-  const { columns, rows, getCellValue, cellClass, sort, onSort, selectedCell, onSelectCell, editable, onEditCell, onPaste } = props;
+  const {
+    columns,
+    rows,
+    getCellValue,
+    cellClass,
+    sort,
+    onSort,
+    selectedCell,
+    onSelectCell,
+    editable,
+    onEditCell,
+    onPaste,
+  } = props;
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const headerInnerRef = useRef<HTMLDivElement | null>(null);
@@ -230,7 +242,9 @@ export function DataGrid(props: DataGridProps) {
       const range = sel.range;
       const start = range ? { row: range.minRow, col: range.minCol } : { row: rows.length, col: 0 };
       // Multiple cells selected — the value at (row, col) is replicated across the whole range, like in DataGrip.
-      const values = range ? expandToRange(parsed, range.maxRow - range.minRow + 1, range.maxCol - range.minCol + 1) : parsed;
+      const values = range
+        ? expandToRange(parsed, range.maxRow - range.minRow + 1, range.maxCol - range.minCol + 1)
+        : parsed;
       onPaste(start.row, start.col, values);
     },
     [onPaste, editable, sel.range, rows.length],
@@ -283,7 +297,13 @@ export function DataGrid(props: DataGridProps) {
               const col = columns[vc.index];
               const sorted = sort?.column === vc.index;
               const colSelected = !!sel.range && vc.index >= sel.range.minCol && vc.index <= sel.range.maxCol;
-              const style: CSSProperties = { position: "absolute", left: vc.start, top: 0, width: vc.size, height: HEADER_HEIGHT };
+              const style: CSSProperties = {
+                position: "absolute",
+                left: vc.start,
+                top: 0,
+                width: vc.size,
+                height: HEADER_HEIGHT,
+              };
               return (
                 <div
                   key={vc.key}
@@ -351,7 +371,13 @@ export function DataGrid(props: DataGridProps) {
                   const alt = r % 2 === 1 ? "row-alt" : "";
                   const extra = [alt, cellClass?.(r, c) ?? ""].filter(Boolean).join(" ");
                   const editingHere = sel.editingCell?.row === r && sel.editingCell?.col === c;
-                  const style: CSSProperties = { position: "absolute", top: vr.start, left: vc.start, width: vc.size, height: vr.size };
+                  const style: CSSProperties = {
+                    position: "absolute",
+                    top: vr.start,
+                    left: vc.start,
+                    width: vc.size,
+                    height: vr.size,
+                  };
                   return (
                     <GridCell
                       key={`${vr.key}:${vc.key}`}
@@ -372,7 +398,8 @@ export function DataGrid(props: DataGridProps) {
                       onContextMenu={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        if (!sel.isInRange(r, c)) sel.setSelection({ anchor: { row: r, col: c }, focus: { row: r, col: c } });
+                        if (!sel.isInRange(r, c))
+                          sel.setSelection({ anchor: { row: r, col: c }, focus: { row: r, col: c } });
                         setContextMenu({ x: e.clientX, y: e.clientY, row: r, col: c });
                       }}
                     />
@@ -387,7 +414,12 @@ export function DataGrid(props: DataGridProps) {
       {contextMenu && (
         <PopupMenu x={contextMenu.x} y={contextMenu.y}>
           {(() => {
-            const range = sel.range ?? { minRow: contextMenu.row, maxRow: contextMenu.row, minCol: contextMenu.col, maxCol: contextMenu.col };
+            const range = sel.range ?? {
+              minRow: contextMenu.row,
+              maxRow: contextMenu.row,
+              minCol: contextMenu.col,
+              maxCol: contextMenu.col,
+            };
             const item = (label: string, action: () => void, disabled = false) => (
               <div
                 className={`item ${disabled ? "disabled" : ""}`}
@@ -408,7 +440,12 @@ export function DataGrid(props: DataGridProps) {
                 {editable && (
                   <>
                     <div className="divider" />
-                    {onPaste && item("Paste", () => readClipboardText().then(handlePasteText).catch((err) => toast.error(err)))}
+                    {onPaste &&
+                      item("Paste", () =>
+                        readClipboardText()
+                          .then(handlePasteText)
+                          .catch((err) => toast.error(err)),
+                      )}
                     {item("Set NULL", () => handleSetNullRange(range))}
                   </>
                 )}

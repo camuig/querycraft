@@ -41,10 +41,7 @@ describe("splitStatements", () => {
     const stmts = splitStatements("SELECT 1; -- comment; still comment\nSELECT 2;");
     // ';' inside the comment is ignored, so the comment stays part of the
     // same statement as the SELECT 2 that follows it.
-    expect(stmts.map((s) => s.sql)).toEqual([
-      "SELECT 1",
-      "-- comment; still comment\nSELECT 2",
-    ]);
+    expect(stmts.map((s) => s.sql)).toEqual(["SELECT 1", "-- comment; still comment\nSELECT 2"]);
   });
 
   it("does not treat --comment (no space) as a comment, ; after it is significant", () => {
@@ -61,10 +58,7 @@ describe("splitStatements", () => {
 
   it("block comment /* ... */ does not split on ; inside itself", () => {
     const stmts = splitStatements("SELECT 1; /* comment ; with semi */ SELECT 2;");
-    expect(stmts.map((s) => s.sql)).toEqual([
-      "SELECT 1",
-      "/* comment ; with semi */ SELECT 2",
-    ]);
+    expect(stmts.map((s) => s.sql)).toEqual(["SELECT 1", "/* comment ; with semi */ SELECT 2"]);
   });
 
   it("supports DELIMITER // for a stored procedure", () => {

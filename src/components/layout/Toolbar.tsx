@@ -1,9 +1,9 @@
 import { useCallback } from "react";
+import { actionTitle } from "../../lib/keymap";
 import { useConnectionsStore } from "../../store/connectionsStore";
 import { useExplorerStore } from "../../store/explorerStore";
-import { useTabsStore } from "../../store/tabsStore";
 import { MAX_ROWS_OPTIONS, useSettingsStore } from "../../store/settingsStore";
-import { actionTitle } from "../../lib/keymap";
+import { useTabsStore } from "../../store/tabsStore";
 import { Logo } from "../common/Logo";
 
 /** Top toolbar in the spirit of DataGrip: connections, new console, row limit, settings. */

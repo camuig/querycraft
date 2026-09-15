@@ -1,21 +1,21 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { EditorView } from "@codemirror/view";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Group, Panel, Separator } from "react-resizable-panels";
-import type { ConsoleTab as ConsoleTabModel } from "../../store/tabsStore";
-import { useTabsStore } from "../../store/tabsStore";
+import * as api from "../../api/commands";
+import type { ExecuteRequest, StatementResult } from "../../api/types";
+import { registerCommand } from "../../lib/commandBus";
+import { newId } from "../../lib/ids";
+import { actionTitle } from "../../lib/keymap";
+import { statementAtCursor } from "../../lib/sqlSplit";
 import { useConnectionsStore } from "../../store/connectionsStore";
 import { useExplorerStore } from "../../store/explorerStore";
 import { selectResolvedTheme, useSettingsStore } from "../../store/settingsStore";
 import { useStatusStore } from "../../store/statusStore";
+import type { ConsoleTab as ConsoleTabModel } from "../../store/tabsStore";
+import { useTabsStore } from "../../store/tabsStore";
 import { toast } from "../../store/toastStore";
-import * as api from "../../api/commands";
-import type { ExecuteRequest, StatementResult } from "../../api/types";
-import { newId } from "../../lib/ids";
-import { statementAtCursor } from "../../lib/sqlSplit";
-import { registerCommand } from "../../lib/commandBus";
-import { actionTitle } from "../../lib/keymap";
-import { SqlEditor } from "./SqlEditor";
 import { ResultsPanel } from "../grid/ResultsPanel";
+import { SqlEditor } from "./SqlEditor";
 
 /** SQL console tab: toolbar (run / cancel / database), editor on top, results below. */
 export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: boolean }) {
@@ -114,7 +114,17 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
         if (firstError) toast.error(firstError.error ?? "Execution error");
       } catch (e) {
         setResults([
-          { sql, kind: "error", columns: [], rows: [], truncated: false, affectedRows: 0, lastInsertId: null, error: String(e), durationMs: 0 },
+          {
+            sql,
+            kind: "error",
+            columns: [],
+            rows: [],
+            truncated: false,
+            affectedRows: 0,
+            lastInsertId: null,
+            error: String(e),
+            durationMs: 0,
+          },
         ]);
         toast.error(e);
       } finally {
@@ -192,7 +202,11 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
   return (
     <div className="console-tab" style={{ display: active ? "flex" : "none" }}>
       <div className="console-toolbar">
-        <button onClick={() => handleExecute("current")} disabled={running} title={actionTitle("executeStatement", "Run")}>
+        <button
+          onClick={() => handleExecute("current")}
+          disabled={running}
+          title={actionTitle("executeStatement", "Run")}
+        >
           ▶ Run
         </button>
         <button onClick={() => handleExecute("all")} disabled={running} title={actionTitle("executeScript", "Run all")}>
@@ -204,7 +218,11 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
           </button>
         )}
         <div className="sep" />
-        <select value={tab.database ?? ""} onChange={(e) => handleDatabaseChange(e.target.value)} title="Current database">
+        <select
+          value={tab.database ?? ""}
+          onChange={(e) => handleDatabaseChange(e.target.value)}
+          title="Current database"
+        >
           <option value="">(no database)</option>
           {(databases ?? []).map((d) => (
             <option key={d} value={d}>

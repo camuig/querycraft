@@ -1,7 +1,7 @@
 // Cell formatting and grid result export to CSV/TSV/JSON/SQL.
 
 import type { CellValue, ColumnMeta } from "../api/types";
-import { quoteIdent, qualify, sqlLiteral } from "./sqlBuilder";
+import { qualify, quoteIdent, sqlLiteral } from "./sqlBuilder";
 
 const MAX_CELL_LENGTH = 1000;
 
@@ -61,7 +61,12 @@ export function toTsv(columns: ColumnMeta[], rows: CellValue[][]): string {
 export type CopyFormat = "tsv" | "csv";
 
 /** Text for the clipboard: a range of values in TSV or CSV, optionally with headers. */
-export function rowsToClipboardText(columns: ColumnMeta[], rows: CellValue[][], format: CopyFormat, withHeaders: boolean): string {
+export function rowsToClipboardText(
+  columns: ColumnMeta[],
+  rows: CellValue[][],
+  format: CopyFormat,
+  withHeaders: boolean,
+): string {
   const field = format === "csv" ? csvField : tsvField;
   const sep = format === "csv" ? "," : "\t";
   const lines = rows.map((row) => row.map((v) => field(v)).join(sep));

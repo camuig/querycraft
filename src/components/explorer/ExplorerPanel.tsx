@@ -1,10 +1,10 @@
-import { TreeRow } from "./TreeRow";
-import { ContextMenu } from "./ContextMenu";
-import { useExplorerTree } from "./useExplorerTree";
 import { useEffect } from "react";
-import { NO_AUTOCORRECT } from "../../lib/inputProps";
 import { registerCommand } from "../../lib/commandBus";
+import { NO_AUTOCORRECT } from "../../lib/inputProps";
 import { actionTitle } from "../../lib/keymap";
+import { ContextMenu } from "./ContextMenu";
+import { TreeRow } from "./TreeRow";
+import { useExplorerTree } from "./useExplorerTree";
 import "../../styles/explorer.css";
 
 /** Left "Database" panel: connections → databases → tables/views → columns/indexes/keys. */

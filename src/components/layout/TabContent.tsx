@@ -1,9 +1,9 @@
+import { shortcutLabel } from "../../lib/keymap";
 import { useTabsStore } from "../../store/tabsStore";
+import { Logo } from "../common/Logo";
 import { ConsoleTab } from "../editor/ConsoleTab";
 import { TableDataTab } from "../table/TableDataTab";
 import { TableDdlTab } from "../table/TableDdlTab";
-import { Logo } from "../common/Logo";
-import { shortcutLabel } from "../../lib/keymap";
 
 /** Renders all tabs, hiding inactive ones (to preserve editor and grid state). */
 export function TabContent() {

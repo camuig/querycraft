@@ -49,7 +49,12 @@ export function suggestWhere(text: string, caret: number, columns: readonly stri
 }
 
 /** Replaces the word [wordStart, wordEnd) with the suggestion; returns the new text and caret position. */
-export function applySuggestion(text: string, wordStart: number, wordEnd: number, replacement: string): { text: string; caret: number } {
+export function applySuggestion(
+  text: string,
+  wordStart: number,
+  wordEnd: number,
+  replacement: string,
+): { text: string; caret: number } {
   const next = text.slice(0, wordStart) + replacement + text.slice(wordEnd);
   return { text: next, caret: wordStart + replacement.length };
 }

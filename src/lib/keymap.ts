@@ -73,7 +73,11 @@ export const KEYMAP: Record<AppAction, ActionSpec> = {
   },
   addRow: { label: "Add row", mac: [sc("KeyN", { meta: true })], other: [sc("Insert", { alt: true })] },
   deleteRow: { label: "Delete row", mac: [sc("Backspace", { meta: true })], other: [sc("KeyY", { ctrl: true })] },
-  setNull: { label: "Set NULL", mac: [sc("KeyN", { meta: true, alt: true })], other: [sc("KeyN", { ctrl: true, alt: true })] },
+  setNull: {
+    label: "Set NULL",
+    mac: [sc("KeyN", { meta: true, alt: true })],
+    other: [sc("KeyN", { ctrl: true, alt: true })],
+  },
   nextPage: {
     label: "Next page",
     mac: [sc("ArrowDown", { meta: true, alt: true })],
@@ -95,13 +99,23 @@ export const KEYMAP: Record<AppAction, ActionSpec> = {
     mac: [sc("BracketLeft", { meta: true, shift: true })],
     other: [sc("ArrowLeft", { alt: true })],
   },
-  focusExplorer: { label: "Database explorer", mac: [sc("Digit1", { meta: true })], other: [sc("Digit1", { alt: true })] },
+  focusExplorer: {
+    label: "Database explorer",
+    mac: [sc("Digit1", { meta: true })],
+    other: [sc("Digit1", { alt: true })],
+  },
   openTableData: { label: "Open table data", mac: [sc("F4")], other: [sc("F4")] },
   goToDdl: { label: "Go to DDL", mac: [sc("KeyB", { meta: true })], other: [sc("KeyB", { ctrl: true })] },
-  openSettings: { label: "Settings", mac: [sc("Comma", { meta: true })], other: [sc("KeyS", { ctrl: true, alt: true })] },
+  openSettings: {
+    label: "Settings",
+    mac: [sc("Comma", { meta: true })],
+    other: [sc("KeyS", { ctrl: true, alt: true })],
+  },
 };
 
-export function detectPlatform(nav: { platform?: string; userAgent?: string } | undefined = globalThis.navigator): Platform {
+export function detectPlatform(
+  nav: { platform?: string; userAgent?: string } | undefined = globalThis.navigator,
+): Platform {
   const s = `${nav?.platform ?? ""} ${nav?.userAgent ?? ""}`;
   return /Mac|iPhone|iPad/i.test(s) ? "mac" : "other";
 }
@@ -147,7 +161,13 @@ export function actionsSharingShortcut(action: AppAction, platform: Platform): A
 }
 
 function sameShortcut(a: Shortcut, b: Shortcut): boolean {
-  return a.code === b.code && !!a.meta === !!b.meta && !!a.ctrl === !!b.ctrl && !!a.alt === !!b.alt && !!a.shift === !!b.shift;
+  return (
+    a.code === b.code &&
+    !!a.meta === !!b.meta &&
+    !!a.ctrl === !!b.ctrl &&
+    !!a.alt === !!b.alt &&
+    !!a.shift === !!b.shift
+  );
 }
 
 const CODE_LABELS: Record<string, string> = {
@@ -194,7 +214,11 @@ export function shortcutLabel(action: AppAction, platform: Platform = detectPlat
 }
 
 /** "Label (shortcut)" for button tooltips. */
-export function actionTitle(action: AppAction, label = KEYMAP[action].label, platform: Platform = detectPlatform()): string {
+export function actionTitle(
+  action: AppAction,
+  label = KEYMAP[action].label,
+  platform: Platform = detectPlatform(),
+): string {
   const key = shortcutLabel(action, platform);
   return key ? `${label} (${key})` : label;
 }

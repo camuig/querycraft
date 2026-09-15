@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { newId } from "../lib/ids";
 import * as api from "../api/commands";
+import { newId } from "../lib/ids";
 
 /** SQL console tab: its own MySQL session (connection). */
 export interface ConsoleTab {

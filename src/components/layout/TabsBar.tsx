@@ -1,5 +1,5 @@
-import { useTabsStore } from "../../store/tabsStore";
 import { useConnectionsStore } from "../../store/connectionsStore";
+import { useTabsStore } from "../../store/tabsStore";
 
 const icons: Record<string, string> = { console: "▤", table: "▦", ddl: "{ }" };
 

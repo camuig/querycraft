@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { useConnectionsStore } from "../../store/connectionsStore";
-import { useTabsStore } from "../../store/tabsStore";
 import * as api from "../../api/commands";
 import type { ConnectionInput } from "../../api/types";
-import { toast } from "../../store/toastStore";
 import { NO_AUTOCORRECT } from "../../lib/inputProps";
+import { useConnectionsStore } from "../../store/connectionsStore";
+import { useTabsStore } from "../../store/tabsStore";
+import { toast } from "../../store/toastStore";
 
 const COLORS = ["#e55765", "#e6a23c", "#5fad65", "#4a9ede", "#3574f0", "#b384f0"];
 
@@ -84,35 +84,34 @@ export function ConnectionDialog() {
   }, [closeDialog]);
 
   const buildInput = useMemo(
-    () =>
-      (): ConnectionInput | null => {
-        const name = form.name.trim();
-        const host = form.host.trim();
-        const user = form.user.trim();
-        const port = Number(form.port);
-        if (!name || !host || !user) {
-          setError("Fill in name, host and user");
-          return null;
-        }
-        if (!Number.isInteger(port) || port < 1 || port > 65535) {
-          setError("Port must be a number between 1 and 65535");
-          return null;
-        }
-        setError(null);
-        return {
-          id: isNew ? null : (editingConfig?.id ?? null),
-          name,
-          host,
-          port,
-          user,
-          password: form.password.length > 0 ? form.password : null,
-          savePassword: form.savePassword,
-          database: form.database.trim() || null,
-          ssl: form.ssl,
-          sslVerify: form.sslVerify,
-          color: form.color,
-        };
-      },
+    () => (): ConnectionInput | null => {
+      const name = form.name.trim();
+      const host = form.host.trim();
+      const user = form.user.trim();
+      const port = Number(form.port);
+      if (!name || !host || !user) {
+        setError("Fill in name, host and user");
+        return null;
+      }
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        setError("Port must be a number between 1 and 65535");
+        return null;
+      }
+      setError(null);
+      return {
+        id: isNew ? null : (editingConfig?.id ?? null),
+        name,
+        host,
+        port,
+        user,
+        password: form.password.length > 0 ? form.password : null,
+        savePassword: form.savePassword,
+        database: form.database.trim() || null,
+        ssl: form.ssl,
+        sslVerify: form.sslVerify,
+        color: form.color,
+      };
+    },
     [form, isNew, editingConfig],
   );
 
@@ -178,7 +177,11 @@ export function ConnectionDialog() {
               />
 
               <label>Host</label>
-              <input {...NO_AUTOCORRECT} value={form.host} onChange={(e) => setForm((f) => ({ ...f, host: e.target.value }))} />
+              <input
+                {...NO_AUTOCORRECT}
+                value={form.host}
+                onChange={(e) => setForm((f) => ({ ...f, host: e.target.value }))}
+              />
 
               <label>Port</label>
               <input
@@ -190,7 +193,11 @@ export function ConnectionDialog() {
               />
 
               <label>User</label>
-              <input {...NO_AUTOCORRECT} value={form.user} onChange={(e) => setForm((f) => ({ ...f, user: e.target.value }))} />
+              <input
+                {...NO_AUTOCORRECT}
+                value={form.user}
+                onChange={(e) => setForm((f) => ({ ...f, user: e.target.value }))}
+              />
 
               <label>Password</label>
               <input

@@ -1,14 +1,14 @@
 import { Group, Panel, Separator } from "react-resizable-panels";
-import { Toolbar } from "./Toolbar";
-import { StatusBar } from "./StatusBar";
-import { TabsBar } from "./TabsBar";
-import { TabContent } from "./TabContent";
-import { ExplorerPanel } from "../explorer/ExplorerPanel";
-import { ConnectionDialog } from "../connections/ConnectionDialog";
-import { useSettingsStore } from "../../store/settingsStore";
-import { SettingsDialog } from "../settings/SettingsDialog";
-import { Toasts } from "../common/Toasts";
 import { useConnectionsStore } from "../../store/connectionsStore";
+import { useSettingsStore } from "../../store/settingsStore";
+import { Toasts } from "../common/Toasts";
+import { ConnectionDialog } from "../connections/ConnectionDialog";
+import { ExplorerPanel } from "../explorer/ExplorerPanel";
+import { SettingsDialog } from "../settings/SettingsDialog";
+import { StatusBar } from "./StatusBar";
+import { TabContent } from "./TabContent";
+import { TabsBar } from "./TabsBar";
+import { Toolbar } from "./Toolbar";
 import { useAppCommands } from "./useAppCommands";
 
 /** Application frame: toolbar on top, explorer on the left, tabs in the centre, status bar at the bottom. */

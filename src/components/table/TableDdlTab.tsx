@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import type { DdlTab as DdlTabModel } from "../../store/tabsStore";
+import { useEffect, useState } from "react";
+import * as api from "../../api/commands";
 import { useConnectionsStore } from "../../store/connectionsStore";
 import { selectResolvedTheme, useSettingsStore } from "../../store/settingsStore";
+import type { DdlTab as DdlTabModel } from "../../store/tabsStore";
 import { toast } from "../../store/toastStore";
-import * as api from "../../api/commands";
 import { SqlEditor } from "../editor/SqlEditor";
 
 /** Table DDL (SHOW CREATE TABLE) — read-only, with a copy button. */
@@ -54,7 +54,14 @@ export function TableDdlTab({ tab, active }: { tab: DdlTabModel; active: boolean
         {loading && <span className="muted">Loading…</span>}
       </div>
       <div className="ddl-body">
-        <SqlEditor value={ddl} onChange={() => undefined} onExecute={() => undefined} readOnly fontSize={fontSize} theme={theme} />
+        <SqlEditor
+          value={ddl}
+          onChange={() => undefined}
+          onExecute={() => undefined}
+          readOnly
+          fontSize={fontSize}
+          theme={theme}
+        />
       </div>
     </div>
   );

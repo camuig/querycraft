@@ -52,7 +52,10 @@ describe("formatCell", () => {
 
 describe("toCsv", () => {
   it("escapes fields with commas, quotes and newlines", () => {
-    const rows: CellValue[][] = [["a,b", 'say "hi"'], ["line1\nline2", null]];
+    const rows: CellValue[][] = [
+      ["a,b", 'say "hi"'],
+      ["line1\nline2", null],
+    ];
     const csv = toCsv(columns, rows);
     expect(csv).toBe('id,name\n"a,b","say ""hi"""\n"line1\nline2",');
   });

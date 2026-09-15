@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CellValue } from "../../api/types";
 import { actionsForEvent, detectPlatform } from "../../lib/keymap";
 
@@ -45,7 +45,8 @@ function rangeOf(sel: Selection): GridRange {
 
 /** Grid cell selection (single cell / rectangular range), keyboard navigation, editing. */
 export function useGridSelection(opts: UseGridSelectionOptions) {
-  const { rowCount, colCount, editable, onSelectCell, onEditCell, getCellValue, isCellEditable, onCopy, onSetNull } = opts;
+  const { rowCount, colCount, editable, onSelectCell, onEditCell, getCellValue, isCellEditable, onCopy, onSetNull } =
+    opts;
   const pageSize = opts.pageSize ?? 20;
 
   const [selection, setSelectionState] = useState<Selection | null>(
@@ -135,12 +136,22 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
 
   const handleCellMouseDown = useCallback(
     (row: number, col: number, e: MouseEvent) => {
-      if (e.button !== 0 && selection && rangeOf(selection).minRow <= row && row <= rangeOf(selection).maxRow && rangeOf(selection).minCol <= col && col <= rangeOf(selection).maxCol) {
+      if (
+        e.button !== 0 &&
+        selection &&
+        rangeOf(selection).minRow <= row &&
+        row <= rangeOf(selection).maxRow &&
+        rangeOf(selection).minCol <= col &&
+        col <= rangeOf(selection).maxCol
+      ) {
         return; // a right click inside the selection doesn't clear it
       }
       draggingRef.current = e.button === 0 ? "cells" : false;
       setSelectionState((sel) => {
-        const next: Selection = e.shiftKey && sel ? { anchor: sel.anchor, focus: { row, col } } : { anchor: { row, col }, focus: { row, col } };
+        const next: Selection =
+          e.shiftKey && sel
+            ? { anchor: sel.anchor, focus: { row, col } }
+            : { anchor: { row, col }, focus: { row, col } };
         onSelectCell?.(next.focus);
         return next;
       });
@@ -152,7 +163,9 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
     (row: number, col: number) => {
       if (draggingRef.current !== "cells") return;
       setSelectionState((sel) => {
-        const next: Selection = sel ? { anchor: sel.anchor, focus: { row, col } } : { anchor: { row, col }, focus: { row, col } };
+        const next: Selection = sel
+          ? { anchor: sel.anchor, focus: { row, col } }
+          : { anchor: { row, col }, focus: { row, col } };
         onSelectCell?.(next.focus);
         return next;
       });
@@ -170,7 +183,9 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
       draggingRef.current = "rows";
       setSelectionState((sel) => {
         const next: Selection =
-          e.shiftKey && sel ? { anchor: { row: sel.anchor.row, col: 0 }, focus: { row, col: lastCol } } : { anchor: { row, col: 0 }, focus: { row, col: lastCol } };
+          e.shiftKey && sel
+            ? { anchor: { row: sel.anchor.row, col: 0 }, focus: { row, col: lastCol } }
+            : { anchor: { row, col: 0 }, focus: { row, col: lastCol } };
         onSelectCell?.(next.focus);
         return next;
       });
@@ -182,7 +197,10 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
     (row: number) => {
       if (draggingRef.current !== "rows") return;
       setSelectionState((sel) => {
-        const next: Selection = { anchor: sel ? { row: sel.anchor.row, col: 0 } : { row, col: 0 }, focus: { row, col: lastCol } };
+        const next: Selection = {
+          anchor: sel ? { row: sel.anchor.row, col: 0 } : { row, col: 0 },
+          focus: { row, col: lastCol },
+        };
         onSelectCell?.(next.focus);
         return next;
       });
@@ -196,7 +214,9 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
       if (e.button !== 0 || rowCount === 0) return;
       setSelectionState((sel) => {
         const next: Selection =
-          e.shiftKey && sel ? { anchor: { row: 0, col: sel.anchor.col }, focus: { row: lastRow, col } } : { anchor: { row: 0, col }, focus: { row: lastRow, col } };
+          e.shiftKey && sel
+            ? { anchor: { row: 0, col: sel.anchor.col }, focus: { row: lastRow, col } }
+            : { anchor: { row: 0, col }, focus: { row: lastRow, col } };
         onSelectCell?.(next.focus);
         return next;
       });
@@ -295,14 +315,31 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
       const focus = { row, col };
       setSelection({ anchor: e.shiftKey ? sel.anchor : focus, focus });
     },
-    [editingCell, selection, rowCount, colCount, pageSize, editable, canEdit, startEdit, onCopy, onSetNull, setSelection, selectAll],
+    [
+      editingCell,
+      selection,
+      rowCount,
+      colCount,
+      pageSize,
+      editable,
+      canEdit,
+      startEdit,
+      onCopy,
+      onSetNull,
+      setSelection,
+      selectAll,
+    ],
   );
 
   const range = selection ? rangeOf(selection) : null;
 
-  const isFocused = useCallback((row: number, col: number) => !!selection && selection.focus.row === row && selection.focus.col === col, [selection]);
+  const isFocused = useCallback(
+    (row: number, col: number) => !!selection && selection.focus.row === row && selection.focus.col === col,
+    [selection],
+  );
   const isInRange = useCallback(
-    (row: number, col: number) => !!range && row >= range.minRow && row <= range.maxRow && col >= range.minCol && col <= range.maxCol,
+    (row: number, col: number) =>
+      !!range && row >= range.minRow && row <= range.maxRow && col >= range.minCol && col <= range.maxCol,
     [range],
   );
 

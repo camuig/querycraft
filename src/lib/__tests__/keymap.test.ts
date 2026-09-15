@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { actionsForEvent, actionsSharingShortcut, detectPlatform, formatShortcut, shortcutLabel, type KeyLike } from "../keymap";
+import {
+  actionsForEvent,
+  actionsSharingShortcut,
+  detectPlatform,
+  formatShortcut,
+  type KeyLike,
+  shortcutLabel,
+} from "../keymap";
 
 function key(code: string, mods: Partial<Omit<KeyLike, "code">> = {}): KeyLike {
   return { code, metaKey: false, ctrlKey: false, altKey: false, shiftKey: false, ...mods };

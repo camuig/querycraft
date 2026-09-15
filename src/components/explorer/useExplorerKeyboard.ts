@@ -1,7 +1,7 @@
-import { useCallback } from "react";
 import type { Virtualizer } from "@tanstack/react-virtual";
-import type { TreeNode } from "./treeModel";
+import { useCallback } from "react";
 import { actionsForEvent, detectPlatform } from "../../lib/keymap";
+import type { TreeNode } from "./treeModel";
 
 const SELECTABLE_KINDS = new Set<TreeNode["kind"]>(["loading", "error"]);
 
@@ -104,6 +104,17 @@ export function useExplorerKeyboard({
           break;
       }
     },
-    [nodes, expanded, selectedKey, virtualizer, onSelect, onToggleExpand, onCollapse, onDefaultAction, onOpenData, onOpenDdl],
+    [
+      nodes,
+      expanded,
+      selectedKey,
+      virtualizer,
+      onSelect,
+      onToggleExpand,
+      onCollapse,
+      onDefaultAction,
+      onOpenData,
+      onOpenDdl,
+    ],
   );
 }

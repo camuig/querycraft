@@ -1,20 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
 import type { KeyboardEvent } from "react";
-import type { TableDataTab as TableDataTabModel } from "../../store/tabsStore";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import * as api from "../../api/commands";
+import type { CellValue, ColumnMeta } from "../../api/types";
+import { ChangeTracker } from "../../lib/changeTracker";
+import { registerCommand } from "../../lib/commandBus";
+import { newId } from "../../lib/ids";
+import { type AppAction, actionsForEvent, actionTitle, detectPlatform } from "../../lib/keymap";
+import { buildSelect, type OrderBySpec, qualify, sqlLiteral } from "../../lib/sqlBuilder";
 import { useConnectionsStore } from "../../store/connectionsStore";
 import { useExplorerStore } from "../../store/explorerStore";
 import { selectResolvedTheme, useSettingsStore } from "../../store/settingsStore";
+import type { TableDataTab as TableDataTabModel } from "../../store/tabsStore";
 import { toast } from "../../store/toastStore";
-import * as api from "../../api/commands";
-import type { CellValue, ColumnMeta } from "../../api/types";
-import { newId } from "../../lib/ids";
-import { buildSelect, qualify, sqlLiteral, type OrderBySpec } from "../../lib/sqlBuilder";
-import { ChangeTracker } from "../../lib/changeTracker";
-import { registerCommand } from "../../lib/commandBus";
-import { actionTitle, actionsForEvent, detectPlatform, type AppAction } from "../../lib/keymap";
+import { SqlEditor } from "../editor/SqlEditor";
 import { DataGrid } from "../grid/DataGrid";
 import type { GridCellPos } from "../grid/useGridSelection";
-import { SqlEditor } from "../editor/SqlEditor";
 import { WhereInput } from "./WhereInput";
 
 function countChanges(tracker: ChangeTracker, rowCount: number, colCount: number): number {
@@ -85,7 +85,14 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
       setLoading(true);
       try {
         await ensureConnected();
-        const sql = buildSelect({ database: tab.database, table: tab.table, where: whereApplied, orderBy, limit: pageSize, offset: page * pageSize });
+        const sql = buildSelect({
+          database: tab.database,
+          table: tab.table,
+          where: whereApplied,
+          orderBy,
+          limit: pageSize,
+          offset: page * pageSize,
+        });
         const res = await api.executeQuery({
           connectionId: tab.connectionId,
           sessionId: tab.sessionId,
@@ -114,7 +121,18 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
     return () => {
       cancelled = true;
     };
-  }, [tab.connectionId, tab.sessionId, tab.database, tab.table, whereApplied, orderBy, page, pageSize, reloadToken, ensureConnected]);
+  }, [
+    tab.connectionId,
+    tab.sessionId,
+    tab.database,
+    tab.table,
+    whereApplied,
+    orderBy,
+    page,
+    pageSize,
+    reloadToken,
+    ensureConnected,
+  ]);
 
   // Approximate total row count (COUNT(*), run in parallel, doesn't block the grid).
   useEffect(() => {
@@ -303,13 +321,32 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
           return false;
       }
     },
-    [tracker, handleSubmit, handleRevert, editable, handleAddRow, selectedCell, handleToggleDeleteSelected, reload, canNext, page],
+    [
+      tracker,
+      handleSubmit,
+      handleRevert,
+      editable,
+      handleAddRow,
+      selectedCell,
+      handleToggleDeleteSelected,
+      reload,
+      canNext,
+      page,
+    ],
   );
 
   // Native menu items and application-wide shortcuts target the active tab through the command bus.
   useEffect(() => {
     if (!active) return;
-    const actions: AppAction[] = ["submitChanges", "revertChanges", "addRow", "deleteRow", "refresh", "nextPage", "prevPage"];
+    const actions: AppAction[] = [
+      "submitChanges",
+      "revertChanges",
+      "addRow",
+      "deleteRow",
+      "refresh",
+      "nextPage",
+      "prevPage",
+    ];
     const offs = actions.map((action) =>
       registerCommand(action, () => {
         // "Refresh" with the focus in the explorer belongs to the explorer.
@@ -380,13 +417,23 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
         <button className="icon" onClick={handleAddRow} disabled={!editable} title={actionTitle("addRow")}>
           +
         </button>
-        <button className="icon" onClick={handleToggleDeleteSelected} disabled={!editable || !selectedCell} title={actionTitle("deleteRow", "Delete / restore row")}>
+        <button
+          className="icon"
+          onClick={handleToggleDeleteSelected}
+          disabled={!editable || !selectedCell}
+          title={actionTitle("deleteRow", "Delete / restore row")}
+        >
           −
         </button>
         <button onClick={handleRevert} disabled={!tracker?.hasChanges} title={actionTitle("revertChanges")}>
           Revert
         </button>
-        <button className="primary" onClick={() => void handleSubmit()} disabled={!tracker?.hasChanges} title={actionTitle("submitChanges")}>
+        <button
+          className="primary"
+          onClick={() => void handleSubmit()}
+          disabled={!tracker?.hasChanges}
+          title={actionTitle("submitChanges")}
+        >
           Submit
         </button>
       </div>
@@ -409,18 +456,35 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
 
       {showSql && (
         <div className="table-sql-preview">
-          <SqlEditor value={sqlPreview} onChange={() => undefined} onExecute={() => undefined} readOnly fontSize={editorFontSize} theme={theme} />
+          <SqlEditor
+            value={sqlPreview}
+            onChange={() => undefined}
+            onExecute={() => undefined}
+            readOnly
+            fontSize={editorFontSize}
+            theme={theme}
+          />
         </div>
       )}
 
       <div className="table-footer">
-        <button className="icon" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} title={actionTitle("prevPage")}>
+        <button
+          className="icon"
+          disabled={page === 0}
+          onClick={() => setPage((p) => Math.max(0, p - 1))}
+          title={actionTitle("prevPage")}
+        >
           ◀
         </button>
         <span>
           Rows {rows.length > 0 ? rangeStart : 0}–{rangeEnd} of {totalCount === null ? "…" : totalCount}
         </span>
-        <button className="icon" disabled={!canNext} onClick={() => setPage((p) => p + 1)} title={actionTitle("nextPage")}>
+        <button
+          className="icon"
+          disabled={!canNext}
+          onClick={() => setPage((p) => p + 1)}
+          title={actionTitle("nextPage")}
+        >
           ▶
         </button>
         {loading && <span className="muted">Loading…</span>}

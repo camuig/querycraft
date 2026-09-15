@@ -2,7 +2,7 @@
 // Immutable class: every mutating method returns a NEW instance.
 
 import type { CellValue, ColumnMeta, ParamStatement } from "../api/types";
-import { quoteIdent, qualify } from "./sqlBuilder";
+import { qualify, quoteIdent } from "./sqlBuilder";
 
 interface ClassifiedRows {
   deletes: number[];
@@ -125,9 +125,7 @@ export class ChangeTracker {
   isModified(rowIndex: number, colIndex: number): boolean {
     const rowMap = this.edited.get(rowIndex);
     if (!rowMap || !rowMap.has(colIndex)) return false;
-    const base = this.insertedRowIndices.has(rowIndex)
-      ? null
-      : (this.originalRows[rowIndex]?.[colIndex] ?? null);
+    const base = this.insertedRowIndices.has(rowIndex) ? null : (this.originalRows[rowIndex]?.[colIndex] ?? null);
     return base !== (rowMap.get(colIndex) as CellValue);
   }
 
@@ -187,9 +185,7 @@ export class ChangeTracker {
     const target = qualify(database, table);
 
     if ((deletes.length > 0 || updates.length > 0) && this.pkColumns.length === 0) {
-      throw new Error(
-        "Cannot build UPDATE/DELETE: primary key columns are not set (pkColumns)",
-      );
+      throw new Error("Cannot build UPDATE/DELETE: primary key columns are not set (pkColumns)");
     }
 
     const pkColIndices = this.pkColumns.map((pkName) => {

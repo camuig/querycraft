@@ -1,9 +1,9 @@
 import { useEffect } from "react";
-import { AppShell } from "./components/layout/AppShell";
-import { selectResolvedTheme, useSettingsStore } from "./store/settingsStore";
-import { useConnectionsStore } from "./store/connectionsStore";
-import { toast } from "./store/toastStore";
 import { syncThemeMenu } from "./api/menu";
+import { AppShell } from "./components/layout/AppShell";
+import { useConnectionsStore } from "./store/connectionsStore";
+import { selectResolvedTheme, useSettingsStore } from "./store/settingsStore";
+import { toast } from "./store/toastStore";
 
 export default function App() {
   const theme = useSettingsStore(selectResolvedTheme);

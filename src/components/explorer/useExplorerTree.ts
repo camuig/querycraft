@@ -1,12 +1,12 @@
-import { useCallback, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { useConnectionsStore, type ConnectionStatus } from "../../store/connectionsStore";
-import { useExplorerStore, dbKey, tableKey } from "../../store/explorerStore";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { type ConnectionStatus, useConnectionsStore } from "../../store/connectionsStore";
+import { dbKey, tableKey, useExplorerStore } from "../../store/explorerStore";
 import { useTabsStore } from "../../store/tabsStore";
 import { toast } from "../../store/toastStore";
-import { buildTree, type TreeNode } from "./treeModel";
 import type { ContextMenuEntry } from "./ContextMenu";
+import { buildTree, type TreeNode } from "./treeModel";
 import { useExplorerKeyboard } from "./useExplorerKeyboard";
 
 export const ROW_HEIGHT = 22;
@@ -253,7 +253,17 @@ export function useExplorerTree() {
           return null;
       }
     },
-    [runtimeStatus, handleDisconnect, handleConnect, openConsole, openConnectionDialog, handleRefreshNode, copyName, openTableData, openDdl],
+    [
+      runtimeStatus,
+      handleDisconnect,
+      handleConnect,
+      openConsole,
+      openConnectionDialog,
+      handleRefreshNode,
+      copyName,
+      openTableData,
+      openDdl,
+    ],
   );
 
   const handleContextMenu = useCallback(

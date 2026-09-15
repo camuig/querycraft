@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { onMenuAction } from "../../api/menu";
 import { dispatchCommand, registerCommand } from "../../lib/commandBus";
-import { actionsForEvent, detectPlatform, type AppAction } from "../../lib/keymap";
+import { type AppAction, actionsForEvent, detectPlatform } from "../../lib/keymap";
 import { useConnectionsStore } from "../../store/connectionsStore";
 import { useExplorerStore } from "../../store/explorerStore";
 import { useSettingsStore } from "../../store/settingsStore";
@@ -28,7 +28,12 @@ const ALLOWED_IN_TEXT_FIELDS = new Set<AppAction>([
 
 function isTextField(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
-  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true;
+  if (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  )
+    return true;
   return target.isContentEditable;
 }
 

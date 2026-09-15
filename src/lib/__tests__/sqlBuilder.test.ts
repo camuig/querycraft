@@ -51,9 +51,7 @@ describe("sqlLiteral", () => {
 
 describe("buildSelect", () => {
   it("minimal SELECT without where/orderBy/limit/offset", () => {
-    expect(buildSelect({ database: "mydb", table: "users" })).toBe(
-      "SELECT * FROM `mydb`.`users`",
-    );
+    expect(buildSelect({ database: "mydb", table: "users" })).toBe("SELECT * FROM `mydb`.`users`");
   });
 
   it("SELECT without database", () => {
@@ -61,18 +59,12 @@ describe("buildSelect", () => {
   });
 
   it("adds WHERE when where is non-empty", () => {
-    expect(buildSelect({ database: "db", table: "t", where: "id = 1" })).toBe(
-      "SELECT * FROM `db`.`t` WHERE (id = 1)",
-    );
+    expect(buildSelect({ database: "db", table: "t", where: "id = 1" })).toBe("SELECT * FROM `db`.`t` WHERE (id = 1)");
   });
 
   it("does not add WHERE when where is empty or blank", () => {
-    expect(buildSelect({ database: "db", table: "t", where: "" })).toBe(
-      "SELECT * FROM `db`.`t`",
-    );
-    expect(buildSelect({ database: "db", table: "t", where: "   " })).toBe(
-      "SELECT * FROM `db`.`t`",
-    );
+    expect(buildSelect({ database: "db", table: "t", where: "" })).toBe("SELECT * FROM `db`.`t`");
+    expect(buildSelect({ database: "db", table: "t", where: "   " })).toBe("SELECT * FROM `db`.`t`");
   });
 
   it("adds ORDER BY with multiple columns and directions", () => {
@@ -94,9 +86,7 @@ describe("buildSelect", () => {
   });
 
   it("does not add LIMIT/OFFSET when they equal 0", () => {
-    expect(buildSelect({ database: "db", table: "t", limit: 0, offset: 0 })).toBe(
-      "SELECT * FROM `db`.`t`",
-    );
+    expect(buildSelect({ database: "db", table: "t", limit: 0, offset: 0 })).toBe("SELECT * FROM `db`.`t`");
   });
 
   it("combines where + orderBy + limit + offset together", () => {

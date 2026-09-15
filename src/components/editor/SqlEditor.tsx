@@ -1,31 +1,39 @@
-import { useEffect, useRef } from "react";
-import { Compartment, EditorState, Prec, type Extension } from "@codemirror/state";
+import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete";
 import {
+  defaultKeymap,
+  deleteLine,
+  history,
+  historyKeymap,
+  indentWithTab,
+  moveLineDown,
+  moveLineUp,
+} from "@codemirror/commands";
+import { MySQL, type SQLNamespace, sql } from "@codemirror/lang-sql";
+import {
+  bracketMatching,
+  HighlightStyle,
+  indentOnInput,
+  indentUnit,
+  type LanguageSupport,
+  syntaxHighlighting,
+} from "@codemirror/language";
+import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
+import { Compartment, EditorState, type Extension, Prec } from "@codemirror/state";
+import { oneDark } from "@codemirror/theme-one-dark";
+import {
+  crosshairCursor,
+  drawSelection,
   EditorView,
-  keymap,
-  lineNumbers,
   highlightActiveLine,
   highlightActiveLineGutter,
   highlightSpecialChars,
-  drawSelection,
+  keymap,
+  lineNumbers,
   rectangularSelection,
-  crosshairCursor,
 } from "@codemirror/view";
-import { defaultKeymap, deleteLine, history, historyKeymap, indentWithTab, moveLineDown, moveLineUp } from "@codemirror/commands";
-import { duplicateLineOrSelection } from "./editorCommands";
-import {
-  bracketMatching,
-  indentOnInput,
-  indentUnit,
-  syntaxHighlighting,
-  HighlightStyle,
-  type LanguageSupport,
-} from "@codemirror/language";
-import { closeBrackets, closeBracketsKeymap, autocompletion, completionKeymap } from "@codemirror/autocomplete";
-import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
-import { sql, MySQL, type SQLNamespace } from "@codemirror/lang-sql";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { tags } from "@lezer/highlight";
+import { useEffect, useRef } from "react";
+import { duplicateLineOrSelection } from "./editorCommands";
 import "../../styles/editor.css";
 
 export type EditorTheme = "dark" | "light";
@@ -92,7 +100,10 @@ function buildThemeExtension(theme: EditorTheme): Extension {
   return theme === "dark" ? oneDark : [lightTheme, syntaxHighlighting(lightHighlightStyle)];
 }
 
-function buildLanguageExtension(schema: Record<string, string[]> | undefined, defaultTable: string | undefined): LanguageSupport {
+function buildLanguageExtension(
+  schema: Record<string, string[]> | undefined,
+  defaultTable: string | undefined,
+): LanguageSupport {
   return sql({
     dialect: MySQL,
     schema: (schema ?? {}) as SQLNamespace,
@@ -175,7 +186,14 @@ export function SqlEditor(props: SqlEditorProps) {
         fontSizeCompartment.of(buildFontSizeExtension(props.fontSize)),
         readOnlyCompartment.of(EditorState.readOnly.of(!!props.readOnly)),
         execKeymap,
-        keymap.of([...closeBracketsKeymap, ...historyKeymap, ...searchKeymap, ...completionKeymap, indentWithTab, ...defaultKeymap]),
+        keymap.of([
+          ...closeBracketsKeymap,
+          ...historyKeymap,
+          ...searchKeymap,
+          ...completionKeymap,
+          indentWithTab,
+          ...defaultKeymap,
+        ]),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) onChangeRef.current(update.state.doc.toString());
         }),

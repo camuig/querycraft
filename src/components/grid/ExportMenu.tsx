@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { useEffect, useRef, useState } from "react";
 import type { CellValue, ColumnMeta } from "../../api/types";
 import { toCsv, toJson, toSqlInserts, toTsv } from "../../lib/format";
 import { toast } from "../../store/toastStore";
@@ -85,7 +85,11 @@ export function ExportMenu(props: ExportMenuProps) {
         disabled={props.rows.length === 0}
         onClick={() => {
           const rect = buttonRef.current?.getBoundingClientRect();
-          setPos(rect ? { x: rect.left, y: rect.bottom + 4, anchorHeight: rect.height + 8 } : { x: 0, y: 0, anchorHeight: 0 });
+          setPos(
+            rect
+              ? { x: rect.left, y: rect.bottom + 4, anchorHeight: rect.height + 8 }
+              : { x: 0, y: 0, anchorHeight: 0 },
+          );
         }}
       >
         Export ▾

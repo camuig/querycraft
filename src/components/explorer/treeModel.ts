@@ -68,9 +68,18 @@ function matches(name: string, filter: string): boolean {
 }
 
 /** Child nodes for a "loading"/"error" node at a given depth. */
-function statusChildren(depth: number, connectionId: string, database: string | undefined, key: string, isLoading: boolean, error: string | undefined): TreeNode[] {
+function statusChildren(
+  depth: number,
+  connectionId: string,
+  database: string | undefined,
+  key: string,
+  isLoading: boolean,
+  error: string | undefined,
+): TreeNode[] {
   if (isLoading) {
-    return [{ key: `${key}#loading`, kind: "loading", depth, connectionId, database, label: "Loading…", expandable: false }];
+    return [
+      { key: `${key}#loading`, kind: "loading", depth, connectionId, database, label: "Loading…", expandable: false },
+    ];
   }
   if (error) {
     return [{ key: `${key}#error`, kind: "error", depth, connectionId, database, label: error, expandable: false }];
@@ -91,7 +100,7 @@ export function buildTree(input: TreeModelInput): TreeNode[] {
       depth: 0,
       connectionId: conn.id,
       label: conn.name,
-      secondary: status === "connected" ? conn.database ?? undefined : undefined,
+      secondary: status === "connected" ? (conn.database ?? undefined) : undefined,
       expandable: true,
       colorHex: conn.color,
       statusColor: STATUS_COLOR[status],
@@ -207,7 +216,13 @@ function pushTableGroup(
   }
 }
 
-function tableChildren(connectionId: string, database: string, table: string, tKey: string, input: TreeModelInput): TreeNode[] {
+function tableChildren(
+  connectionId: string,
+  database: string,
+  table: string,
+  tKey: string,
+  input: TreeModelInput,
+): TreeNode[] {
   const out: TreeNode[] = [];
   if (input.loading[tKey]) return statusChildren(4, connectionId, database, tKey, true, undefined);
   if (input.errors[tKey]) return statusChildren(4, connectionId, database, tKey, false, input.errors[tKey]);

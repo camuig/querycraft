@@ -80,8 +80,7 @@ export const useExplorerStore = create<ExplorerState>()((set, get) => {
     selectedDatabase: null,
 
     loadDatabases: (cid, force = false) => cached("databases", cid, force, () => api.listDatabases(cid)),
-    loadTables: (cid, db, force = false) =>
-      cached("tables", dbKey(cid, db), force, () => api.listTables(cid, db)),
+    loadTables: (cid, db, force = false) => cached("tables", dbKey(cid, db), force, () => api.listTables(cid, db)),
     loadColumns: (cid, db, t, force = false) =>
       cached("columns", tableKey(cid, db, t), force, () => api.listColumns(cid, db, t)),
     loadIndexes: (cid, db, t, force = false) =>
@@ -89,8 +88,7 @@ export const useExplorerStore = create<ExplorerState>()((set, get) => {
     loadForeignKeys: (cid, db, t, force = false) =>
       cached("foreignKeys", tableKey(cid, db, t), force, () => api.listForeignKeys(cid, db, t)),
 
-    toggle: (key, value) =>
-      set((s) => ({ expanded: { ...s.expanded, [key]: value ?? !s.expanded[key] } })),
+    toggle: (key, value) => set((s) => ({ expanded: { ...s.expanded, [key]: value ?? !s.expanded[key] } })),
     setFilter: (filter) => set({ filter }),
 
     setSelectedConnectionId: (connectionId) => set({ selectedConnectionId: connectionId }),

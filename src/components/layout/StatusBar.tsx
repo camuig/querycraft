@@ -1,7 +1,7 @@
-import { useTabsStore } from "../../store/tabsStore";
+import type { ConnectionStatus } from "../../store/connectionsStore";
 import { useConnectionsStore } from "../../store/connectionsStore";
 import { useStatusStore } from "../../store/statusStore";
-import type { ConnectionStatus } from "../../store/connectionsStore";
+import { useTabsStore } from "../../store/tabsStore";
 
 const STATUS_COLOR: Record<ConnectionStatus, string> = {
   connected: "var(--success)",

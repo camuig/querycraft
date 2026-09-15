@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { EditorSelection, EditorState } from "@codemirror/state";
+import { describe, expect, it } from "vitest";
 import { duplicateLineOrSelection } from "../../components/editor/editorCommands";
 
 function run(doc: string, anchor: number, head = anchor) {

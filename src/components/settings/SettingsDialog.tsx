@@ -3,8 +3,8 @@ import {
   MAX_EDITOR_FONT_SIZE,
   MAX_ROWS_OPTIONS,
   MIN_EDITOR_FONT_SIZE,
-  useSettingsStore,
   type ThemePreference,
+  useSettingsStore,
 } from "../../store/settingsStore";
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; hint: string }[] = [

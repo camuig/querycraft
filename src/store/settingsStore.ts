@@ -45,7 +45,9 @@ export const useSettingsStore = create<SettingsState>()(
       setSystemDark: (systemDark) => set({ systemDark }),
       setMaxRows: (maxRows) => set({ maxRows }),
       setEditorFontSize: (editorFontSize) =>
-        set({ editorFontSize: Math.min(MAX_EDITOR_FONT_SIZE, Math.max(MIN_EDITOR_FONT_SIZE, Math.round(editorFontSize))) }),
+        set({
+          editorFontSize: Math.min(MAX_EDITOR_FONT_SIZE, Math.max(MIN_EDITOR_FONT_SIZE, Math.round(editorFontSize))),
+        }),
       openDialog: () => set({ dialogOpen: true }),
       closeDialog: () => set({ dialogOpen: false }),
     }),
