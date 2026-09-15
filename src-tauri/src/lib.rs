@@ -1,9 +1,10 @@
-// Copyright (c) QueryCraft. Сборка Tauri-приложения, регистрация плагинов и команд.
+//! Tauri application assembly: plugins, native menu, state and command registration.
 
 pub mod commands;
 pub mod connections;
 pub mod error;
 pub mod history;
+pub mod menu;
 pub mod mysql;
 pub mod sql_split;
 
@@ -29,7 +30,13 @@ pub fn run() {
             let connections = ConnectionStore::load(handle)?;
             let history = History::load(handle)?;
             let manager = ConnectionManager::new();
-            app.manage(AppState { connections, manager, history });
+            app.manage(AppState {
+                connections,
+                manager,
+                history,
+            });
+            app.set_menu(menu::build(handle)?)?;
+            app.on_menu_event(menu::handle_event);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -51,6 +58,7 @@ pub fn run() {
             commands::close_session,
             commands::list_history,
             commands::clear_history,
+            menu::set_theme_menu,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
