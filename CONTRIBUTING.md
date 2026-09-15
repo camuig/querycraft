@@ -53,6 +53,25 @@ practical. Keep the pull request focused on one change.
   `pnpm lint:fix`); Rust code is formatted with `rustfmt` and checked with `clippy`. Prefer fixing a lint
   finding over suppressing it; when a suppression is the right call, add a `biome-ignore` comment with a reason.
 
+## Releasing
+
+Releases are automated with [release-please](https://github.com/googleapis/release-please). Every push to
+`main` refreshes a release pull request that bumps the version in `package.json`, `src-tauri/Cargo.toml`,
+`src-tauri/tauri.conf.json` and `src-tauri/Cargo.lock` and adds a `CHANGELOG.md` section generated from the
+Conventional Commits since the previous release. While the project is at 0.x, `feat` bumps the minor version
+and `fix` or `perf` the patch version; a `BREAKING CHANGE:` footer bumps the minor version as well.
+
+Merging that pull request creates the tag and a draft GitHub release, and the *Release* workflow builds the
+installers for macOS, Windows and Linux and attaches them to the draft. Publish the draft once the assets are
+there. Installers for an existing tag can be rebuilt from the *Release* workflow with *Run workflow*.
+
+Do not edit `CHANGELOG.md` or the version numbers by hand; fix the commit messages instead.
+
+Maintainer setup: the repository setting *Allow GitHub Actions to create and approve pull requests* must be
+enabled. Optionally store a fine-grained personal access token with *Contents* and *Pull requests* read/write
+access as the `RELEASE_PLEASE_TOKEN` secret so that CI runs on the release pull request; with the default
+`GITHUB_TOKEN` those checks are skipped.
+
 ## Reporting bugs
 
 Open an issue using the *Bug report* template and include your OS, the QueryCraft version, the MySQL

@@ -1,8 +1,21 @@
 name: Release
 
+# Builds the installers for an existing tag and uploads them to the GitHub release with that tag.
+# Called by release-please.yml after a release pull request is merged; can also be started by hand
+# for a tag that already exists.
 on:
-  push:
-    tags: ["v*"]
+  workflow_call:
+    inputs:
+      tag:
+        description: Tag to build, for example v0.2.0
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to build, for example v0.2.0
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -25,6 +38,8 @@ jobs:
             args: ""
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: |
@@ -48,8 +63,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: QueryCraft ${{ github.ref_name }}
+          tagName: ${{ inputs.tag }}
+          releaseName: QueryCraft ${{ inputs.tag }}
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
