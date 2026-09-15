@@ -1,11 +1,12 @@
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 import { useConnectionsStore } from "../../store/connectionsStore";
 import { useExplorerStore } from "../../store/explorerStore";
 import { useTabsStore } from "../../store/tabsStore";
 import { MAX_ROWS_OPTIONS, useSettingsStore } from "../../store/settingsStore";
+import { actionTitle } from "../../lib/keymap";
 import { Logo } from "../common/Logo";
 
-/** Верхний тулбар в духе DataGrip: подключения, новая консоль, лимит строк, настройки. */
+/** Top toolbar in the spirit of DataGrip: connections, new console, row limit, settings. */
 export function Toolbar() {
   const openConnectionDialog = useConnectionsStore((s) => s.openDialog);
   const selectedConnectionId = useExplorerStore((s) => s.selectedConnectionId);
@@ -25,21 +26,6 @@ export function Toolbar() {
     openConsole(selectedConnectionId, selectedDatabase);
   }, [selectedConnectionId, connectionStatus, selectedDatabase, openConsole]);
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.shiftKey && e.key.toLowerCase() === "n") {
-        e.preventDefault();
-        handleNewConsole();
-      } else if (mod && e.key === ",") {
-        e.preventDefault();
-        openSettings();
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleNewConsole, openSettings]);
-
   return (
     <div className="toolbar">
       <div className="brand" title="QueryCraft">
@@ -48,7 +34,7 @@ export function Toolbar() {
       <button className="outline" onClick={() => openConnectionDialog("new")} title="New connection">
         + Connection
       </button>
-      <button onClick={handleNewConsole} disabled={!canOpenConsole} title="New console (⌘/Ctrl+Shift+N)">
+      <button onClick={handleNewConsole} disabled={!canOpenConsole} title={actionTitle("newConsole", "New console")}>
         ▤ New console
       </button>
       <div className="spacer" />
@@ -62,7 +48,7 @@ export function Toolbar() {
           ))}
         </select>
       </label>
-      <button className="icon" onClick={openSettings} title="Settings (⌘/Ctrl+,)">
+      <button className="icon" onClick={openSettings} title={actionTitle("openSettings")}>
         ⚙
       </button>
     </div>

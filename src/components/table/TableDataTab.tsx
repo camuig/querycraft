@@ -10,6 +10,8 @@ import type { CellValue, ColumnMeta } from "../../api/types";
 import { newId } from "../../lib/ids";
 import { buildSelect, qualify, sqlLiteral, type OrderBySpec } from "../../lib/sqlBuilder";
 import { ChangeTracker } from "../../lib/changeTracker";
+import { registerCommand } from "../../lib/commandBus";
+import { actionTitle, actionsForEvent, detectPlatform, type AppAction } from "../../lib/keymap";
 import { DataGrid } from "../grid/DataGrid";
 import type { GridCellPos } from "../grid/useGridSelection";
 import { SqlEditor } from "../editor/SqlEditor";
@@ -32,7 +34,7 @@ function countChanges(tracker: ChangeTracker, rowCount: number, colCount: number
   return n;
 }
 
-/** Данные таблицы: пагинация, фильтр WHERE, сортировка, редактирование с отложенной фиксацией. */
+/** Table data: pagination, WHERE filter, sorting, editing with deferred commit. */
 export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: boolean }) {
   const connect = useConnectionsStore((s) => s.connect);
   const loadColumns = useExplorerStore((s) => s.loadColumns);
@@ -61,7 +63,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
     }
   }, [connect, tab.connectionId]);
 
-  // Метаданные колонок (для определения первичного ключа).
+  // Column metadata (used to determine the primary key).
   useEffect(() => {
     setPkColumns(null);
     setColumnNames([]);
@@ -76,7 +78,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
       });
   }, [tab.connectionId, tab.database, tab.table, loadColumns]);
 
-  // Загрузка страницы данных.
+  // Load a page of data.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -114,7 +116,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
     };
   }, [tab.connectionId, tab.sessionId, tab.database, tab.table, whereApplied, orderBy, page, pageSize, reloadToken, ensureConnected]);
 
-  // Приблизительное общее число строк (COUNT(*), параллельно, не блокирует грид).
+  // Approximate total row count (COUNT(*), run in parallel, doesn't block the grid).
   useEffect(() => {
     let cancelled = false;
     setTotalCount(null);
@@ -138,7 +140,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
           setTotalCount(typeof v === "number" ? v : Number(v));
         }
       } catch {
-        // COUNT может быть медленным/недоступным — просто оставляем "…"
+        // COUNT can be slow/unavailable — just leave "…"
       }
     })();
     return () => {
@@ -146,7 +148,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
     };
   }, [tab.connectionId, tab.sessionId, tab.database, tab.table, whereApplied, reloadToken, ensureConnected]);
 
-  // Пересобираем трекер изменений при каждой новой загрузке данных.
+  // Rebuild the change tracker on every new data load.
   useEffect(() => {
     setTracker(new ChangeTracker(rows, resultColumns, pkColumns ?? []));
     setSelectedCell(null);
@@ -203,8 +205,8 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
   }, [tracker]);
 
   /**
-   * Вставка матрицы значений начиная с (row, col): каждая строка буфера — своя строка грида,
-   * недостающие строки добавляются как новые (как в DataGrip).
+   * Paste a matrix of values starting at (row, col): each clipboard row maps to a grid row,
+   * missing rows are appended as new ones (like in DataGrip).
    */
   const handlePaste = useCallback(
     (row: number, col: number, values: CellValue[][]) => {
@@ -260,14 +262,74 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
     }
   }, [tracker, editable, tab.database, tab.table, tab.connectionId, tab.sessionId]);
 
-  const handleGridKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLDivElement>) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-        e.preventDefault();
-        void handleSubmit();
+  const rangeStart = page * pageSize + 1;
+  const rangeEnd = page * pageSize + rows.length;
+  const canNext = totalCount !== null ? rangeEnd < totalCount : rows.length === pageSize;
+
+  const reload = useCallback(() => setReloadToken((t) => t + 1), []);
+
+  /** Runs a keymap action against this tab; returns false when it does not apply. */
+  const runAction = useCallback(
+    (action: AppAction): boolean => {
+      switch (action) {
+        case "submitChanges":
+          if (!tracker?.hasChanges) return false;
+          void handleSubmit();
+          return true;
+        case "revertChanges":
+          if (!tracker?.hasChanges) return false;
+          handleRevert();
+          return true;
+        case "addRow":
+          if (!editable) return false;
+          handleAddRow();
+          return true;
+        case "deleteRow":
+          if (!editable || !selectedCell) return false;
+          handleToggleDeleteSelected();
+          return true;
+        case "refresh":
+          reload();
+          return true;
+        case "nextPage":
+          if (!canNext) return false;
+          setPage((p) => p + 1);
+          return true;
+        case "prevPage":
+          if (page === 0) return false;
+          setPage((p) => Math.max(0, p - 1));
+          return true;
+        default:
+          return false;
       }
     },
-    [handleSubmit],
+    [tracker, handleSubmit, handleRevert, editable, handleAddRow, selectedCell, handleToggleDeleteSelected, reload, canNext, page],
+  );
+
+  // Native menu items and application-wide shortcuts target the active tab through the command bus.
+  useEffect(() => {
+    if (!active) return;
+    const actions: AppAction[] = ["submitChanges", "revertChanges", "addRow", "deleteRow", "refresh", "nextPage", "prevPage"];
+    const offs = actions.map((action) =>
+      registerCommand(action, () => {
+        // "Refresh" with the focus in the explorer belongs to the explorer.
+        if (action === "refresh" && document.activeElement?.closest("[data-explorer]")) return false;
+        return runAction(action);
+      }),
+    );
+    return () => offs.forEach((off) => off());
+  }, [active, runAction]);
+
+  const handleGridKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      for (const action of actionsForEvent(e, detectPlatform())) {
+        if (runAction(action)) {
+          e.preventDefault();
+          return;
+        }
+      }
+    },
+    [runAction],
   );
 
   const sqlPreview = useMemo(() => {
@@ -285,14 +347,10 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
     }
   }, [tracker, tab.database, tab.table]);
 
-  const rangeStart = page * pageSize + 1;
-  const rangeEnd = page * pageSize + rows.length;
-  const canNext = totalCount !== null ? rangeEnd < totalCount : rows.length === pageSize;
-
   return (
     <div className="table-data-tab" style={{ display: active ? "flex" : "none" }}>
       <div className="table-toolbar">
-        <button className="icon" onClick={() => setReloadToken((t) => t + 1)} title="Refresh">
+        <button className="icon" onClick={reload} title={actionTitle("refresh", "Reload page")}>
           ↻
         </button>
         <WhereInput
@@ -319,16 +377,16 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
         <button className="outline" onClick={() => setShowSql((s) => !s)}>
           {showSql ? "Hide SQL" : "Show SQL"}
         </button>
-        <button className="icon" onClick={handleAddRow} disabled={!editable} title="Add row (then ⌘/Ctrl+V pastes rows from clipboard)">
+        <button className="icon" onClick={handleAddRow} disabled={!editable} title={actionTitle("addRow")}>
           +
         </button>
-        <button className="icon" onClick={handleToggleDeleteSelected} disabled={!editable || !selectedCell} title="Delete/restore row">
+        <button className="icon" onClick={handleToggleDeleteSelected} disabled={!editable || !selectedCell} title={actionTitle("deleteRow", "Delete / restore row")}>
           −
         </button>
-        <button onClick={handleRevert} disabled={!tracker?.hasChanges} title="Revert changes">
+        <button onClick={handleRevert} disabled={!tracker?.hasChanges} title={actionTitle("revertChanges")}>
           Revert
         </button>
-        <button className="primary" onClick={() => void handleSubmit()} disabled={!tracker?.hasChanges} title="Apply (⌘/Ctrl+Enter)">
+        <button className="primary" onClick={() => void handleSubmit()} disabled={!tracker?.hasChanges} title={actionTitle("submitChanges")}>
           Submit
         </button>
       </div>
@@ -356,13 +414,13 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
       )}
 
       <div className="table-footer">
-        <button className="icon" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>
+        <button className="icon" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} title={actionTitle("prevPage")}>
           ◀
         </button>
         <span>
           Rows {rows.length > 0 ? rangeStart : 0}–{rangeEnd} of {totalCount === null ? "…" : totalCount}
         </span>
-        <button className="icon" disabled={!canNext} onClick={() => setPage((p) => p + 1)}>
+        <button className="icon" disabled={!canNext} onClick={() => setPage((p) => p + 1)} title={actionTitle("nextPage")}>
           ▶
         </button>
         {loading && <span className="muted">Loading…</span>}

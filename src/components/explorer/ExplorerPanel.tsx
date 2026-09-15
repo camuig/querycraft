@@ -1,10 +1,13 @@
 import { TreeRow } from "./TreeRow";
 import { ContextMenu } from "./ContextMenu";
 import { useExplorerTree } from "./useExplorerTree";
+import { useEffect } from "react";
 import { NO_AUTOCORRECT } from "../../lib/inputProps";
+import { registerCommand } from "../../lib/commandBus";
+import { actionTitle } from "../../lib/keymap";
 import "../../styles/explorer.css";
 
-/** Левая панель "Проводник БД": подключения → базы → таблицы/представления → столбцы/индексы/ключи. */
+/** Left "Database" panel: connections → databases → tables/views → columns/indexes/keys. */
 export function ExplorerPanel() {
   const {
     explorer,
@@ -23,8 +26,19 @@ export function ExplorerPanel() {
     buildContextMenuItems,
   } = useExplorerTree();
 
+  useEffect(() => {
+    const offs = [
+      registerCommand("focusExplorer", () => parentRef.current?.focus()),
+      registerCommand("refresh", () => {
+        if (!explorer.selectedConnectionId) return false;
+        handleRefreshSelected();
+      }),
+    ];
+    return () => offs.forEach((off) => off());
+  }, [parentRef, explorer.selectedConnectionId, handleRefreshSelected]);
+
   return (
-    <div className="panel">
+    <div className="panel" data-explorer>
       <div className="panel-header">
         <span>Database</span>
         <div style={{ flex: 1 }} />
@@ -35,7 +49,7 @@ export function ExplorerPanel() {
           className="icon"
           onClick={handleRefreshSelected}
           disabled={!explorer.selectedConnectionId}
-          title="Refresh"
+          title={actionTitle("refresh")}
         >
           ↻
         </button>

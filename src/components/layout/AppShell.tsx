@@ -9,11 +9,13 @@ import { useSettingsStore } from "../../store/settingsStore";
 import { SettingsDialog } from "../settings/SettingsDialog";
 import { Toasts } from "../common/Toasts";
 import { useConnectionsStore } from "../../store/connectionsStore";
+import { useAppCommands } from "./useAppCommands";
 
-/** Каркас: тулбар сверху, проводник слева, вкладки по центру, статус-бар снизу. */
+/** Application frame: toolbar on top, explorer on the left, tabs in the centre, status bar at the bottom. */
 export function AppShell() {
   const dialog = useConnectionsStore((s) => s.dialog);
   const settingsOpen = useSettingsStore((s) => s.dialogOpen);
+  useAppCommands();
   return (
     <div className="app">
       <Toolbar />

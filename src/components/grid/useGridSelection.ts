@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
 import type { CellValue } from "../../api/types";
+import { actionsForEvent, detectPlatform } from "../../lib/keymap";
 
 export interface GridCellPos {
   row: number;
@@ -42,7 +43,7 @@ function rangeOf(sel: Selection): GridRange {
   };
 }
 
-/** Выделение ячеек грида (одна ячейка / прямоугольный диапазон), навигация с клавиатуры, редактирование. */
+/** Grid cell selection (single cell / rectangular range), keyboard navigation, editing. */
 export function useGridSelection(opts: UseGridSelectionOptions) {
   const { rowCount, colCount, editable, onSelectCell, onEditCell, getCellValue, isCellEditable, onCopy, onSetNull } = opts;
   const pageSize = opts.pageSize ?? 20;
@@ -52,7 +53,7 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
   );
   const [editingCell, setEditingCell] = useState<GridCellPos | null>(null);
   const [editingInitialValue, setEditingInitialValue] = useState("");
-  /** Что тянем мышью: ячейки, целые строки (по номерам) или ничего. */
+  /** What's being dragged with the mouse: cells, whole rows (by number), or nothing. */
   const draggingRef = useRef<false | "cells" | "rows">(false);
 
   useEffect(() => {
@@ -63,13 +64,13 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
     return () => window.removeEventListener("mouseup", onUp);
   }, []);
 
-  // Внешнее управление выбранной ячейкой (например, после вставки новой строки).
+  // External control of the selected cell (e.g., after inserting a new row).
   useEffect(() => {
     const cell = opts.selectedCell;
     if (!cell) return;
     setSelectionState((sel) => {
-      // Если фокус уже в этой ячейке (это наше же уведомление onSelectCell), диапазон не трогаем —
-      // иначе любое расширение выделения схлопывалось бы обратно в одну ячейку.
+      // If focus is already on this cell (this is our own onSelectCell notification), leave the range alone —
+      // otherwise any selection extension would collapse back to a single cell.
       if (sel && sel.focus.row === cell.row && sel.focus.col === cell.col) return sel;
       return { anchor: cell, focus: cell };
     });
@@ -135,7 +136,7 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
   const handleCellMouseDown = useCallback(
     (row: number, col: number, e: MouseEvent) => {
       if (e.button !== 0 && selection && rangeOf(selection).minRow <= row && row <= rangeOf(selection).maxRow && rangeOf(selection).minCol <= col && col <= rangeOf(selection).maxCol) {
-        return; // правый клик внутри выделения не сбрасывает его
+        return; // a right click inside the selection doesn't clear it
       }
       draggingRef.current = e.button === 0 ? "cells" : false;
       setSelectionState((sel) => {
@@ -162,7 +163,7 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
   const lastCol = Math.max(0, colCount - 1);
   const lastRow = Math.max(0, rowCount - 1);
 
-  /** Клик по номеру строки: выделить строку целиком; Shift — расширить; drag — несколько строк. */
+  /** Click on a row number: select the whole row; Shift extends; drag selects multiple rows. */
   const handleRowNumberMouseDown = useCallback(
     (row: number, e: MouseEvent) => {
       if (e.button !== 0) return;
@@ -189,7 +190,7 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
     [lastCol, onSelectCell],
   );
 
-  /** Клик по заголовку: выделить колонку целиком; Shift — диапазон колонок. */
+  /** Click on a header: select the whole column; Shift selects a column range. */
   const handleHeaderMouseDown = useCallback(
     (col: number, e: MouseEvent) => {
       if (e.button !== 0 || rowCount === 0) return;
@@ -217,13 +218,13 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
 
   const handleGridKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (editingCell) return; // редактируемый input обрабатывает свои клавиши сам
+      if (editingCell) return; // the editing input handles its own keys
 
       const mod = e.metaKey || e.ctrlKey;
       const sel = selection ?? { anchor: { row: 0, col: 0 }, focus: { row: 0, col: 0 } };
       let { row, col } = sel.focus;
 
-      if (mod && !e.shiftKey && e.altKey && (e.key === "n" || e.key === "N")) {
+      if (actionsForEvent(e, detectPlatform()).includes("setNull")) {
         if (editable) onSetNull?.(rangeOf(sel));
         e.preventDefault();
         return;

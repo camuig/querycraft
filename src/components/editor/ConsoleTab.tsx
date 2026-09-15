@@ -12,10 +12,12 @@ import * as api from "../../api/commands";
 import type { ExecuteRequest, StatementResult } from "../../api/types";
 import { newId } from "../../lib/ids";
 import { statementAtCursor } from "../../lib/sqlSplit";
+import { registerCommand } from "../../lib/commandBus";
+import { actionTitle } from "../../lib/keymap";
 import { SqlEditor } from "./SqlEditor";
 import { ResultsPanel } from "../grid/ResultsPanel";
 
-/** Вкладка SQL-консоли: тулбар (выполнить/отменить/база), редактор сверху, результаты снизу. */
+/** SQL console tab: toolbar (run / cancel / database), editor on top, results below. */
 export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: boolean }) {
   const updateConsole = useTabsStore((s) => s.updateConsole);
   const connect = useConnectionsStore((s) => s.connect);
@@ -39,7 +41,7 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
   const currentQueryId = useRef<string | null>(null);
   const saveTimer = useRef<number | undefined>(undefined);
 
-  // Сохраняем текст редактора в tabsStore с задержкой, чтобы не дёргать стор на каждый символ.
+  // Persist the editor text to tabsStore with a delay so the store is not updated on every keystroke.
   useEffect(() => {
     window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => updateConsole(tab.id, { sql: localSql }), 300);
@@ -50,7 +52,7 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
     if (runtimeStatus === "connected") loadDatabases(tab.connectionId).catch(() => undefined);
   }, [runtimeStatus, tab.connectionId, loadDatabases]);
 
-  // Список таблиц текущей БД + (если их немного) колонки для автокомплита.
+  // Tables of the current database plus (when there are not too many) their columns for autocomplete.
   useEffect(() => {
     if (!tab.database || runtimeStatus !== "connected") return;
     const db = tab.database;
@@ -150,6 +152,26 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
     }
   }, [tab.connectionId]);
 
+  // Menu items and global shortcuts reach the active console through the command bus.
+  useEffect(() => {
+    if (!active) return;
+    const offs = [
+      registerCommand("executeStatement", () => {
+        if (running) return false;
+        handleExecute("current");
+      }),
+      registerCommand("executeScript", () => {
+        if (running) return false;
+        handleExecute("all");
+      }),
+      registerCommand("cancelQuery", () => {
+        if (!running) return false;
+        handleCancel();
+      }),
+    ];
+    return () => offs.forEach((off) => off());
+  }, [active, running, handleExecute, handleCancel]);
+
   const handleLoadMore = useCallback(
     (index: number) => {
       const r = results[index];
@@ -170,14 +192,14 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
   return (
     <div className="console-tab" style={{ display: active ? "flex" : "none" }}>
       <div className="console-toolbar">
-        <button onClick={() => handleExecute("current")} disabled={running} title="Run (⌘/Ctrl+Enter)">
+        <button onClick={() => handleExecute("current")} disabled={running} title={actionTitle("executeStatement", "Run")}>
           ▶ Run
         </button>
-        <button onClick={() => handleExecute("all")} disabled={running} title="Run all (⌘/Ctrl+⇧+Enter)">
+        <button onClick={() => handleExecute("all")} disabled={running} title={actionTitle("executeScript", "Run all")}>
           ▶▶ Run all
         </button>
         {running && (
-          <button onClick={handleCancel} title="Cancel">
+          <button onClick={handleCancel} title={actionTitle("cancelQuery", "Cancel")}>
             ■ Cancel
           </button>
         )}

@@ -2,19 +2,19 @@ import { create } from "zustand";
 import { newId } from "../lib/ids";
 import * as api from "../api/commands";
 
-/** Вкладка SQL-консоли: своя сессия (соединение) MySQL. */
+/** SQL console tab: its own MySQL session (connection). */
 export interface ConsoleTab {
   kind: "console";
   id: string;
   title: string;
   connectionId: string;
   database: string | null;
-  /** sessionId == id вкладки — так проще закрывать сессию. */
+  /** sessionId == tab id — makes it simpler to close the session. */
   sessionId: string;
   sql: string;
 }
 
-/** Вкладка данных таблицы (просмотр + редактирование). */
+/** Table data tab (viewing + editing). */
 export interface TableDataTab {
   kind: "table";
   id: string;
@@ -25,7 +25,7 @@ export interface TableDataTab {
   sessionId: string;
 }
 
-/** Вкладка DDL таблицы. */
+/** Table DDL tab. */
 export interface DdlTab {
   kind: "ddl";
   id: string;
@@ -47,6 +47,8 @@ interface TabsState {
   closeTab: (id: string) => void;
   closeTabsForConnection: (connectionId: string) => void;
   setActive: (id: string) => void;
+  /** Activates the neighbouring tab (wraps around); `delta` is +1 or -1. Returns false when there is nothing to switch to. */
+  activateSibling: (delta: 1 | -1) => boolean;
   updateConsole: (id: string, patch: Partial<Pick<ConsoleTab, "sql" | "database" | "title">>) => void;
 }
 
@@ -124,6 +126,15 @@ export const useTabsStore = create<TabsState>()((set, get) => ({
   },
 
   setActive: (id) => set({ activeTabId: id }),
+
+  activateSibling: (delta) => {
+    const { tabs, activeTabId } = get();
+    if (tabs.length < 2) return false;
+    const idx = tabs.findIndex((t) => t.id === activeTabId);
+    const next = idx < 0 ? 0 : (idx + delta + tabs.length) % tabs.length;
+    set({ activeTabId: tabs[next].id });
+    return true;
+  },
 
   updateConsole: (id, patch) =>
     set((s) => ({

@@ -3,8 +3,9 @@ import { ConsoleTab } from "../editor/ConsoleTab";
 import { TableDataTab } from "../table/TableDataTab";
 import { TableDdlTab } from "../table/TableDdlTab";
 import { Logo } from "../common/Logo";
+import { shortcutLabel } from "../../lib/keymap";
 
-/** Рендерит все вкладки, скрывая неактивные (чтобы сохранять состояние редактора и гридов). */
+/** Renders all tabs, hiding inactive ones (to preserve editor and grid state). */
 export function TabContent() {
   const tabs = useTabsStore((s) => s.tabs);
   const activeTabId = useTabsStore((s) => s.activeTabId);
@@ -16,7 +17,7 @@ export function TabContent() {
         <div style={{ fontSize: 15 }}>QueryCraft</div>
         <div>Select a connection in the explorer on the left or create a new one.</div>
         <div>
-          Open a console: <kbd>⌘/Ctrl</kbd> + <kbd>⇧</kbd> + <kbd>N</kbd>
+          Open a console: <kbd>{shortcutLabel("newConsole")}</kbd>
         </div>
       </div>
     );

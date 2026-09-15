@@ -11,7 +11,8 @@ import {
   rectangularSelection,
   crosshairCursor,
 } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { defaultKeymap, deleteLine, history, historyKeymap, indentWithTab, moveLineDown, moveLineUp } from "@codemirror/commands";
+import { duplicateLineOrSelection } from "./editorCommands";
 import {
   bracketMatching,
   indentOnInput,
@@ -107,7 +108,7 @@ function buildFontSizeExtension(fontSize: number): Extension {
   });
 }
 
-/** SQL-редактор на CodeMirror 6: подсветка, автокомплит по схеме, Mod-Enter/Mod-Shift-Enter. */
+/** SQL editor on CodeMirror 6: highlighting, schema-aware autocomplete, Mod-Enter / Mod-Shift-Enter. */
 export function SqlEditor(props: SqlEditorProps) {
   const { onChange, onExecute } = props;
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -122,7 +123,7 @@ export function SqlEditor(props: SqlEditorProps) {
   const fontSizeCompartment = useRef(new Compartment()).current;
   const readOnlyCompartment = useRef(new Compartment()).current;
 
-  // Создаём редактор один раз при монтировании.
+  // Create the editor once on mount.
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -144,6 +145,11 @@ export function SqlEditor(props: SqlEditorProps) {
           },
           preventDefault: true,
         },
+        // DataGrip editing shortcuts. Mod-d replaces CodeMirror's "select next occurrence".
+        { key: "Mod-d", run: duplicateLineOrSelection, preventDefault: true },
+        { key: "Ctrl-y", mac: "Cmd-Backspace", run: deleteLine, preventDefault: true },
+        { key: "Shift-Alt-ArrowUp", run: moveLineUp, preventDefault: true },
+        { key: "Shift-Alt-ArrowDown", run: moveLineDown, preventDefault: true },
       ]),
     );
 
@@ -189,7 +195,7 @@ export function SqlEditor(props: SqlEditorProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Синхронизация текста из props (без прыжков курсора — только если реально отличается).
+  // Sync text from props (without cursor jumps — only if it actually differs).
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;

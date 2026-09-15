@@ -11,7 +11,7 @@ import { useExplorerKeyboard } from "./useExplorerKeyboard";
 
 export const ROW_HEIGHT = 22;
 
-/** Вся логика дерева проводника: данные, видимые узлы, виртуализация, обработчики. */
+/** All explorer tree logic: data, visible nodes, virtualization, handlers. */
 export function useExplorerTree() {
   const connections = useConnectionsStore((s) => s.configs);
   const runtime = useConnectionsStore((s) => s.runtime);
@@ -109,7 +109,7 @@ export function useExplorerTree() {
             break;
         }
       } catch {
-        // ошибка уже сохранена в explorerStore.errors и отрисуется в дереве
+        // the error is already stored in explorerStore.errors and will render in the tree
       }
     },
     [connect, explorer, runtimeStatus],
@@ -276,6 +276,8 @@ export function useExplorerTree() {
     onToggleExpand: handleToggleExpand,
     onCollapse: (node) => explorer.toggle(node.key, false),
     onDefaultAction: handleDefaultAction,
+    onOpenData: (node) => openTableData(node.connectionId, node.database!, node.table!),
+    onOpenDdl: (node) => openDdl(node.connectionId, node.database!, node.table!),
   });
 
   return {

@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import type { TreeNode } from "./treeModel";
+import { actionsForEvent, detectPlatform } from "../../lib/keymap";
 
 const SELECTABLE_KINDS = new Set<TreeNode["kind"]>(["loading", "error"]);
 
@@ -13,9 +14,14 @@ interface Params {
   onToggleExpand: (node: TreeNode) => void;
   onCollapse: (node: TreeNode) => void;
   onDefaultAction: (node: TreeNode) => void;
+  onOpenData: (node: TreeNode) => void;
+  onOpenDdl: (node: TreeNode) => void;
 }
 
-/** Навигация по дереву с клавиатуры: ↑/↓ — выбор, ←/→ — свернуть/развернуть, Enter — действие по умолчанию. */
+/**
+ * Keyboard navigation for the tree: ↑/↓ select, ←/→ collapse/expand, Enter runs the default action,
+ * F4 opens table data and Cmd/Ctrl+B opens the DDL (DataGrip keymap).
+ */
 export function useExplorerKeyboard({
   nodes,
   expanded,
@@ -25,9 +31,26 @@ export function useExplorerKeyboard({
   onToggleExpand,
   onCollapse,
   onDefaultAction,
+  onOpenData,
+  onOpenDdl,
 }: Params) {
   return useCallback(
     (e: React.KeyboardEvent) => {
+      const current = nodes.find((n) => n.key === selectedKey);
+      if (current && (current.kind === "table" || current.kind === "view")) {
+        const actions = actionsForEvent(e, detectPlatform());
+        if (actions.includes("openTableData")) {
+          e.preventDefault();
+          onOpenData(current);
+          return;
+        }
+        if (actions.includes("goToDdl")) {
+          e.preventDefault();
+          onOpenDdl(current);
+          return;
+        }
+      }
+
       const selectable = nodes.map((_n, i) => i).filter((i) => !SELECTABLE_KINDS.has(nodes[i].kind));
       const curIdx = nodes.findIndex((n) => n.key === selectedKey);
       const posInSelectable = selectable.indexOf(curIdx);
@@ -81,6 +104,6 @@ export function useExplorerKeyboard({
           break;
       }
     },
-    [nodes, expanded, selectedKey, virtualizer, onSelect, onToggleExpand, onCollapse, onDefaultAction],
+    [nodes, expanded, selectedKey, virtualizer, onSelect, onToggleExpand, onCollapse, onDefaultAction, onOpenData, onOpenDdl],
   );
 }
