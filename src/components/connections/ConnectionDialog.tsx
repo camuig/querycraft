@@ -17,6 +17,7 @@ interface FormState {
   savePassword: boolean;
   database: string;
   ssl: boolean;
+  sslVerify: boolean;
   color: string | null;
 }
 
@@ -29,6 +30,7 @@ const EMPTY_FORM: FormState = {
   savePassword: true,
   database: "",
   ssl: false,
+  sslVerify: true,
   color: null,
 };
 
@@ -64,6 +66,7 @@ export function ConnectionDialog() {
         savePassword: true,
         database: editingConfig.database ?? "",
         ssl: editingConfig.ssl,
+        sslVerify: editingConfig.sslVerify,
         color: editingConfig.color,
       });
     }
@@ -106,6 +109,7 @@ export function ConnectionDialog() {
           savePassword: form.savePassword,
           database: form.database.trim() || null,
           ssl: form.ssl,
+          sslVerify: form.sslVerify,
           color: form.color,
         };
       },
@@ -226,6 +230,18 @@ export function ConnectionDialog() {
                     onChange={(e) => setForm((f) => ({ ...f, ssl: e.target.checked }))}
                   />
                   SSL
+                </label>
+                <label
+                  style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 6 }}
+                  title="Check the server certificate against the system trust store. Turn off only for self-signed certificates on a trusted network."
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.sslVerify}
+                    disabled={!form.ssl}
+                    onChange={(e) => setForm((f) => ({ ...f, sslVerify: e.target.checked }))}
+                  />
+                  Verify server certificate
                 </label>
               </div>
 

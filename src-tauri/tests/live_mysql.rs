@@ -20,6 +20,7 @@ fn dsn() -> Option<(StoredConnectionView, String)> {
             user: parts[2].to_string(),
             database: None,
             ssl: false,
+            ssl_verify: true,
         },
         parts[3].to_string(),
     ))

@@ -41,6 +41,7 @@ pub async fn test_connection(input: ConnectionInput) -> AppResult<ServerInfo> {
         user: input.user,
         database: input.database,
         ssl: input.ssl,
+        ssl_verify: input.ssl_verify,
     };
     ConnectionManager::test_connection(&view, input.password).await
 }

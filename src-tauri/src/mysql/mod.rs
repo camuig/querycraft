@@ -32,6 +32,19 @@ pub(crate) fn quote_ident(name: &str) -> String {
     format!("`{}`", name.replace('`', "``"))
 }
 
+/// TLS options: the server certificate is verified against the system trust
+/// store by default; verification is skipped only when the user opted out
+/// (self-signed certificates on a trusted network).
+fn ssl_opts(verify: bool) -> SslOpts {
+    let opts = SslOpts::default();
+    if verify {
+        opts
+    } else {
+        opts.with_danger_accept_invalid_certs(true)
+            .with_danger_skip_domain_validation(true)
+    }
+}
+
 struct Session {
     conn: Arc<AsyncMutex<Conn>>,
 }
@@ -72,10 +85,7 @@ impl ConnectionManager {
             .tcp_keepalive(Some(Duration::from_millis(30_000)));
 
         if config.ssl {
-            let ssl_opts = SslOpts::default()
-                .with_danger_accept_invalid_certs(true)
-                .with_danger_skip_domain_validation(true);
-            builder = builder.ssl_opts(Some(ssl_opts));
+            builder = builder.ssl_opts(Some(ssl_opts(config.ssl_verify)));
         }
 
         builder.into()
@@ -223,5 +233,24 @@ impl ConnectionManager {
         let mut conn = self.metadata_conn(connection_id).await?;
         conn.query_drop(format!("KILL QUERY {thread_id}")).await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ssl_opts;
+
+    #[test]
+    fn ssl_opts_verify_certificates_by_default() {
+        let opts = ssl_opts(true);
+        assert!(!opts.accept_invalid_certs());
+        assert!(!opts.skip_domain_validation());
+    }
+
+    #[test]
+    fn ssl_opts_can_skip_verification_on_request() {
+        let opts = ssl_opts(false);
+        assert!(opts.accept_invalid_certs());
+        assert!(opts.skip_domain_validation());
     }
 }

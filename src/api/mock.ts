@@ -13,8 +13,8 @@ import type {
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 let connections: ConnectionConfig[] = [
-  { id: "mock-1", name: "local (mock)", host: "localhost", port: 3306, user: "root", database: "shop", ssl: false, color: "#3574f0", hasPassword: true },
-  { id: "mock-2", name: "prod (mock)", host: "db.example.com", port: 3306, user: "app", database: null, ssl: true, color: "#e55765", hasPassword: false },
+  { id: "mock-1", name: "local (mock)", host: "localhost", port: 3306, user: "root", database: "shop", ssl: false, sslVerify: true, color: "#3574f0", hasPassword: true },
+  { id: "mock-2", name: "prod (mock)", host: "db.example.com", port: 3306, user: "app", database: null, ssl: true, sslVerify: true, color: "#e55765", hasPassword: false },
 ];
 
 const tables: Record<string, TableInfo[]> = {
@@ -91,7 +91,7 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
     case "list_connections": return connections as T;
     case "save_connection": {
       const input = args.input as ConnectionInput;
-      const saved: ConnectionConfig = { id: input.id ?? `mock-${Date.now()}`, name: input.name, host: input.host, port: input.port, user: input.user, database: input.database, ssl: input.ssl, color: input.color, hasPassword: input.savePassword && !!input.password };
+      const saved: ConnectionConfig = { id: input.id ?? `mock-${Date.now()}`, name: input.name, host: input.host, port: input.port, user: input.user, database: input.database, ssl: input.ssl, sslVerify: input.sslVerify, color: input.color, hasPassword: input.savePassword && !!input.password };
       connections = connections.some((c) => c.id === saved.id) ? connections.map((c) => (c.id === saved.id ? saved : c)) : [...connections, saved];
       return saved as T;
     }

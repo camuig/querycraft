@@ -27,8 +27,16 @@ struct StoredConnection {
     database: Option<String>,
     #[serde(default)]
     ssl: bool,
+    /// Verify the server certificate when SSL is on. Missing in configs written
+    /// before this field existed; defaults to the secure choice.
+    #[serde(default = "default_true")]
+    ssl_verify: bool,
     #[serde(default)]
     color: Option<String>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 /// Public connection configuration (contract with the frontend).
@@ -42,6 +50,7 @@ pub struct ConnectionConfig {
     pub user: String,
     pub database: Option<String>,
     pub ssl: bool,
+    pub ssl_verify: bool,
     pub color: Option<String>,
     pub has_password: bool,
 }
@@ -59,6 +68,8 @@ pub struct ConnectionInput {
     pub save_password: bool,
     pub database: Option<String>,
     pub ssl: bool,
+    #[serde(default = "default_true")]
+    pub ssl_verify: bool,
     pub color: Option<String>,
 }
 
@@ -140,6 +151,7 @@ impl ConnectionStore {
             user: stored.user.clone(),
             database: stored.database.clone(),
             ssl: stored.ssl,
+            ssl_verify: stored.ssl_verify,
             color: stored.color.clone(),
             has_password: Self::has_saved_password(&stored.id),
         }
@@ -171,6 +183,7 @@ impl ConnectionStore {
                 user: c.user.clone(),
                 database: c.database.clone(),
                 ssl: c.ssl,
+                ssl_verify: c.ssl_verify,
             })
             .ok_or_else(|| AppError::ConnectionNotFound(id.to_string()))
     }
@@ -186,6 +199,7 @@ impl ConnectionStore {
             user: input.user,
             database: input.database,
             ssl: input.ssl,
+            ssl_verify: input.ssl_verify,
             color: input.color,
         };
 
@@ -272,4 +286,26 @@ pub struct StoredConnectionView {
     pub user: String,
     pub database: Option<String>,
     pub ssl: bool,
+    /// Verify the server certificate and host name (only matters when `ssl` is on).
+    pub ssl_verify: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::StoredConnection;
+
+    #[test]
+    fn stored_connection_without_ssl_verify_defaults_to_verifying() {
+        let json = r#"{"id":"a","name":"n","host":"h","port":3306,"user":"u","ssl":true}"#;
+        let stored: StoredConnection = serde_json::from_str(json).unwrap();
+        assert!(stored.ssl);
+        assert!(stored.ssl_verify);
+    }
+
+    #[test]
+    fn stored_connection_keeps_explicit_ssl_verify() {
+        let json = r#"{"id":"a","name":"n","host":"h","port":3306,"user":"u","ssl":true,"ssl_verify":false}"#;
+        let stored: StoredConnection = serde_json::from_str(json).unwrap();
+        assert!(!stored.ssl_verify);
+    }
 }

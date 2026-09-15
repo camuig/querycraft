@@ -11,7 +11,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 ## Features
 
 - **Connections** — create, test and edit MySQL connections; passwords are stored in the system keyring
-  (Keychain, Credential Manager, Secret Service), never in plain-text files.
+  (Keychain, Credential Manager, Secret Service), never in plain-text files. SSL connections verify the
+  server certificate by default, with an opt-out for self-signed certificates.
 - **Database explorer** — databases → tables and views → columns, indexes, foreign keys. Lazy loading,
   filtering, context menus, keyboard navigation.
 - **SQL console** — syntax highlighting and schema-aware autocomplete; run the statement under the cursor,

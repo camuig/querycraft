@@ -10,6 +10,8 @@ export interface ConnectionConfig {
   /** Default database (can be empty). */
   database: string | null;
   ssl: boolean;
+  /** Verify the server certificate when SSL is on. */
+  sslVerify: boolean;
   /** Connection tag color (hex) — like DataGrip's prod/dev coloring. */
   color: string | null;
   /** Whether a password is saved in the keyring. */
@@ -27,6 +29,7 @@ export interface ConnectionInput {
   savePassword: boolean;
   database: string | null;
   ssl: boolean;
+  sslVerify: boolean;
   color: string | null;
 }
 

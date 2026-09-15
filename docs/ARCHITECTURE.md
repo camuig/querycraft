@@ -17,7 +17,7 @@ A DataGrip-style desktop MySQL client. Cross-platform (macOS, Windows, Linux), f
 
 ## Feature scope
 
-1. **Connections**: create / edit / delete / test a MySQL connection (host, port, user, password, default database, SSL). Configs are stored as JSON in the app's data directory; passwords go into the system keyring.
+1. **Connections**: create / edit / delete / test a MySQL connection (host, port, user, password, default database, SSL with optional certificate verification). Configs are stored as JSON in the app's data directory; passwords go into the system keyring.
 2. **Database explorer** (left panel): connection → databases → tables / views → columns, indexes, foreign keys. Lazy node loading, name filter, context menus for common actions (refresh, copy name, open data/DDL, and similar operations per node kind).
 3. **SQL console**: tabs, syntax highlighting, schema-aware autocomplete, running the current statement / selection / whole script (Ctrl/Cmd+Enter, Ctrl/Cmd+Shift+Enter), query cancellation, multiple result sets for multi-statement scripts, execution time, query history. Each console tab keeps its own connection session.
 4. **Results grid**: virtualized rows and columns, click-to-sort, DataGrip-style selection — drag, Shift+click and Shift+arrows for ranges, row-number click selects a row, header click selects a column, Ctrl/Cmd+A selects all; arrow/Home/End/PageUp/PageDown/Tab navigation. Copying the selection: Ctrl/Cmd+C copies TSV, a context menu offers CSV and header variants. NULL is rendered with a distinct style.
