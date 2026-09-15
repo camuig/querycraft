@@ -43,8 +43,11 @@ practical. Keep the pull request focused on one change.
 - **Language.** Code, comments, commit messages and UI strings are in English.
 - **Keyboard shortcuts** follow DataGrip defaults; see `src/lib/keymap.ts` and the table in the README.
 - **Native menu** item ids must match keymap action names (`src-tauri/src/menu.rs`).
-- **Commits.** Use short, imperative subject lines (`Add`, `Fix`, `Refactor`), wrapped at 72 characters,
-  with an optional body explaining *why*. One logical change per commit.
+- **Commits** follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0-beta.4/):
+  `type(scope): description`, for example `feat(grid): add fill paste` or `fix(tls): verify server
+  certificates`. Use `feat`, `fix`, `docs`, `chore`, `refactor`, `style`, `test`, `ci`, `build` or `perf`;
+  keep the subject imperative and under 72 characters, add a body explaining *why* when it is not obvious,
+  and mark incompatible changes with a `BREAKING CHANGE:` footer. One logical change per commit.
 - **Style.** The repository ships an `.editorconfig`; Rust code is formatted with `rustfmt`.
 
 ## Reporting bugs
