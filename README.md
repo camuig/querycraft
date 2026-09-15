@@ -1,58 +1,116 @@
 # QueryCraft
 
-Быстрый кроссплатформенный десктопный клиент MySQL в духе DataGrip. macOS, Windows, Linux.
+Fast, lightweight desktop client for MySQL in the spirit of DataGrip. macOS, Windows and Linux.
 
-Стек: Tauri 2 (Rust, `mysql_async`) + React 19 / TypeScript, CodeMirror 6, виртуализированный грид.
-Подробнее об архитектуре и составе MVP — в [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Built with Tauri 2 (Rust, `mysql_async`) and React 19 / TypeScript, CodeMirror 6 and a virtualized grid.
+The binary is small, it starts in well under a second, and it uses a fraction of the memory of Electron-based tools.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 
-## Возможности (MVP)
+> QueryCraft is under active development. Expect rough edges and please [report them](https://github.com/camuig/querycraft/issues).
 
-- Подключения к MySQL: создание, проверка, редактирование; пароли хранятся в системном keyring (Keychain / Credential Manager / Secret Service).
-- Проводник БД: базы → таблицы и представления → колонки, индексы, внешние ключи. Ленивая загрузка, фильтр, контекстные меню.
-- SQL-консоль с подсветкой и автодополнением по схеме: выполнение текущего выражения (⌘/Ctrl+Enter), выделения или всего скрипта (⌘/Ctrl+Shift+Enter), отмена запроса, несколько результатов, время выполнения.
-- Каждая консоль и вкладка данных работает в своём соединении: `USE`, транзакции и временные таблицы живут в рамках вкладки.
-- Грид результатов: виртуализация строк и колонок, сортировка, экспорт в CSV / JSON / TSV / SQL INSERT.
-- Выделение в гриде как в DataGrip: перетаскивание мышью, Shift+клик и Shift+стрелки для диапазона, клик по номеру строки выделяет строку, по заголовку — колонку, ⌘/Ctrl+A — всё. Навигация стрелками, Home/End, PageUp/PageDown, Tab.
-- Копирование выделенного: ⌘/Ctrl+C копирует TSV; в контекстном меню — CSV и варианты с заголовками.
-- Данные таблицы: фильтр `WHERE` с подсказками имён колонок и ключевых слов при вводе (Tab / Enter / клик подставляют, Esc закрывает, автозамены нет), сортировка, пагинация, редактирование ячеек, добавление и удаление строк с отложенной фиксацией (Submit / Revert) в транзакции.
-- Вставка из буфера обмена в грид (⌘/Ctrl+V или контекстное меню): каждая строка текста становится строкой таблицы, недостающие строки добавляются автоматически; табуляция, `;`, `,` или `|` раскладывают значения по соседним колонкам, пустые значения и `NULL` становятся SQL NULL. Если выделено несколько ячеек, одно значение (строка или колонка) размножается на весь диапазон.
-- DDL таблицы (`SHOW CREATE TABLE`).
-- Темы: системная (по умолчанию, следует за настройкой ОС и переключается на лету), светлая и тёмная. Настройки (⌘/Ctrl+,): тема, лимит строк, размер шрифта редактора.
-- Интерфейс приложения на английском языке.
-- Во всех текстовых полях отключены системная автозамена, автокапитализация и проверка орфографии (macOS WKWebView иначе превращает `account_id` в `Account_id`).
+## Features
 
-## Разработка
+- **Connections** — create, test and edit MySQL connections; passwords are stored in the system keyring
+  (Keychain, Credential Manager, Secret Service), never in plain-text files.
+- **Database explorer** — databases → tables and views → columns, indexes, foreign keys. Lazy loading,
+  filtering, context menus, keyboard navigation.
+- **SQL console** — syntax highlighting and schema-aware autocomplete; run the statement under the cursor,
+  the selection or the whole script; cancel running queries; multiple result sets with timings.
+- **Session per tab** — every console and data tab owns its own connection, so `USE`, transactions and
+  temporary tables stay scoped to the tab, exactly like DataGrip.
+- **Results grid** — row and column virtualization, sorting, resizable columns, DataGrip-style selection
+  (drag, Shift+click, Shift+arrows, row and column selection, select all), copy as TSV/CSV with or without
+  headers, export to CSV / JSON / TSV / SQL `INSERT`.
+- **Table data editing** — `WHERE` filter with column and keyword suggestions, sorting, pagination, inline
+  cell editing, add and delete rows, deferred Submit / Revert applied in a single transaction, SQL preview.
+- **Clipboard paste** into the grid: each line becomes a row, missing rows are added, tab / `;` / `,` / `|`
+  split values across columns, `NULL` and empty cells become SQL NULL; a single value fills a selected range.
+- **DDL view** — `SHOW CREATE TABLE` with highlighting.
+- **Themes** — system (follows the OS and switches live), light and dark.
+- **Native menu** and **DataGrip keymap** (see below); settings dialog for theme, row limit and editor font size.
 
-Требования: Rust (stable), Node.js 20+, pnpm, системные зависимости Tauri (см. https://tauri.app/start/prerequisites/).
+## Keyboard shortcuts
+
+Shortcuts follow the DataGrip defaults for each platform.
+
+| Action | macOS | Windows / Linux |
+|---|---|---|
+| Execute statement / selection | ⌘⏎ | Ctrl+Enter |
+| Execute whole script | ⇧⌘⏎ | Ctrl+Shift+Enter |
+| Cancel running query | ⌘F2 | Ctrl+F2 |
+| New query console | ⌃⇧Q | Ctrl+Shift+Q |
+| Refresh explorer / reload page | ⌘R | Ctrl+F5 |
+| Submit changes | ⌘⏎ | Ctrl+Enter |
+| Revert changes | ⌥⌘Z | Ctrl+Alt+Z |
+| Add row | ⌘N | Alt+Insert |
+| Delete / restore row | ⌘⌫ | Ctrl+Y |
+| Set NULL | ⌥⌘N | Ctrl+Alt+N |
+| Next / previous page | ⌥⌘↓ / ⌥⌘↑ | Ctrl+Alt+↓ / Ctrl+Alt+↑ |
+| Open table data (explorer) | F4 | F4 |
+| Go to DDL (explorer) | ⌘B | Ctrl+B |
+| Database explorer | ⌘1 | Alt+1 |
+| Close tab | ⌘W | Ctrl+F4 |
+| Next / previous tab | ⇧⌘] / ⇧⌘[ | Alt+→ / Alt+← |
+| Settings | ⌘, | Ctrl+Alt+S |
+| Copy selection (TSV) | ⌘C | Ctrl+C |
+| Paste into grid | ⌘V | Ctrl+V |
+| Select all cells | ⌘A | Ctrl+A |
+
+In the SQL editor: duplicate line or selection ⌘D / Ctrl+D, delete line ⌘⌫ / Ctrl+Y, move line ⌥⇧↑ / ⌥⇧↓,
+toggle line comment ⌘/ / Ctrl+/, find ⌘F / Ctrl+F.
+
+The keymap lives in [`src/lib/keymap.ts`](src/lib/keymap.ts).
+
+## Installation
+
+Download the installer for your platform from the
+[Releases](https://github.com/camuig/querycraft/releases) page (`.dmg` for macOS, `.msi` / `.exe` for Windows,
+`.AppImage` / `.deb` for Linux), or build from source as described below.
+
+## Development
+
+Requirements: Rust (stable), Node.js 20+, [pnpm](https://pnpm.io) and the
+[Tauri system dependencies](https://tauri.app/start/prerequisites/).
 
 ```bash
 pnpm install
-pnpm tauri dev        # запуск в режиме разработки
-pnpm tauri build      # сборка установщика для текущей ОС
-pnpm test             # unit-тесты фронтенда (vitest)
+pnpm tauri dev        # run the desktop app with hot reload
+pnpm tauri build      # build the installer for the current OS
+pnpm test             # frontend unit tests (vitest)
 pnpm typecheck        # tsc --noEmit
-cd src-tauri && cargo test   # unit-тесты бэкенда
+cd src-tauri && cargo test   # backend unit tests
 ```
 
-Интеграционные тесты бэкенда против живого MySQL (пропускаются без переменной окружения):
+The UI can be developed in a regular browser without Tauri: run `pnpm dev` and open http://localhost:1420 —
+IPC commands are served by a mock (`src/api/mock.ts`) with sample connections and data.
+
+Backend integration tests against a live MySQL server are skipped unless the DSN is provided:
 
 ```bash
 cd src-tauri && QUERYCRAFT_TEST_DSN="127.0.0.1:33070:root:secret" cargo test --test live_mysql
 ```
 
-UI можно разрабатывать в обычном браузере без Tauri: `pnpm dev` и открыть http://localhost:1420 —
-команды IPC обслуживает мок (`src/api/mock.ts`) с фиктивными подключениями и данными.
-
-Тестовая база для разработки:
+A throwaway MySQL server for development:
 
 ```bash
 docker run -d --name querycraft-mysql -p 33070:3306 -e MYSQL_ROOT_PASSWORD=secret mysql:8.0
 ```
 
-## Структура
+Application icons are generated from `src/assets/logo-icon.svg` with `pnpm icons` (requires `rsvg-convert`).
+
+## Project layout
 
 ```
-src-tauri/   Rust-бэкенд: команды Tauri, пул соединений, выполнение SQL, метаданные схемы
-src/         React-фронтенд: api (контракт IPC), store (zustand), lib (чистые функции + тесты), components
-docs/        Архитектура
+src-tauri/   Rust backend: Tauri commands, native menu, connection pools, SQL execution, schema metadata
+src/         React frontend: api (IPC contract), store (zustand), lib (pure functions + tests), components
+docs/        Architecture notes
 ```
+
+## Contributing
+
+Contributions are welcome — please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
+This project follows a [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## License
+
+QueryCraft is released under the [Apache License 2.0](LICENSE).

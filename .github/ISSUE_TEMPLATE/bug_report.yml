@@ -1,0 +1,44 @@
+name: Bug report
+description: Something is not working as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a table…
+        2. Press …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: QueryCraft version
+      placeholder: e.g. 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: e.g. macOS 15.1, Windows 11, Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: mysql
+    attributes:
+      label: MySQL / MariaDB server version
+      placeholder: e.g. MySQL 8.0.39
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Do not include passwords or private data.
