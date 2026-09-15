@@ -5,12 +5,15 @@ import { TabsBar } from "./TabsBar";
 import { TabContent } from "./TabContent";
 import { ExplorerPanel } from "../explorer/ExplorerPanel";
 import { ConnectionDialog } from "../connections/ConnectionDialog";
+import { useSettingsStore } from "../../store/settingsStore";
+import { SettingsDialog } from "../settings/SettingsDialog";
 import { Toasts } from "../common/Toasts";
 import { useConnectionsStore } from "../../store/connectionsStore";
 
 /** Каркас: тулбар сверху, проводник слева, вкладки по центру, статус-бар снизу. */
 export function AppShell() {
   const dialog = useConnectionsStore((s) => s.dialog);
+  const settingsOpen = useSettingsStore((s) => s.dialogOpen);
   return (
     <div className="app">
       <Toolbar />
@@ -30,6 +33,7 @@ export function AppShell() {
       </div>
       <StatusBar />
       {dialog !== null && <ConnectionDialog />}
+      {settingsOpen && <SettingsDialog />}
       <Toasts />
     </div>
   );

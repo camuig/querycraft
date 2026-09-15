@@ -262,6 +262,7 @@
   border-left: 3px solid var(--info);
   border-radius: 6px;
   box-shadow: var(--shadow);
+  -webkit-user-select: text;
   user-select: text;
   white-space: pre-wrap;
   word-break: break-word;
@@ -271,4 +272,39 @@
 }
 .toast.success {
   border-left-color: var(--success);
+}
+
+/* Диалог настроек */
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.segmented button {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 4px 12px;
+}
+.segmented button + button {
+  border-left: 1px solid var(--border-strong);
+}
+.segmented button.active {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* Логотип */
+.toolbar .brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--fg);
+  padding-right: 4px;
+}
+.empty-state .logo {
+  color: var(--fg);
+  margin-bottom: 4px;
 }

@@ -93,6 +93,7 @@ body {
   font-size: 13px;
   line-height: 1.4;
   -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
   user-select: none;
   cursor: default;
 }
@@ -192,6 +193,7 @@ input[type="checkbox"] {
   color: var(--success);
 }
 .text-select {
+  -webkit-user-select: text;
   user-select: text;
   cursor: text;
 }
