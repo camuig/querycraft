@@ -1,6 +1,6 @@
-//! Интеграционные тесты против живого MySQL. Запуск:
+//! Integration tests against a live MySQL server. Run with:
 //! QUERYCRAFT_TEST_DSN="127.0.0.1:33070:root:secret" cargo test --test live_mysql
-//! Без переменной окружения тесты пропускаются.
+//! Without the environment variable the tests are skipped.
 
 use query_craft_lib::connections::StoredConnectionView;
 use query_craft_lib::history::History;
@@ -61,13 +61,13 @@ async fn types_are_converted_by_column_type() {
     let alice = &res.rows[0];
     assert_eq!(alice[0], json!(1));
     assert_eq!(alice[1], json!("alice@example.com"));
-    assert_eq!(alice[3], json!("100.50")); // DECIMAL -> строка
+    assert_eq!(alice[3], json!("100.50")); // DECIMAL -> string
     assert_eq!(alice[4], json!(1)); // TINYINT(1)
     assert_eq!(alice[5], json!("1990-05-01")); // DATE
     assert!(alice[6].as_str().unwrap().starts_with("20")); // DATETIME(3)
     assert_eq!(alice[7], json!("{\"vip\": true}")); // JSON
     assert_eq!(alice[8], json!("0x89504E47")); // BLOB -> hex
-    assert_eq!(alice[9], json!("9007199254740993")); // BIGINT > 2^53 -> строка
+    assert_eq!(alice[9], json!("9007199254740993")); // BIGINT > 2^53 -> string
     assert!(res.columns[8].binary);
     let bob = &res.rows[1];
     assert_eq!(bob[5], Value::Null);
@@ -101,7 +101,7 @@ async fn multiple_statements_truncation_and_errors() {
     assert_eq!(r[0].rows.len(), 100);
     assert!(r[0].truncated);
     assert!(matches!(r[1].kind, StatementResultKind::Affected));
-    assert_eq!(r[1].affected_rows, 0); // значения не изменились
+    assert_eq!(r[1].affected_rows, 0); // values did not change
     assert!(matches!(r[2].kind, StatementResultKind::Error));
     assert!(r[2].error.as_ref().unwrap().contains("1146"), "{:?}", r[2].error);
     assert_eq!(r[3].rows[0][0], json!(1));
@@ -139,7 +139,7 @@ async fn session_keeps_state_between_calls() {
     execute::execute(&m, &h, req("SET @x = 42", "s4", 10)).await.unwrap();
     let r = execute::execute(&m, &h, req("SELECT @x", "s4", 10)).await.unwrap();
     assert_eq!(r[0].rows[0][0], json!(42));
-    // другая сессия переменную не видит
+    // another session does not see the variable
     let r = execute::execute(&m, &h, req("SELECT @x", "s5", 10)).await.unwrap();
     assert_eq!(r[0].rows[0][0], Value::Null);
 }
@@ -169,7 +169,7 @@ async fn apply_changes_commits_and_rolls_back() {
             },
             ParamStatement {
                 sql: "INSERT INTO `shop`.`t_apply` (`id`,`s`) VALUES (?,?)".into(),
-                params: vec![json!(2), json!("б")],
+                params: vec![json!(2), json!("ü")],
             },
             ParamStatement {
                 sql: "UPDATE `shop`.`t_apply` SET `n`=? WHERE `id`=?".into(),
@@ -192,7 +192,7 @@ async fn apply_changes_commits_and_rolls_back() {
             ParamStatement {
                 sql: "INSERT INTO `shop`.`t_apply` (`id`) VALUES (?)".into(),
                 params: vec![json!(1)],
-            }, // дубликат PK
+            }, // duplicate PK
         ],
     )
     .await;
@@ -204,7 +204,7 @@ async fn apply_changes_commits_and_rolls_back() {
         r[0].rows,
         vec![
             vec![json!(1), json!("a"), json!(7)],
-            vec![json!(2), json!("б"), Value::Null]
+            vec![json!(2), json!("ü"), Value::Null]
         ]
     );
     execute::execute(&m, &h, req("DROP TABLE t_apply", "s6", 10))
@@ -226,13 +226,13 @@ async fn cancel_kills_running_query() {
     let (res, cancel_res) = tokio::join!(exec, cancel);
     cancel_res.expect("cancel");
     let res = res.unwrap();
-    assert!(start.elapsed().as_secs() < 5, "запрос не был отменён");
-    // SLEEP при KILL QUERY возвращает 1 либо ошибку 1317 — оба варианта допустимы
+    assert!(start.elapsed().as_secs() < 5, "the query was not cancelled");
+    // SLEEP returns 1 or error 1317 after KILL QUERY; both are acceptable
     assert!(matches!(
         res[0].kind,
         StatementResultKind::Rows | StatementResultKind::Error
     ));
-    // сессия после отмены продолжает работать
+    // the session keeps working after the cancellation
     let r = execute::execute(&m, &h, req("SELECT 5", "s7", 10)).await.unwrap();
     assert_eq!(r[0].rows[0][0], json!(5));
 }
