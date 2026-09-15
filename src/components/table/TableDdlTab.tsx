@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { DdlTab as DdlTabModel } from "../../store/tabsStore";
 import { useConnectionsStore } from "../../store/connectionsStore";
-import { useSettingsStore } from "../../store/settingsStore";
+import { selectResolvedTheme, useSettingsStore } from "../../store/settingsStore";
 import { toast } from "../../store/toastStore";
 import * as api from "../../api/commands";
 import { SqlEditor } from "../editor/SqlEditor";
@@ -10,7 +10,7 @@ import { SqlEditor } from "../editor/SqlEditor";
 /** DDL таблицы (SHOW CREATE TABLE) — только чтение, с кнопкой копирования. */
 export function TableDdlTab({ tab, active }: { tab: DdlTabModel; active: boolean }) {
   const connect = useConnectionsStore((s) => s.connect);
-  const theme = useSettingsStore((s) => s.theme);
+  const theme = useSettingsStore(selectResolvedTheme);
   const fontSize = useSettingsStore((s) => s.editorFontSize);
   const [ddl, setDdl] = useState("");
   const [loading, setLoading] = useState(true);
@@ -42,16 +42,16 @@ export function TableDdlTab({ tab, active }: { tab: DdlTabModel; active: boolean
     } catch {
       await navigator.clipboard?.writeText(ddl).catch(() => undefined);
     }
-    toast.success("Скопировано в буфер обмена");
+    toast.success("Copied to clipboard");
   }
 
   return (
     <div className="ddl-tab" style={{ display: active ? "flex" : "none" }}>
       <div className="ddl-toolbar">
         <button className="outline" onClick={() => void handleCopy()} disabled={!ddl}>
-          Копировать
+          Copy
         </button>
-        {loading && <span className="muted">Загрузка…</span>}
+        {loading && <span className="muted">Loading…</span>}
       </div>
       <div className="ddl-body">
         <SqlEditor value={ddl} onChange={() => undefined} onExecute={() => undefined} readOnly fontSize={fontSize} theme={theme} />

@@ -2,6 +2,7 @@ import { useTabsStore } from "../../store/tabsStore";
 import { ConsoleTab } from "../editor/ConsoleTab";
 import { TableDataTab } from "../table/TableDataTab";
 import { TableDdlTab } from "../table/TableDdlTab";
+import { Logo } from "../common/Logo";
 
 /** Рендерит все вкладки, скрывая неактивные (чтобы сохранять состояние редактора и гридов). */
 export function TabContent() {
@@ -11,10 +12,11 @@ export function TabContent() {
   if (tabs.length === 0) {
     return (
       <div className="empty-state">
+        <Logo size={56} style={{ color: "var(--fg)" }} />
         <div style={{ fontSize: 15 }}>QueryCraft</div>
-        <div>Выберите подключение в проводнике слева или создайте новое.</div>
+        <div>Select a connection in the explorer on the left or create a new one.</div>
         <div>
-          Открыть консоль: <kbd>⌘/Ctrl</kbd> + <kbd>⇧</kbd> + <kbd>N</kbd>
+          Open a console: <kbd>⌘/Ctrl</kbd> + <kbd>⇧</kbd> + <kbd>N</kbd>
         </div>
       </div>
     );

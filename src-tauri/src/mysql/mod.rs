@@ -94,7 +94,7 @@ impl ConnectionManager {
     async fn fetch_server_info(conn: &mut Conn) -> AppResult<ServerInfo> {
         let row: Option<(String, u32)> = conn.query_first("SELECT VERSION(), CONNECTION_ID()").await?;
         let (server_version, connection_id) =
-            row.ok_or_else(|| AppError::Mysql("Пустой ответ от сервера при подключении".into()))?;
+            row.ok_or_else(|| AppError::Mysql("Empty response from the server on connect".into()))?;
         Ok(ServerInfo { server_version, connection_id })
     }
 
@@ -104,7 +104,7 @@ impl ConnectionManager {
         let opts = Self::build_opts(config, password);
 
         let pool_opts = PoolOpts::default().with_constraints(
-            PoolConstraints::new(1, 4).expect("1 <= 4 и 4 > 0 — валидные ограничения пула"),
+            PoolConstraints::new(1, 4).expect("1 <= 4 and 4 > 0 — valid pool constraints"),
         );
         let pool = Pool::new(OptsBuilder::from_opts(opts.clone()).pool_opts(pool_opts));
 

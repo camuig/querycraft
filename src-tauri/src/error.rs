@@ -8,16 +8,16 @@ pub enum AppError {
     #[error("{0}")]
     Mysql(String),
 
-    #[error("Ошибка ввода/вывода: {0}")]
+    #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("Ошибка формата JSON: {0}")]
+    #[error("JSON format error: {0}")]
     Json(#[from] serde_json::Error),
 
-    #[error("Ошибка хранилища паролей: {0}")]
+    #[error("Password storage error: {0}")]
     Keyring(String),
 
-    #[error("Подключение не найдено: {0}")]
+    #[error("Connection not found: {0}")]
     ConnectionNotFound(String),
 
     #[error("{0}")]

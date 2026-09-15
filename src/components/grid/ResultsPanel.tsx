@@ -27,9 +27,9 @@ function compareCell(a: CellValue, b: CellValue, dir: 1 | -1): number {
 }
 
 function titleFor(r: StatementResult, i: number): string {
-  if (r.kind === "error") return "Ошибка";
-  if (r.kind === "affected") return `Изменено: ${r.affectedRows} строк`;
-  return `Результат ${i + 1}`;
+  if (r.kind === "error") return "Error";
+  if (r.kind === "affected") return `Changed: ${r.affectedRows} rows`;
+  return `Result ${i + 1}`;
 }
 
 /** Список результатов выполнения (вкладки, если их несколько) с гридом, сортировкой и экспортом. */
@@ -53,7 +53,7 @@ export function ResultsPanel(props: ResultsPanelProps) {
   if (!active) {
     return (
       <div className="results-panel">
-        <div className="results-affected muted">Нет результатов</div>
+        <div className="results-affected muted">No results</div>
       </div>
     );
   }
@@ -87,13 +87,13 @@ export function ResultsPanel(props: ResultsPanelProps) {
         </div>
       )}
 
-      {active.kind === "error" && <div className="results-error text-select">{active.error ?? "Неизвестная ошибка"}</div>}
+      {active.kind === "error" && <div className="results-error text-select">{active.error ?? "Unknown error"}</div>}
 
       {active.kind === "affected" && (
         <div className="results-affected">
-          <span>Затронуто строк: {active.affectedRows}</span>
+          <span>Affected rows: {active.affectedRows}</span>
           {active.lastInsertId !== null && <span className="muted">last insert id: {active.lastInsertId}</span>}
-          <span className="muted">{active.durationMs} мс</span>
+          <span className="muted">{active.durationMs} ms</span>
         </div>
       )}
 
@@ -104,13 +104,13 @@ export function ResultsPanel(props: ResultsPanelProps) {
           </div>
           <div className="results-footer">
             <span>
-              {active.rows.length} строк{active.truncated ? " (обрезано лимитом)" : ""}
+              {active.rows.length} rows{active.truncated ? " (truncated by limit)" : ""}
             </span>
-            <span className="muted">{active.durationMs} мс</span>
+            <span className="muted">{active.durationMs} ms</span>
             <div className="spacer" />
             {active.truncated && onLoadMore && (
               <button className="outline" onClick={() => onLoadMore(safeIndex)}>
-                Ещё
+                More
               </button>
             )}
             <ExportMenu columns={active.columns} rows={sortedRows} fileBaseName={`result_${safeIndex + 1}`} />

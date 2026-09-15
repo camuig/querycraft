@@ -4,6 +4,7 @@ import { useTabsStore } from "../../store/tabsStore";
 import * as api from "../../api/commands";
 import type { ConnectionInput } from "../../api/types";
 import { toast } from "../../store/toastStore";
+import { NO_AUTOCORRECT } from "../../lib/inputProps";
 
 const COLORS = ["#e55765", "#e6a23c", "#5fad65", "#4a9ede", "#3574f0", "#b384f0"];
 
@@ -87,11 +88,11 @@ export function ConnectionDialog() {
         const user = form.user.trim();
         const port = Number(form.port);
         if (!name || !host || !user) {
-          setError("Заполните название, host и пользователя");
+          setError("Fill in name, host and user");
           return null;
         }
         if (!Number.isInteger(port) || port < 1 || port > 65535) {
-          setError("Порт должен быть числом от 1 до 65535");
+          setError("Port must be a number between 1 and 65535");
           return null;
         }
         setError(null);
@@ -119,7 +120,7 @@ export function ConnectionDialog() {
     setTesting(true);
     try {
       const info = await api.testConnection(input);
-      toast.success(`Соединение установлено. Версия сервера: ${info.serverVersion}`);
+      toast.success(`Connected. Server version: ${info.serverVersion}`);
     } catch (e) {
       toast.error(e);
     } finally {
@@ -160,19 +161,20 @@ export function ConnectionDialog() {
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && closeDialog()}>
       <div className="modal" style={{ minWidth: 480 }}>
-        <div className="modal-header">{isNew ? "Новое подключение" : "Изменить подключение"}</div>
+        <div className="modal-header">{isNew ? "New connection" : "Edit connection"}</div>
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
             <div className="form-grid">
-              <label>Название</label>
+              <label>Name</label>
               <input
+                {...NO_AUTOCORRECT}
                 autoFocus
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               />
 
               <label>Host</label>
-              <input value={form.host} onChange={(e) => setForm((f) => ({ ...f, host: e.target.value }))} />
+              <input {...NO_AUTOCORRECT} value={form.host} onChange={(e) => setForm((f) => ({ ...f, host: e.target.value }))} />
 
               <label>Port</label>
               <input
@@ -184,10 +186,11 @@ export function ConnectionDialog() {
               />
 
               <label>User</label>
-              <input value={form.user} onChange={(e) => setForm((f) => ({ ...f, user: e.target.value }))} />
+              <input {...NO_AUTOCORRECT} value={form.user} onChange={(e) => setForm((f) => ({ ...f, user: e.target.value }))} />
 
               <label>Password</label>
               <input
+                {...NO_AUTOCORRECT}
                 type="password"
                 placeholder={!isNew && editingConfig?.hasPassword ? "••••••••" : undefined}
                 value={form.password}
@@ -202,13 +205,14 @@ export function ConnectionDialog() {
                     checked={form.savePassword}
                     onChange={(e) => setForm((f) => ({ ...f, savePassword: e.target.checked }))}
                   />
-                  Сохранить пароль
+                  Save password
                 </label>
               </div>
 
-              <label>База данных</label>
+              <label>Database</label>
               <input
-                placeholder="необязательно"
+                {...NO_AUTOCORRECT}
+                placeholder="optional"
                 value={form.database}
                 onChange={(e) => setForm((f) => ({ ...f, database: e.target.value }))}
               />
@@ -225,12 +229,12 @@ export function ConnectionDialog() {
                 </label>
               </div>
 
-              <label>Цвет</label>
+              <label>Color</label>
               <div className="form-row">
                 <button
                   type="button"
                   className="icon"
-                  title="Без цвета"
+                  title="No color"
                   onClick={() => setForm((f) => ({ ...f, color: null }))}
                   style={{
                     width: 18,
@@ -275,14 +279,14 @@ export function ConnectionDialog() {
                 onClick={handleDelete}
                 style={{ marginRight: "auto" }}
               >
-                {confirmingDelete ? "Точно удалить?" : "Удалить"}
+                {confirmingDelete ? "Confirm delete?" : "Delete"}
               </button>
             )}
             <button type="button" onClick={handleTest} disabled={testing}>
-              {testing ? "Проверка…" : "Проверить соединение"}
+              {testing ? "Testing…" : "Test connection"}
             </button>
             <button type="button" className="outline" onClick={closeDialog}>
-              Отмена
+              Cancel
             </button>
             <button type="submit" className="primary" disabled={saving}>
               OK

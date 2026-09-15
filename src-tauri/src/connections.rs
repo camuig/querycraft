@@ -80,7 +80,7 @@ impl ConnectionStore {
         let config_dir = app
             .path()
             .app_config_dir()
-            .map_err(|e| AppError::Other(format!("Не удалось определить каталог конфигурации: {e}")))?;
+            .map_err(|e| AppError::Other(format!("Failed to determine the config directory: {e}")))?;
         fs::create_dir_all(&config_dir)?;
         let file_path = config_dir.join(CONNECTIONS_FILE);
 
@@ -120,12 +120,12 @@ impl ConnectionStore {
                 Ok(_) => true,
                 Err(keyring::Error::NoEntry) => false,
                 Err(e) => {
-                    log::warn!("Не удалось прочитать пароль из keyring для {id}: {e}");
+                    log::warn!("Failed to read the password from the keyring for {id}: {e}");
                     false
                 }
             },
             Err(e) => {
-                log::warn!("Не удалось открыть keyring для {id}: {e}");
+                log::warn!("Failed to open the keyring for {id}: {e}");
                 false
             }
         }
@@ -245,12 +245,12 @@ impl ConnectionStore {
                 Ok(password) => Some(password),
                 Err(keyring::Error::NoEntry) => None,
                 Err(e) => {
-                    log::warn!("Не удалось прочитать пароль из keyring для {id}: {e}");
+                    log::warn!("Failed to read the password from the keyring for {id}: {e}");
                     None
                 }
             },
             Err(e) => {
-                log::warn!("Не удалось открыть keyring для {id}: {e}");
+                log::warn!("Failed to open the keyring for {id}: {e}");
                 None
             }
         };

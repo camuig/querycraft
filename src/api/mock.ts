@@ -19,7 +19,7 @@ let connections: ConnectionConfig[] = [
 
 const tables: Record<string, TableInfo[]> = {
   shop: [
-    { name: "customers", kind: "table", engine: "InnoDB", rows: 3, comment: "Покупатели" },
+    { name: "customers", kind: "table", engine: "InnoDB", rows: 3, comment: "Customers" },
     { name: "orders", kind: "table", engine: "InnoDB", rows: 3, comment: "" },
     { name: "products", kind: "table", engine: "InnoDB", rows: 3, comment: "" },
     { name: "big_table", kind: "table", engine: "InnoDB", rows: 100000, comment: "" },
@@ -46,7 +46,7 @@ const meta = (name: string, typeName: string, extra: Partial<ColumnMeta> = {}): 
 const customerRows = [
   [1, "alice@example.com", "Alice", "100.50", "1990-05-01", '{"vip": true}'],
   [2, "bob@example.com", "Bob", "0.00", null, null],
-  [3, "carol@example.com", "Кэрол", "-12.25", "1985-12-31", "[1,2,3]"],
+  [3, "carol@example.com", "Carol", "-12.25", "1985-12-31", "[1,2,3]"],
 ];
 
 function rowsResult(sql: string, cols: ColumnMeta[], rows: StatementResult["rows"], truncated = false): StatementResult {
@@ -118,6 +118,6 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
     }
     case "apply_changes": return { affectedRows: (args.statements as unknown[]).length, durationMs: 12 } as T;
     case "list_history": return [] as T;
-    default: throw new Error(`mock: неизвестная команда ${cmd}`);
+    default: throw new Error(`mock: unknown command ${cmd}`);
   }
 }

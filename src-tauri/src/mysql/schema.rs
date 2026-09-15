@@ -203,13 +203,13 @@ pub async fn get_table_ddl(conn: &mut Conn, database: &str, table: &str) -> AppR
 /// `SHOW CREATE TABLE`/`SHOW CREATE VIEW` — DDL всегда во втором столбце (индекс 1).
 async fn show_create_ddl(conn: &mut Conn, sql: &str) -> AppResult<String> {
     let row: Option<Row> = conn.query_first(sql).await?;
-    let row = row.ok_or_else(|| AppError::Mysql("SHOW CREATE вернул пустой результат".into()))?;
+    let row = row.ok_or_else(|| AppError::Mysql("SHOW CREATE returned an empty result".into()))?;
     let value = row
         .as_ref(1)
         .cloned()
-        .ok_or_else(|| AppError::Mysql("В ответе SHOW CREATE нет колонки с DDL".into()))?;
+        .ok_or_else(|| AppError::Mysql("SHOW CREATE response has no DDL column".into()))?;
     match value {
         Value::Bytes(bytes) => Ok(String::from_utf8_lossy(&bytes).into_owned()),
-        other => Err(AppError::Mysql(format!("Неожиданный тип значения DDL: {other:?}"))),
+        other => Err(AppError::Mysql(format!("Unexpected DDL value type: {other:?}"))),
     }
 }

@@ -11,10 +11,10 @@ const STATUS_COLOR: Record<ConnectionStatus, string> = {
 };
 
 const STATUS_LABEL: Record<ConnectionStatus, string> = {
-  connected: "подключено",
-  connecting: "подключение…",
-  error: "ошибка",
-  disconnected: "нет соединения",
+  connected: "connected",
+  connecting: "connecting…",
+  error: "error",
+  disconnected: "disconnected",
 };
 
 /** Нижний статус-бар: подключение/база активной вкладки слева, версия сервера справа. */
@@ -42,7 +42,7 @@ export function StatusBar() {
           <span className="muted">{STATUS_LABEL[status]}</span>
         </>
       ) : (
-        <span className="muted">Нет активной вкладки</span>
+        <span className="muted">No active tab</span>
       )}
       <div className="spacer" />
       {message && <span className="text-select">{message}</span>}

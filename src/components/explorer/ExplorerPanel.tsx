@@ -1,6 +1,7 @@
 import { TreeRow } from "./TreeRow";
 import { ContextMenu } from "./ContextMenu";
 import { useExplorerTree } from "./useExplorerTree";
+import { NO_AUTOCORRECT } from "../../lib/inputProps";
 import "../../styles/explorer.css";
 
 /** Левая панель "Проводник БД": подключения → базы → таблицы/представления → столбцы/индексы/ключи. */
@@ -25,23 +26,24 @@ export function ExplorerPanel() {
   return (
     <div className="panel">
       <div className="panel-header">
-        <span>База данных</span>
+        <span>Database</span>
         <div style={{ flex: 1 }} />
-        <button className="icon" onClick={() => openConnectionDialog("new")} title="Новое подключение">
+        <button className="icon" onClick={() => openConnectionDialog("new")} title="New connection">
           +
         </button>
         <button
           className="icon"
           onClick={handleRefreshSelected}
           disabled={!explorer.selectedConnectionId}
-          title="Обновить"
+          title="Refresh"
         >
           ↻
         </button>
       </div>
       <div className="explorer-filter">
         <input
-          placeholder="Фильтр…"
+          {...NO_AUTOCORRECT}
+          placeholder="Filter…"
           value={explorer.filter}
           onChange={(e) => explorer.setFilter(e.target.value)}
         />

@@ -42,7 +42,7 @@ impl History {
         let data_dir = app
             .path()
             .app_data_dir()
-            .map_err(|e| crate::error::AppError::Other(format!("Не удалось определить каталог данных: {e}")))?;
+            .map_err(|e| crate::error::AppError::Other(format!("Failed to determine the data directory: {e}")))?;
         fs::create_dir_all(&data_dir)?;
         let file_path = data_dir.join(HISTORY_FILE);
 

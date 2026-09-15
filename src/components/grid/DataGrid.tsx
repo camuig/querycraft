@@ -118,7 +118,7 @@ export function DataGrid(props: DataGridProps) {
         navigator.clipboard?.writeText(text).catch(() => undefined);
       });
       const n = data.length * cols.length;
-      toast.info(n === 1 ? "Скопировано" : `Скопировано ячеек: ${n}`);
+      toast.info(n === 1 ? "Copied" : `Copied cells: ${n}`);
     },
     [getValue, columns],
   );
@@ -245,6 +245,13 @@ export function DataGrid(props: DataGridProps) {
     <div
       className="data-grid"
       tabIndex={0}
+      onMouseDown={(e) => {
+        // Не даём браузеру начать нативное выделение текста при протяжке по ячейкам;
+        // фокус переводим на грид вручную (preventDefault отменяет и его).
+        if (e.target instanceof HTMLInputElement || e.target === scrollRef.current) return;
+        e.preventDefault();
+        if (document.activeElement !== e.currentTarget) e.currentTarget.focus();
+      }}
       onKeyDown={handleKeyDown}
       onPaste={(e) => {
         // Запасной путь: событие paste от системы (если чтение буфера через API недоступно).
@@ -269,7 +276,7 @@ export function DataGrid(props: DataGridProps) {
                   key={vc.key}
                   className={`grid-header-cell ${onSort ? "sortable" : ""} ${colSelected ? "col-selected" : ""}`}
                   style={style}
-                  title="Клик — выделить колонку, Shift+клик — диапазон колонок"
+                  title="Click to select column, Shift+click for column range"
                   onMouseDown={(e) => sel.handleHeaderMouseDown(vc.index, e)}
                 >
                   <div className="grid-header-name">
@@ -277,7 +284,7 @@ export function DataGrid(props: DataGridProps) {
                     {onSort && (
                       <span
                         className={`sort-indicator ${sorted ? "active" : ""}`}
-                        title="Сортировать"
+                        title="Sort"
                         onMouseDown={(e) => e.stopPropagation()}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -321,7 +328,7 @@ export function DataGrid(props: DataGridProps) {
 
         <div className="grid-scroll" ref={scrollRef} onScroll={handleScroll}>
           {rows.length === 0 ? (
-            <div className="grid-empty muted">Нет строк</div>
+            <div className="grid-empty muted">No rows</div>
           ) : (
             <div className="grid-scroll-inner" style={{ width: totalWidth, height: totalHeight }}>
               {rowVirtualizer.getVirtualItems().flatMap((vr) =>
@@ -381,19 +388,19 @@ export function DataGrid(props: DataGridProps) {
             );
             return (
               <>
-                {item("Копировать", () => copyRange(range, "tsv", false))}
-                {item("Копировать как CSV", () => copyRange(range, "csv", false))}
-                {item("Копировать с заголовками (TSV)", () => copyRange(range, "tsv", true))}
-                {item("Копировать с заголовками (CSV)", () => copyRange(range, "csv", true))}
+                {item("Copy", () => copyRange(range, "tsv", false))}
+                {item("Copy as CSV", () => copyRange(range, "csv", false))}
+                {item("Copy with headers (TSV)", () => copyRange(range, "tsv", true))}
+                {item("Copy with headers (CSV)", () => copyRange(range, "csv", true))}
                 {editable && (
                   <>
                     <div className="divider" />
-                    {onPaste && item("Вставить", () => readClipboardText().then(handlePasteText).catch((err) => toast.error(err)))}
-                    {item("Установить NULL", () => handleSetNullRange(range))}
+                    {onPaste && item("Paste", () => readClipboardText().then(handlePasteText).catch((err) => toast.error(err)))}
+                    {item("Set NULL", () => handleSetNullRange(range))}
                   </>
                 )}
                 <div className="divider" />
-                {item("Выделить всё", () => sel.selectAll())}
+                {item("Select all", () => sel.selectAll())}
               </>
             );
           })()}

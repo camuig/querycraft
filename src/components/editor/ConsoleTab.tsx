@@ -5,7 +5,7 @@ import type { ConsoleTab as ConsoleTabModel } from "../../store/tabsStore";
 import { useTabsStore } from "../../store/tabsStore";
 import { useConnectionsStore } from "../../store/connectionsStore";
 import { useExplorerStore } from "../../store/explorerStore";
-import { useSettingsStore } from "../../store/settingsStore";
+import { selectResolvedTheme, useSettingsStore } from "../../store/settingsStore";
 import { useStatusStore } from "../../store/statusStore";
 import { toast } from "../../store/toastStore";
 import * as api from "../../api/commands";
@@ -28,7 +28,7 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
   const loadColumns = useExplorerStore((s) => s.loadColumns);
   const maxRows = useSettingsStore((s) => s.maxRows);
   const editorFontSize = useSettingsStore((s) => s.editorFontSize);
-  const theme = useSettingsStore((s) => s.theme);
+  const theme = useSettingsStore(selectResolvedTheme);
   const setStatusMessage = useStatusStore((s) => s.setMessage);
 
   const editorRef = useRef<EditorView | null>(null);
@@ -107,9 +107,9 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
         setResults(res);
         const totalRows = res.reduce((sum, r) => sum + (r.kind === "rows" ? r.rows.length : r.affectedRows), 0);
         const totalMs = Math.round(performance.now() - started);
-        setStatusMessage(`${totalRows} строк за ${totalMs} мс`);
+        setStatusMessage(`${totalRows} rows in ${totalMs} ms`);
         const firstError = res.find((r) => r.kind === "error");
-        if (firstError) toast.error(firstError.error ?? "Ошибка выполнения");
+        if (firstError) toast.error(firstError.error ?? "Execution error");
       } catch (e) {
         setResults([
           { sql, kind: "error", columns: [], rows: [], truncated: false, affectedRows: 0, lastInsertId: null, error: String(e), durationMs: 0 },
@@ -170,20 +170,20 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
   return (
     <div className="console-tab" style={{ display: active ? "flex" : "none" }}>
       <div className="console-toolbar">
-        <button onClick={() => handleExecute("current")} disabled={running} title="Выполнить (⌘/Ctrl+Enter)">
-          ▶ Выполнить
+        <button onClick={() => handleExecute("current")} disabled={running} title="Run (⌘/Ctrl+Enter)">
+          ▶ Run
         </button>
-        <button onClick={() => handleExecute("all")} disabled={running} title="Выполнить всё (⌘/Ctrl+⇧+Enter)">
-          ▶▶ Выполнить всё
+        <button onClick={() => handleExecute("all")} disabled={running} title="Run all (⌘/Ctrl+⇧+Enter)">
+          ▶▶ Run all
         </button>
         {running && (
-          <button onClick={handleCancel} title="Отменить">
-            ■ Отменить
+          <button onClick={handleCancel} title="Cancel">
+            ■ Cancel
           </button>
         )}
         <div className="sep" />
-        <select value={tab.database ?? ""} onChange={(e) => handleDatabaseChange(e.target.value)} title="Текущая база данных">
-          <option value="">(без базы)</option>
+        <select value={tab.database ?? ""} onChange={(e) => handleDatabaseChange(e.target.value)} title="Current database">
+          <option value="">(no database)</option>
           {(databases ?? []).map((d) => (
             <option key={d} value={d}>
               {d}
@@ -193,7 +193,7 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
         <div className="spacer" />
         <div className="status">
           {running && <span className="spinner" />}
-          <span>{running ? "Выполняется…" : elapsedMs !== null ? `${elapsedMs} мс` : ""}</span>
+          <span>{running ? "Running…" : elapsedMs !== null ? `${elapsedMs} ms` : ""}</span>
         </div>
       </div>
       <div className="console-split">

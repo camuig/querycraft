@@ -188,14 +188,14 @@ export class ChangeTracker {
 
     if ((deletes.length > 0 || updates.length > 0) && this.pkColumns.length === 0) {
       throw new Error(
-        "Невозможно построить UPDATE/DELETE: не заданы колонки первичного ключа (pkColumns)",
+        "Cannot build UPDATE/DELETE: primary key columns are not set (pkColumns)",
       );
     }
 
     const pkColIndices = this.pkColumns.map((pkName) => {
       const idx = this.columns.findIndex((c) => c.name === pkName);
       if (idx === -1) {
-        throw new Error(`PK-колонка "${pkName}" не найдена среди columns`);
+        throw new Error(`PK column "${pkName}" not found among columns`);
       }
       return idx;
     });

@@ -70,7 +70,7 @@ function matches(name: string, filter: string): boolean {
 /** Дочерние узлы для узла "загрузка"/"ошибка" на заданной глубине. */
 function statusChildren(depth: number, connectionId: string, database: string | undefined, key: string, isLoading: boolean, error: string | undefined): TreeNode[] {
   if (isLoading) {
-    return [{ key: `${key}#loading`, kind: "loading", depth, connectionId, database, label: "загрузка…", expandable: false }];
+    return [{ key: `${key}#loading`, kind: "loading", depth, connectionId, database, label: "Loading…", expandable: false }];
   }
   if (error) {
     return [{ key: `${key}#error`, kind: "error", depth, connectionId, database, label: error, expandable: false }];
@@ -104,7 +104,7 @@ export function buildTree(input: TreeModelInput): TreeNode[] {
       continue;
     }
     if (status === "error") {
-      result.push(...statusChildren(1, conn.id, undefined, cKey, false, input.errors[cKey] ?? "Ошибка подключения"));
+      result.push(...statusChildren(1, conn.id, undefined, cKey, false, input.errors[cKey] ?? "Connection error"));
       continue;
     }
     if (input.loading[cKey]) {
@@ -149,8 +149,8 @@ export function buildTree(input: TreeModelInput): TreeNode[] {
       if (!dbTables) continue;
 
       const tableFilter = filter === "" || dbMatches ? "" : filter;
-      pushTableGroup(result, conn.id, db, dKey, dbTables, "table", "group-tables", "Таблицы", tableFilter, input);
-      pushTableGroup(result, conn.id, db, dKey, dbTables, "view", "group-views", "Представления", tableFilter, input);
+      pushTableGroup(result, conn.id, db, dKey, dbTables, "table", "group-tables", "Tables", tableFilter, input);
+      pushTableGroup(result, conn.id, db, dKey, dbTables, "view", "group-views", "Views", tableFilter, input);
     }
   }
 
@@ -239,7 +239,7 @@ function tableChildren(connectionId: string, database: string, table: string, tK
     connectionId,
     database,
     table,
-    label: "Индексы",
+    label: "Indexes",
     expandable: true,
   });
   if (input.expanded[idxKey]) {
@@ -272,7 +272,7 @@ function tableChildren(connectionId: string, database: string, table: string, tK
       connectionId,
       database,
       table,
-      label: "Внешние ключи",
+      label: "Foreign keys",
       expandable: true,
     });
     if (input.expanded[fkKey]) {

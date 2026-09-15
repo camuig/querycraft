@@ -2,11 +2,10 @@ import { useCallback, useEffect } from "react";
 import { useConnectionsStore } from "../../store/connectionsStore";
 import { useExplorerStore } from "../../store/explorerStore";
 import { useTabsStore } from "../../store/tabsStore";
-import { useSettingsStore } from "../../store/settingsStore";
+import { MAX_ROWS_OPTIONS, useSettingsStore } from "../../store/settingsStore";
+import { Logo } from "../common/Logo";
 
-const MAX_ROWS_OPTIONS = [100, 500, 1000, 5000];
-
-/** Верхний тулбар в духе DataGrip: подключения, новая консоль, тема, лимит строк. */
+/** Верхний тулбар в духе DataGrip: подключения, новая консоль, лимит строк, настройки. */
 export function Toolbar() {
   const openConnectionDialog = useConnectionsStore((s) => s.openDialog);
   const selectedConnectionId = useExplorerStore((s) => s.selectedConnectionId);
@@ -15,10 +14,9 @@ export function Toolbar() {
     selectedConnectionId ? s.runtime[selectedConnectionId]?.status : undefined,
   );
   const openConsole = useTabsStore((s) => s.openConsole);
-  const theme = useSettingsStore((s) => s.theme);
-  const setTheme = useSettingsStore((s) => s.setTheme);
   const maxRows = useSettingsStore((s) => s.maxRows);
   const setMaxRows = useSettingsStore((s) => s.setMaxRows);
+  const openSettings = useSettingsStore((s) => s.openDialog);
 
   const canOpenConsole = selectedConnectionId !== null && connectionStatus === "connected";
 
@@ -33,35 +31,29 @@ export function Toolbar() {
       if (mod && e.shiftKey && e.key.toLowerCase() === "n") {
         e.preventDefault();
         handleNewConsole();
+      } else if (mod && e.key === ",") {
+        e.preventDefault();
+        openSettings();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleNewConsole]);
+  }, [handleNewConsole, openSettings]);
 
   return (
     <div className="toolbar">
-      <button className="outline" onClick={() => openConnectionDialog("new")} title="Новое подключение">
-        + Подключение
+      <div className="brand" title="QueryCraft">
+        <Logo size={18} />
+      </div>
+      <button className="outline" onClick={() => openConnectionDialog("new")} title="New connection">
+        + Connection
       </button>
-      <button
-        onClick={handleNewConsole}
-        disabled={!canOpenConsole}
-        title="Новая консоль (⌘/Ctrl+Shift+N)"
-      >
-        ▤ Новая консоль
-      </button>
-      <div className="sep" />
-      <button
-        className="icon"
-        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-        title={theme === "dark" ? "Светлая тема" : "Тёмная тема"}
-      >
-        {theme === "dark" ? "☀" : "☾"}
+      <button onClick={handleNewConsole} disabled={!canOpenConsole} title="New console (⌘/Ctrl+Shift+N)">
+        ▤ New console
       </button>
       <div className="spacer" />
       <label className="muted" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-        Лимит строк
+        Row limit
         <select value={maxRows} onChange={(e) => setMaxRows(Number(e.target.value))}>
           {MAX_ROWS_OPTIONS.map((n) => (
             <option key={n} value={n}>
@@ -70,6 +62,9 @@ export function Toolbar() {
           ))}
         </select>
       </label>
+      <button className="icon" onClick={openSettings} title="Settings (⌘/Ctrl+,)">
+        ⚙
+      </button>
     </div>
   );
 }

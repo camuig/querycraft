@@ -216,28 +216,28 @@ export function useExplorerTree() {
           const connected = runtimeStatus[node.connectionId] === "connected";
           return [
             connected
-              ? { label: "Отключиться", onClick: () => void handleDisconnect(node.connectionId) }
-              : { label: "Подключиться", onClick: () => void handleConnect(node.connectionId) },
-            { label: "Новая консоль", onClick: () => openConsole(node.connectionId, null), disabled: !connected },
+              ? { label: "Disconnect", onClick: () => void handleDisconnect(node.connectionId) }
+              : { label: "Connect", onClick: () => void handleConnect(node.connectionId) },
+            { label: "New console", onClick: () => openConsole(node.connectionId, null), disabled: !connected },
             "divider",
-            { label: "Изменить…", onClick: () => openConnectionDialog(node.connectionId) },
-            { label: "Обновить", onClick: () => handleRefreshNode(node) },
-            { label: "Удалить", onClick: () => openConnectionDialog(node.connectionId) },
+            { label: "Edit…", onClick: () => openConnectionDialog(node.connectionId) },
+            { label: "Refresh", onClick: () => handleRefreshNode(node) },
+            { label: "Delete", onClick: () => openConnectionDialog(node.connectionId) },
           ];
         }
         case "database":
           return [
-            { label: "Новая консоль", onClick: () => openConsole(node.connectionId, node.database!) },
-            { label: "Обновить", onClick: () => handleRefreshNode(node) },
-            { label: "Копировать имя", onClick: () => copyName(node.database!) },
+            { label: "New console", onClick: () => openConsole(node.connectionId, node.database!) },
+            { label: "Refresh", onClick: () => handleRefreshNode(node) },
+            { label: "Copy name", onClick: () => copyName(node.database!) },
           ];
         case "table":
         case "view":
           return [
-            { label: "Открыть данные", onClick: () => openTableData(node.connectionId, node.database!, node.table!) },
+            { label: "Open data", onClick: () => openTableData(node.connectionId, node.database!, node.table!) },
             { label: "DDL", onClick: () => openDdl(node.connectionId, node.database!, node.table!) },
             {
-              label: "Новая консоль",
+              label: "New console",
               onClick: () =>
                 openConsole(
                   node.connectionId,
@@ -246,8 +246,8 @@ export function useExplorerTree() {
                 ),
             },
             "divider",
-            { label: "Копировать имя", onClick: () => copyName(node.table!) },
-            { label: "Обновить", onClick: () => handleRefreshNode(node) },
+            { label: "Copy name", onClick: () => copyName(node.table!) },
+            { label: "Refresh", onClick: () => handleRefreshNode(node) },
           ];
         default:
           return null;

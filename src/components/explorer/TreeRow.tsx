@@ -61,7 +61,7 @@ export function TreeRow({ node, selected, expanded, style, onSelect, onToggleExp
       )}
 
       {KIND_ICON[node.kind] && <span className="tree-icon">{KIND_ICON[node.kind]}</span>}
-      {node.keyGlyph && <span className="tree-icon" title={node.keyGlyph === "🔑" ? "первичный ключ" : "индекс"}>{node.keyGlyph}</span>}
+      {node.keyGlyph && <span className="tree-icon" title={node.keyGlyph === "🔑" ? "primary key" : "index"}>{node.keyGlyph}</span>}
 
       <span className={`tree-label ${node.bold ? "tree-label-bold" : ""} ${isPlain ? "muted" : ""}`}>{node.label}</span>
 

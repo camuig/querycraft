@@ -47,7 +47,7 @@ export function ExportMenu(props: ExportMenuProps) {
     if (!path) return;
     try {
       await writeTextFile(path, toCsv(props.columns, props.rows));
-      toast.success(`Экспортировано в ${path}`);
+      toast.success(`Exported to ${path}`);
     } catch (e) {
       toast.error(e);
     }
@@ -59,7 +59,7 @@ export function ExportMenu(props: ExportMenuProps) {
     if (!path) return;
     try {
       await writeTextFile(path, toJson(props.columns, props.rows));
-      toast.success(`Экспортировано в ${path}`);
+      toast.success(`Exported to ${path}`);
     } catch (e) {
       toast.error(e);
     }
@@ -68,13 +68,13 @@ export function ExportMenu(props: ExportMenuProps) {
   async function handleCopyTsv() {
     setPos(null);
     await copyText(toTsv(props.columns, props.rows));
-    toast.success("Скопировано как TSV");
+    toast.success("Copied as TSV");
   }
 
   async function handleCopySqlInsert() {
     setPos(null);
     await copyText(toSqlInserts(props.database ?? null, tableName, props.columns, props.rows));
-    toast.success("Скопировано как SQL INSERT");
+    toast.success("Copied as SQL INSERT");
   }
 
   return (
@@ -88,22 +88,22 @@ export function ExportMenu(props: ExportMenuProps) {
           setPos(rect ? { x: rect.left, y: rect.bottom + 4, anchorHeight: rect.height + 8 } : { x: 0, y: 0, anchorHeight: 0 });
         }}
       >
-        Экспорт ▾
+        Export ▾
       </button>
       {open && pos && (
         <PopupMenu x={pos.x} y={pos.y} anchorHeight={pos.anchorHeight}>
           <div className="item" onClick={handleCsv}>
-            CSV в файл
+            CSV to file
           </div>
           <div className="item" onClick={handleJson}>
-            JSON в файл
+            JSON to file
           </div>
           <div className="divider" />
           <div className="item" onClick={handleCopyTsv}>
-            Копировать как TSV
+            Copy as TSV
           </div>
           <div className="item" onClick={handleCopySqlInsert}>
-            Копировать как SQL INSERT
+            Copy as SQL INSERT
           </div>
         </PopupMenu>
       )}

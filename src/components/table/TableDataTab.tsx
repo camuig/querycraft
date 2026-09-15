@@ -3,7 +3,7 @@ import type { KeyboardEvent } from "react";
 import type { TableDataTab as TableDataTabModel } from "../../store/tabsStore";
 import { useConnectionsStore } from "../../store/connectionsStore";
 import { useExplorerStore } from "../../store/explorerStore";
-import { useSettingsStore } from "../../store/settingsStore";
+import { selectResolvedTheme, useSettingsStore } from "../../store/settingsStore";
 import { toast } from "../../store/toastStore";
 import * as api from "../../api/commands";
 import type { CellValue, ColumnMeta } from "../../api/types";
@@ -13,6 +13,7 @@ import { ChangeTracker } from "../../lib/changeTracker";
 import { DataGrid } from "../grid/DataGrid";
 import type { GridCellPos } from "../grid/useGridSelection";
 import { SqlEditor } from "../editor/SqlEditor";
+import { WhereInput } from "./WhereInput";
 
 function countChanges(tracker: ChangeTracker, rowCount: number, colCount: number): number {
   let n = 0;
@@ -37,9 +38,10 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
   const loadColumns = useExplorerStore((s) => s.loadColumns);
   const pageSize = useSettingsStore((s) => s.maxRows);
   const editorFontSize = useSettingsStore((s) => s.editorFontSize);
-  const theme = useSettingsStore((s) => s.theme);
+  const theme = useSettingsStore(selectResolvedTheme);
 
   const [pkColumns, setPkColumns] = useState<string[] | null>(null);
+  const [columnNames, setColumnNames] = useState<string[]>([]);
   const [resultColumns, setResultColumns] = useState<ColumnMeta[]>([]);
   const [rows, setRows] = useState<CellValue[][]>([]);
   const [tracker, setTracker] = useState<ChangeTracker | null>(null);
@@ -62,8 +64,12 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
   // Метаданные колонок (для определения первичного ключа).
   useEffect(() => {
     setPkColumns(null);
+    setColumnNames([]);
     loadColumns(tab.connectionId, tab.database, tab.table)
-      .then((cols) => setPkColumns(cols.filter((c) => c.key === "PRI").map((c) => c.name)))
+      .then((cols) => {
+        setColumnNames(cols.map((c) => c.name));
+        setPkColumns(cols.filter((c) => c.key === "PRI").map((c) => c.name));
+      })
       .catch((e) => {
         toast.error(e);
         setPkColumns([]);
@@ -90,7 +96,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
         if (cancelled) return;
         const r = res[0];
         if (!r || r.kind === "error") {
-          toast.error(r?.error ?? "Ошибка выполнения запроса");
+          toast.error(r?.error ?? "Query execution error");
           setResultColumns([]);
           setRows([]);
         } else {
@@ -223,7 +229,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
       }
       setTracker(next);
       setSelectedCell({ row, col });
-      if (added > 0) toast.info(`Добавлено строк: ${added}. Нажмите Submit, чтобы сохранить.`);
+      if (added > 0) toast.info(`Added rows: ${added}. Press Submit to save.`);
     },
     [tracker, resultColumns],
   );
@@ -241,13 +247,13 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
   const handleSubmit = useCallback(async () => {
     if (!tracker || !tracker.hasChanges) return;
     if (!editable) {
-      toast.error("Таблица без первичного ключа — сохранение недоступно");
+      toast.error("Table has no primary key — saving is disabled");
       return;
     }
     try {
       const statements = tracker.buildStatements(tab.database, tab.table);
       const result = await api.applyChanges(tab.connectionId, tab.sessionId, statements);
-      toast.success(`Применено. Затронуто строк: ${result.affectedRows}`);
+      toast.success(`Applied. Affected rows: ${result.affectedRows}`);
       setReloadToken((t2) => t2 + 1);
     } catch (e) {
       toast.error(e);
@@ -286,20 +292,18 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
   return (
     <div className="table-data-tab" style={{ display: active ? "flex" : "none" }}>
       <div className="table-toolbar">
-        <button className="icon" onClick={() => setReloadToken((t) => t + 1)} title="Обновить">
+        <button className="icon" onClick={() => setReloadToken((t) => t + 1)} title="Refresh">
           ↻
         </button>
-        <input
-          className="where-input"
+        <WhereInput
           value={whereInput}
-          onChange={(e) => setWhereInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              setWhereApplied(whereInput);
-              setPage(0);
-            }
+          onChange={setWhereInput}
+          onApply={() => {
+            setWhereApplied(whereInput);
+            setPage(0);
           }}
-          placeholder="условие WHERE, например id > 10"
+          columns={columnNames}
+          placeholder="WHERE condition, e.g. id > 10"
         />
         {orderBy.map((o) => (
           <span key={o.column} className="order-chip">
@@ -310,21 +314,21 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
           </span>
         ))}
         <div className="spacer" />
-        {!editable && pkColumns !== null && <span className="muted">Таблица без первичного ключа — только чтение</span>}
-        <span className="muted">изменений: {changeCount}</span>
+        {!editable && pkColumns !== null && <span className="muted">Table has no primary key — read only</span>}
+        <span className="muted">changes: {changeCount}</span>
         <button className="outline" onClick={() => setShowSql((s) => !s)}>
-          {showSql ? "Скрыть SQL" : "Показать SQL"}
+          {showSql ? "Hide SQL" : "Show SQL"}
         </button>
-        <button className="icon" onClick={handleAddRow} disabled={!editable} title="Добавить строку (затем ⌘/Ctrl+V вставит строки из буфера)">
+        <button className="icon" onClick={handleAddRow} disabled={!editable} title="Add row (then ⌘/Ctrl+V pastes rows from clipboard)">
           +
         </button>
-        <button className="icon" onClick={handleToggleDeleteSelected} disabled={!editable || !selectedCell} title="Удалить/восстановить строку">
+        <button className="icon" onClick={handleToggleDeleteSelected} disabled={!editable || !selectedCell} title="Delete/restore row">
           −
         </button>
-        <button onClick={handleRevert} disabled={!tracker?.hasChanges} title="Отменить изменения">
+        <button onClick={handleRevert} disabled={!tracker?.hasChanges} title="Revert changes">
           Revert
         </button>
-        <button className="primary" onClick={() => void handleSubmit()} disabled={!tracker?.hasChanges} title="Применить (⌘/Ctrl+Enter)">
+        <button className="primary" onClick={() => void handleSubmit()} disabled={!tracker?.hasChanges} title="Apply (⌘/Ctrl+Enter)">
           Submit
         </button>
       </div>
@@ -356,12 +360,12 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
           ◀
         </button>
         <span>
-          строки {rows.length > 0 ? rangeStart : 0}–{rangeEnd} из {totalCount === null ? "…" : totalCount}
+          Rows {rows.length > 0 ? rangeStart : 0}–{rangeEnd} of {totalCount === null ? "…" : totalCount}
         </span>
         <button className="icon" disabled={!canNext} onClick={() => setPage((p) => p + 1)}>
           ▶
         </button>
-        {loading && <span className="muted">Загрузка…</span>}
+        {loading && <span className="muted">Loading…</span>}
       </div>
     </div>
   );
