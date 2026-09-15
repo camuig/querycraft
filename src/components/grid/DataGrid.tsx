@@ -99,11 +99,11 @@ export function DataGrid(props: DataGridProps) {
 
   const [widths, setWidths] = useState<number[] | null>(null);
   const hasRows = rows.length > 0;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measure on column changes and on the first rows only
   useEffect(() => {
     setWidths(computeColumnWidths(columns, rows));
     // Widths are measured when the column set changes (new query / table) and once more when the
     // first rows arrive, since the data tab may render the new columns before its rows are ready.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [columns, hasRows]);
 
   const colWidths = widths && widths.length === columns.length ? widths : columns.map(() => 120);
@@ -184,16 +184,16 @@ export function DataGrid(props: DataGridProps) {
 
   // The virtualizer caches item sizes and does not re-read `estimateSize` on its own,
   // so after a manual resize (or a fresh auto-measure) the cache must be dropped explicitly.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: widths is the trigger, measure() is stable
   useEffect(() => {
     colVirtualizer.measure();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [widths]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll only when the focused cell changes
   useEffect(() => {
     if (!sel.selection) return;
     rowVirtualizer.scrollToIndex(sel.selection.focus.row, { align: "auto" });
     colVirtualizer.scrollToIndex(sel.selection.focus.col, { align: "auto" });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sel.selection?.focus.row, sel.selection?.focus.col]);
 
   const handleScroll = useCallback(() => {

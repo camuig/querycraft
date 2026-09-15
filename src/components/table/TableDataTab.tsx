@@ -79,6 +79,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
   }, [tab.connectionId, tab.database, tab.table, loadColumns]);
 
   // Load a page of data.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadToken forces a refetch on demand
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -135,6 +136,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
   ]);
 
   // Approximate total row count (COUNT(*), run in parallel, doesn't block the grid).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadToken forces a refetch on demand
   useEffect(() => {
     let cancelled = false;
     setTotalCount(null);
@@ -265,7 +267,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
   }, []);
 
   const handleSubmit = useCallback(async () => {
-    if (!tracker || !tracker.hasChanges) return;
+    if (!tracker?.hasChanges) return;
     if (!editable) {
       toast.error("Table has no primary key — saving is disabled");
       return;
@@ -354,7 +356,9 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
         return runAction(action);
       }),
     );
-    return () => offs.forEach((off) => off());
+    return () => {
+      for (const off of offs) off();
+    };
   }, [active, runAction]);
 
   const handleGridKeyDown = useCallback(
@@ -370,13 +374,13 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
   );
 
   const sqlPreview = useMemo(() => {
-    if (!tracker || !tracker.hasChanges) return "";
+    if (!tracker?.hasChanges) return "";
     try {
       return tracker
         .buildStatements(tab.database, tab.table)
         .map((s) => {
           let i = 0;
-          return s.sql.replace(/\?/g, () => sqlLiteral(s.params[i++])) + ";";
+          return `${s.sql.replace(/\?/g, () => sqlLiteral(s.params[i++]))};`;
         })
         .join("\n");
     } catch (e) {
@@ -387,7 +391,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
   return (
     <div className="table-data-tab" style={{ display: active ? "flex" : "none" }}>
       <div className="table-toolbar">
-        <button className="icon" onClick={reload} title={actionTitle("refresh", "Reload page")}>
+        <button type="button" className="icon" onClick={reload} title={actionTitle("refresh", "Reload page")}>
           ↻
         </button>
         <WhereInput
@@ -411,13 +415,20 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
         <div className="spacer" />
         {!editable && pkColumns !== null && <span className="muted">Table has no primary key — read only</span>}
         <span className="muted">changes: {changeCount}</span>
-        <button className="outline" onClick={() => setShowSql((s) => !s)}>
+        <button type="button" className="outline" onClick={() => setShowSql((s) => !s)}>
           {showSql ? "Hide SQL" : "Show SQL"}
         </button>
-        <button className="icon" onClick={handleAddRow} disabled={!editable} title={actionTitle("addRow")}>
+        <button
+          type="button"
+          className="icon"
+          onClick={handleAddRow}
+          disabled={!editable}
+          title={actionTitle("addRow")}
+        >
           +
         </button>
         <button
+          type="button"
           className="icon"
           onClick={handleToggleDeleteSelected}
           disabled={!editable || !selectedCell}
@@ -425,10 +436,16 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
         >
           −
         </button>
-        <button onClick={handleRevert} disabled={!tracker?.hasChanges} title={actionTitle("revertChanges")}>
+        <button
+          type="button"
+          onClick={handleRevert}
+          disabled={!tracker?.hasChanges}
+          title={actionTitle("revertChanges")}
+        >
           Revert
         </button>
         <button
+          type="button"
           className="primary"
           onClick={() => void handleSubmit()}
           disabled={!tracker?.hasChanges}
@@ -469,6 +486,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
 
       <div className="table-footer">
         <button
+          type="button"
           className="icon"
           disabled={page === 0}
           onClick={() => setPage((p) => Math.max(0, p - 1))}
@@ -480,6 +498,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
           Rows {rows.length > 0 ? rangeStart : 0}–{rangeEnd} of {totalCount === null ? "…" : totalCount}
         </span>
         <button
+          type="button"
           className="icon"
           disabled={!canNext}
           onClick={() => setPage((p) => p + 1)}

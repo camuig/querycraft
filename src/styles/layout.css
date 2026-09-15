@@ -203,7 +203,8 @@
   gap: 10px 12px;
   align-items: center;
 }
-.form-grid label {
+.form-grid label,
+.form-grid .form-label {
   color: var(--fg-muted);
   text-align: right;
 }

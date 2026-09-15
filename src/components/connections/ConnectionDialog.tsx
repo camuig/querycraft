@@ -53,6 +53,7 @@ export function ConnectionDialog() {
   const [saving, setSaving] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset the form only when the dialog opens
   useEffect(() => {
     if (isNew) {
       setForm(EMPTY_FORM);
@@ -72,7 +73,6 @@ export function ConnectionDialog() {
     }
     setError(null);
     setConfirmingDelete(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dialog]);
 
   useEffect(() => {
@@ -168,23 +168,26 @@ export function ConnectionDialog() {
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
             <div className="form-grid">
-              <label>Name</label>
+              <label htmlFor="conn-name">Name</label>
               <input
+                id="conn-name"
                 {...NO_AUTOCORRECT}
                 autoFocus
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               />
 
-              <label>Host</label>
+              <label htmlFor="conn-host">Host</label>
               <input
+                id="conn-host"
                 {...NO_AUTOCORRECT}
                 value={form.host}
                 onChange={(e) => setForm((f) => ({ ...f, host: e.target.value }))}
               />
 
-              <label>Port</label>
+              <label htmlFor="conn-port">Port</label>
               <input
+                id="conn-port"
                 type="number"
                 min={1}
                 max={65535}
@@ -192,15 +195,17 @@ export function ConnectionDialog() {
                 onChange={(e) => setForm((f) => ({ ...f, port: e.target.value }))}
               />
 
-              <label>User</label>
+              <label htmlFor="conn-user">User</label>
               <input
+                id="conn-user"
                 {...NO_AUTOCORRECT}
                 value={form.user}
                 onChange={(e) => setForm((f) => ({ ...f, user: e.target.value }))}
               />
 
-              <label>Password</label>
+              <label htmlFor="conn-password">Password</label>
               <input
+                id="conn-password"
                 {...NO_AUTOCORRECT}
                 type="password"
                 placeholder={!isNew && editingConfig?.hasPassword ? "••••••••" : undefined}
@@ -208,7 +213,7 @@ export function ConnectionDialog() {
                 onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
               />
 
-              <label></label>
+              <span className="form-label" />
               <div className="form-row">
                 <label style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 6 }}>
                   <input
@@ -220,15 +225,16 @@ export function ConnectionDialog() {
                 </label>
               </div>
 
-              <label>Database</label>
+              <label htmlFor="conn-database">Database</label>
               <input
+                id="conn-database"
                 {...NO_AUTOCORRECT}
                 placeholder="optional"
                 value={form.database}
                 onChange={(e) => setForm((f) => ({ ...f, database: e.target.value }))}
               />
 
-              <label></label>
+              <span className="form-label" />
               <div className="form-row">
                 <label style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 6 }}>
                   <input
@@ -252,7 +258,7 @@ export function ConnectionDialog() {
                 </label>
               </div>
 
-              <label>Color</label>
+              <span className="form-label">Color</span>
               <div className="form-row">
                 <button
                   type="button"

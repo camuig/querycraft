@@ -66,6 +66,7 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
   }, []);
 
   // External control of the selected cell (e.g., after inserting a new row).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: react to the externally selected cell only
   useEffect(() => {
     const cell = opts.selectedCell;
     if (!cell) return;
@@ -75,7 +76,6 @@ export function useGridSelection(opts: UseGridSelectionOptions) {
       if (sel && sel.focus.row === cell.row && sel.focus.col === cell.col) return sel;
       return { anchor: cell, focus: cell };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opts.selectedCell?.row, opts.selectedCell?.col]);
 
   const setSelection = useCallback(

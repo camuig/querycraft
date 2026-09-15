@@ -37,7 +37,7 @@ export function SettingsDialog() {
         <div className="modal-header">Settings</div>
         <div className="modal-body">
           <div className="form-grid">
-            <label>Theme</label>
+            <span className="form-label">Theme</span>
             <div className="segmented" role="radiogroup" aria-label="Theme">
               {THEME_OPTIONS.map((o) => (
                 <button
@@ -54,8 +54,8 @@ export function SettingsDialog() {
               ))}
             </div>
 
-            <label>Row limit</label>
-            <select value={maxRows} onChange={(e) => setMaxRows(Number(e.target.value))}>
+            <label htmlFor="settings-max-rows">Row limit</label>
+            <select id="settings-max-rows" value={maxRows} onChange={(e) => setMaxRows(Number(e.target.value))}>
               {MAX_ROWS_OPTIONS.map((n) => (
                 <option key={n} value={n}>
                   {n}
@@ -63,8 +63,9 @@ export function SettingsDialog() {
               ))}
             </select>
 
-            <label>Editor font size</label>
+            <label htmlFor="settings-font-size">Editor font size</label>
             <input
+              id="settings-font-size"
               type="number"
               min={MIN_EDITOR_FONT_SIZE}
               max={MAX_EDITOR_FONT_SIZE}

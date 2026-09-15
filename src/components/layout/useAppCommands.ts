@@ -62,7 +62,9 @@ export function useAppCommands() {
       registerCommand("nextTab", () => useTabsStore.getState().activateSibling(1)),
       registerCommand("prevTab", () => useTabsStore.getState().activateSibling(-1)),
     ];
-    return () => offs.forEach((off) => off());
+    return () => {
+      for (const off of offs) off();
+    };
   }, []);
 
   useEffect(() => {

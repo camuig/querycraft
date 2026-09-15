@@ -120,7 +120,7 @@ function omit<T>(obj: Record<string, T>, key: string): Record<string, T> {
 function dropPrefix<T>(obj: Record<string, T>, prefix: string): Record<string, T> {
   const copy: Record<string, T> = {};
   for (const [k, v] of Object.entries(obj)) {
-    if (!(k === prefix || k.startsWith(prefix + "/"))) copy[k] = v;
+    if (!(k === prefix || k.startsWith(`${prefix}/`))) copy[k] = v;
   }
   return copy;
 }

@@ -10,6 +10,7 @@
  */
 import { type AppAction, actionsSharingShortcut, detectPlatform, type Platform } from "./keymap";
 
+// biome-ignore lint/suspicious/noConfusingVoidType: handlers may return nothing, which means "not handled"
 export type CommandHandler = () => boolean | void;
 
 const handlers = new Map<AppAction, CommandHandler[]>();

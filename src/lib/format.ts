@@ -15,7 +15,7 @@ const MAX_CELL_LENGTH = 1000;
 export function formatCell(v: CellValue, _meta?: ColumnMeta): string {
   if (v === null) return "";
   if (typeof v === "string") {
-    return v.length > MAX_CELL_LENGTH ? v.slice(0, MAX_CELL_LENGTH) + "…" : v;
+    return v.length > MAX_CELL_LENGTH ? `${v.slice(0, MAX_CELL_LENGTH)}…` : v;
   }
   return String(v);
 }

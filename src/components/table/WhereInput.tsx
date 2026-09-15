@@ -26,6 +26,7 @@ export function WhereInput({ value, onChange, onApply, columns, placeholder }: W
   const pendingCaret = useRef<number | null>(null);
 
   // After insertion, place the caret at the end of the inserted word.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: value is the trigger, run after the inserted word is rendered
   useEffect(() => {
     if (pendingCaret.current === null) return;
     const el = inputRef.current;

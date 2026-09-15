@@ -34,7 +34,9 @@ export function ExplorerPanel() {
         handleRefreshSelected();
       }),
     ];
-    return () => offs.forEach((off) => off());
+    return () => {
+      for (const off of offs) off();
+    };
   }, [parentRef, explorer.selectedConnectionId, handleRefreshSelected]);
 
   return (
@@ -42,10 +44,11 @@ export function ExplorerPanel() {
       <div className="panel-header">
         <span>Database</span>
         <div style={{ flex: 1 }} />
-        <button className="icon" onClick={() => openConnectionDialog("new")} title="New connection">
+        <button type="button" className="icon" onClick={() => openConnectionDialog("new")} title="New connection">
           +
         </button>
         <button
+          type="button"
           className="icon"
           onClick={handleRefreshSelected}
           disabled={!explorer.selectedConnectionId}

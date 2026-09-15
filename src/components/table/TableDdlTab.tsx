@@ -48,7 +48,7 @@ export function TableDdlTab({ tab, active }: { tab: DdlTabModel; active: boolean
   return (
     <div className="ddl-tab" style={{ display: active ? "flex" : "none" }}>
       <div className="ddl-toolbar">
-        <button className="outline" onClick={() => void handleCopy()} disabled={!ddl}>
+        <button type="button" className="outline" onClick={() => void handleCopy()} disabled={!ddl}>
           Copy
         </button>
         {loading && <span className="muted">Loading…</span>}

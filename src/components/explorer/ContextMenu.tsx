@@ -41,9 +41,11 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
     <div ref={ref} className="context-menu" style={{ left, top }}>
       {items.map((it, i) =>
         it === "divider" ? (
+          // biome-ignore lint/suspicious/noArrayIndexKey: menu items are positional and static
           <div key={i} className="divider" />
         ) : (
           <div
+            // biome-ignore lint/suspicious/noArrayIndexKey: menu items are positional and static
             key={i}
             className={`item ${it.disabled ? "disabled" : ""}`}
             onClick={() => {

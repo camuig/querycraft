@@ -179,7 +179,9 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
         handleCancel();
       }),
     ];
-    return () => offs.forEach((off) => off());
+    return () => {
+      for (const off of offs) off();
+    };
   }, [active, running, handleExecute, handleCancel]);
 
   const handleLoadMore = useCallback(
@@ -203,17 +205,23 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
     <div className="console-tab" style={{ display: active ? "flex" : "none" }}>
       <div className="console-toolbar">
         <button
+          type="button"
           onClick={() => handleExecute("current")}
           disabled={running}
           title={actionTitle("executeStatement", "Run")}
         >
           ▶ Run
         </button>
-        <button onClick={() => handleExecute("all")} disabled={running} title={actionTitle("executeScript", "Run all")}>
+        <button
+          type="button"
+          onClick={() => handleExecute("all")}
+          disabled={running}
+          title={actionTitle("executeScript", "Run all")}
+        >
           ▶▶ Run all
         </button>
         {running && (
-          <button onClick={handleCancel} title={actionTitle("cancelQuery", "Cancel")}>
+          <button type="button" onClick={handleCancel} title={actionTitle("cancelQuery", "Cancel")}>
             ■ Cancel
           </button>
         )}

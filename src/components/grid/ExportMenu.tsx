@@ -80,6 +80,7 @@ export function ExportMenu(props: ExportMenuProps) {
   return (
     <div className="export-menu">
       <button
+        type="button"
         ref={buttonRef}
         className="outline"
         disabled={props.rows.length === 0}

@@ -43,7 +43,7 @@ export function ResultsPanel(props: ResultsPanelProps) {
   const sortState = sortByResult[safeIndex] ?? null;
 
   const order = useMemo(() => {
-    if (!active || active.kind !== "rows" || !sortState) return null;
+    if (active?.kind !== "rows" || !sortState) return null;
     const dir = sortState.dir === "asc" ? 1 : -1;
     const idx = active.rows.map((_, i) => i);
     idx.sort((a, b) => compareCell(active.rows[a][sortState.column], active.rows[b][sortState.column], dir));
@@ -77,6 +77,7 @@ export function ResultsPanel(props: ResultsPanelProps) {
         <div className="results-tabs">
           {results.map((r, i) => (
             <div
+              // biome-ignore lint/suspicious/noArrayIndexKey: result tabs are positional
               key={i}
               className={`results-tab ${i === safeIndex ? "active" : ""} ${r.kind === "error" ? "error" : ""}`}
               onClick={() => setActiveIndex(i)}
@@ -109,7 +110,7 @@ export function ResultsPanel(props: ResultsPanelProps) {
             <span className="muted">{active.durationMs} ms</span>
             <div className="spacer" />
             {active.truncated && onLoadMore && (
-              <button className="outline" onClick={() => onLoadMore(safeIndex)}>
+              <button type="button" className="outline" onClick={() => onLoadMore(safeIndex)}>
                 More
               </button>
             )}

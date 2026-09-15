@@ -4,7 +4,7 @@ import type { CellValue } from "../api/types";
 
 /** Wraps a name in backticks, doubling internal backticks. */
 export function quoteIdent(name: string): string {
-  return "`" + name.replace(/`/g, "``") + "`";
+  return `\`${name.replace(/`/g, "``")}\``;
 }
 
 /** "`db`.`table`", or just "`table`" if db === null. */
@@ -29,6 +29,7 @@ export function sqlLiteral(v: CellValue): string {
     .replace(/\n/g, "\\n")
     .replace(/\r/g, "\\r")
     .replace(/\0/g, "\\0")
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: Ctrl-Z must be escaped in MySQL string literals
     .replace(/\x1a/g, "\\Z");
   return `'${escaped}'`;
 }

@@ -135,6 +135,7 @@ export function SqlEditor(props: SqlEditorProps) {
   const readOnlyCompartment = useRef(new Compartment()).current;
 
   // Create the editor once on mount.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the editor is created once, later prop changes go through compartments
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -210,7 +211,6 @@ export function SqlEditor(props: SqlEditorProps) {
       viewRef.current = null;
       if (props.editorRef) props.editorRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sync text from props (without cursor jumps — only if it actually differs).

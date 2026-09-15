@@ -31,10 +31,15 @@ export function Toolbar() {
       <div className="brand" title="QueryCraft">
         <Logo size={18} />
       </div>
-      <button className="outline" onClick={() => openConnectionDialog("new")} title="New connection">
+      <button type="button" className="outline" onClick={() => openConnectionDialog("new")} title="New connection">
         + Connection
       </button>
-      <button onClick={handleNewConsole} disabled={!canOpenConsole} title={actionTitle("newConsole", "New console")}>
+      <button
+        type="button"
+        onClick={handleNewConsole}
+        disabled={!canOpenConsole}
+        title={actionTitle("newConsole", "New console")}
+      >
         ▤ New console
       </button>
       <div className="spacer" />
@@ -48,7 +53,7 @@ export function Toolbar() {
           ))}
         </select>
       </label>
-      <button className="icon" onClick={openSettings} title={actionTitle("openSettings")}>
+      <button type="button" className="icon" onClick={openSettings} title={actionTitle("openSettings")}>
         ⚙
       </button>
     </div>

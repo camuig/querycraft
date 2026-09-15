@@ -23,7 +23,7 @@ export function TabsBar() {
             onAuxClick={(e) => {
               if (e.button === 1) closeTab(t.id);
             }}
-            title={conn ? `${conn.name}${"database" in t && t.database ? " / " + t.database : ""}` : undefined}
+            title={conn ? `${conn.name}${"database" in t && t.database ? ` / ${t.database}` : ""}` : undefined}
           >
             {conn?.color && (
               <span style={{ width: 8, height: 8, borderRadius: 4, background: conn.color, flexShrink: 0 }} />

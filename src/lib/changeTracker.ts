@@ -70,7 +70,7 @@ export class ChangeTracker {
   /** Edited cell value, or the original one (null for new rows by default). */
   getValue(rowIndex: number, colIndex: number): CellValue {
     const rowEdits = this.edited.get(rowIndex);
-    if (rowEdits && rowEdits.has(colIndex)) return rowEdits.get(colIndex) as CellValue;
+    if (rowEdits?.has(colIndex)) return rowEdits.get(colIndex) as CellValue;
     if (this.insertedRowIndices.has(rowIndex)) return null;
     const orig = this.originalRows[rowIndex];
     return orig ? orig[colIndex] : null;
@@ -113,7 +113,7 @@ export class ChangeTracker {
 
   revertCell(rowIndex: number, colIndex: number): ChangeTracker {
     const rowMap = this.edited.get(rowIndex);
-    if (!rowMap || !rowMap.has(colIndex)) return this;
+    if (!rowMap?.has(colIndex)) return this;
     const newRowMap = new Map(rowMap);
     newRowMap.delete(colIndex);
     const newEdited = new Map(this.edited);
@@ -124,7 +124,7 @@ export class ChangeTracker {
 
   isModified(rowIndex: number, colIndex: number): boolean {
     const rowMap = this.edited.get(rowIndex);
-    if (!rowMap || !rowMap.has(colIndex)) return false;
+    if (!rowMap?.has(colIndex)) return false;
     const base = this.insertedRowIndices.has(rowIndex) ? null : (this.originalRows[rowIndex]?.[colIndex] ?? null);
     return base !== (rowMap.get(colIndex) as CellValue);
   }
