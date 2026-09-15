@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Fast cross-platform MySQL desktop client in the spirit of DataGrip",
   "license": "Apache-2.0",
-  "author": "Andrey Shnayder",
+  "author": "camuig",
   "repository": {
     "type": "git",
     "url": "https://github.com/camuig/querycraft.git"

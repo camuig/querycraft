@@ -2,7 +2,7 @@
 name = "query-craft"
 version = "0.1.0"
 description = "Fast cross-platform MySQL desktop client in the spirit of DataGrip"
-authors = ["Andrey Shnayder"]
+authors = ["camuig"]
 license = "Apache-2.0"
 repository = "https://github.com/camuig/querycraft"
 edition = "2021"
