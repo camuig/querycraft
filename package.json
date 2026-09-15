@@ -24,6 +24,8 @@
     "tauri": "tauri",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
     "icons": "rsvg-convert -w 1024 -h 1024 src/assets/logo-icon.svg -o /tmp/querycraft-icon.png && tauri icon /tmp/querycraft-icon.png && rm -rf src-tauri/icons/android src-tauri/icons/ios"
   },
   "dependencies": {
@@ -48,6 +50,7 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.13",
     "@tauri-apps/cli": "^2",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",

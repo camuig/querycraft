@@ -1,0 +1,57 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    // The Rust side is checked by rustfmt and clippy; SVG masters are design assets.
+    "includes": ["**", "!src-tauri", "!dist", "!docs", "!**/*.svg"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "a11y": {
+        // QueryCraft is a desktop application built from custom widgets (virtualized grid, tree,
+        // popup menus). Keyboard handling lives in the keymap and command bus rather than on the
+        // individual elements, so the web-oriented interaction rules produce only noise here.
+        "noStaticElementInteractions": "off",
+        "useKeyWithClickEvents": "off",
+        "noNoninteractiveTabindex": "off",
+        "noNoninteractiveElementToInteractiveRole": "off",
+        "useFocusableInteractive": "off",
+        "useSemanticElements": "off",
+        // Dialogs deliberately focus their first field when opened.
+        "noAutofocus": "off"
+      },
+      "style": {
+        // Non-null assertions are used deliberately where an invariant is documented nearby.
+        "noNonNullAssertion": "off"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always",
+      "arrowParentheses": "always",
+      "trailingCommas": "all"
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  }
+}

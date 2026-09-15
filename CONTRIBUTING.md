@@ -23,6 +23,7 @@ docker run -d --name querycraft-mysql -p 33070:3306 -e MYSQL_ROOT_PASSWORD=secre
 
 ```bash
 pnpm typecheck                  # tsc --noEmit
+pnpm lint                       # biome lint and format check (pnpm lint:fix to apply)
 pnpm test                       # frontend unit tests (vitest)
 cd src-tauri && cargo test      # backend unit tests
 cd src-tauri && cargo clippy -- -D warnings
@@ -48,7 +49,9 @@ practical. Keep the pull request focused on one change.
   certificates`. Use `feat`, `fix`, `docs`, `chore`, `refactor`, `style`, `test`, `ci`, `build` or `perf`;
   keep the subject imperative and under 72 characters, add a body explaining *why* when it is not obvious,
   and mark incompatible changes with a `BREAKING CHANGE:` footer. One logical change per commit.
-- **Style.** The repository ships an `.editorconfig`; Rust code is formatted with `rustfmt`.
+- **Style.** TypeScript is formatted and linted with [Biome](https://biomejs.dev) (`biome.jsonc`, run
+  `pnpm lint:fix`); Rust code is formatted with `rustfmt` and checked with `clippy`. Prefer fixing a lint
+  finding over suppressing it; when a suppression is the right call, add a `biome-ignore` comment with a reason.
 
 ## Reporting bugs
 

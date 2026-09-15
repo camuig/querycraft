@@ -88,6 +88,7 @@ pnpm tauri dev        # run the desktop app with hot reload
 pnpm tauri build      # build the installer for the current OS
 pnpm test             # frontend unit tests (vitest)
 pnpm typecheck        # tsc --noEmit
+pnpm lint             # biome (lint + format check); pnpm lint:fix applies fixes
 cd src-tauri && cargo test   # backend unit tests
 ```
 
