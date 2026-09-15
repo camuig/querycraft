@@ -1,14 +1,14 @@
 import { create } from "zustand";
 
 /**
- * Текстовый слот статус-бара для мимолётных сообщений о результате операции,
- * например "500 строк за 12 мс". Рендерится в StatusBar (src/components/layout/StatusBar.tsx).
+ * Status bar text slot for transient operation-result messages,
+ * e.g. "500 rows in 12 ms". Rendered in StatusBar (src/components/layout/StatusBar.tsx).
  *
- * Использование из любого компонента (редактор, грид и т.д.):
+ * Usage from any component (editor, grid, etc.):
  *   import { useStatusStore } from "../../store/statusStore";
- *   useStatusStore.getState().setMessage("500 строк за 12 мс");
- * Сообщение не исчезает само — вызывающий код сам решает, когда его сменить/очистить
- * (передав null), т.к. только он знает, когда контекст (активная вкладка) сменился.
+ *   useStatusStore.getState().setMessage("500 rows in 12 ms");
+ * The message does not disappear on its own — the caller decides when to change/clear it
+ * (by passing null), since only it knows when the context (active tab) has changed.
  */
 interface StatusState {
   message: string | null;

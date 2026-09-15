@@ -14,7 +14,7 @@ interface ConnectionsState {
   configs: ConnectionConfig[];
   runtime: Record<string, ConnectionRuntime>;
   loaded: boolean;
-  /** Открытый диалог редактирования: null — закрыт, "new" — новое, иначе id. */
+  /** Open edit dialog: null — closed, "new" — new connection, otherwise an id. */
   dialog: null | "new" | string;
 
   load: () => Promise<void>;

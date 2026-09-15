@@ -30,24 +30,24 @@ const rows: CellValue[][] = [
 ];
 
 describe("setCell / isModified", () => {
-  it("setCell помечает ячейку как изменённую", () => {
+  it("setCell marks the cell as modified", () => {
     const t = new ChangeTracker(rows, columns, pk);
     const t2 = t.setCell(0, 1, "Alicia");
     expect(t2.isModified(0, 1)).toBe(true);
     expect(t2.getValue(0, 1)).toBe("Alicia");
-    // исходный инстанс не мутирован
+    // the original instance is not mutated
     expect(t.isModified(0, 1)).toBe(false);
     expect(t.getValue(0, 1)).toBe("Alice");
   });
 
-  it("setCell тем же значением, что исходное, не считается модификацией", () => {
+  it("setCell with the same value as the original is not considered a modification", () => {
     const t = new ChangeTracker(rows, columns, pk).setCell(0, 1, "Alice");
     expect(t.isModified(0, 1)).toBe(false);
   });
 });
 
 describe("revertCell", () => {
-  it("откатывает одну изменённую ячейку", () => {
+  it("reverts a single modified cell", () => {
     const t = new ChangeTracker(rows, columns, pk).setCell(0, 1, "Alicia").setCell(0, 2, "x@y.z");
     const t2 = t.revertCell(0, 1);
     expect(t2.isModified(0, 1)).toBe(false);
@@ -57,7 +57,7 @@ describe("revertCell", () => {
 });
 
 describe("revertAll", () => {
-  it("откатывает все изменения (edits, deletes, inserts)", () => {
+  it("reverts all changes (edits, deletes, inserts)", () => {
     const t0 = new ChangeTracker(rows, columns, pk);
     const t1 = t0.setCell(0, 1, "Alicia").deleteRow(1);
     const { tracker: t2 } = t1.insertRow();
@@ -70,7 +70,7 @@ describe("revertAll", () => {
 });
 
 describe("deleteRow / undeleteRow", () => {
-  it("помечает строку удалённой и снимает пометку", () => {
+  it("marks a row as deleted and clears the mark", () => {
     const t = new ChangeTracker(rows, columns, pk);
     const t2 = t.deleteRow(1);
     expect(t2.isDeleted(1)).toBe(true);
@@ -82,7 +82,7 @@ describe("deleteRow / undeleteRow", () => {
 });
 
 describe("insertRow", () => {
-  it("добавляет строку в конец со всеми null и помечает inserted", () => {
+  it("appends a row at the end with all nulls and marks it inserted", () => {
     const t = new ChangeTracker(rows, columns, pk);
     const { tracker: t2, rowIndex } = t.insertRow();
     expect(rowIndex).toBe(2);
@@ -94,7 +94,7 @@ describe("insertRow", () => {
 });
 
 describe("buildStatements — UPDATE", () => {
-  it("одна изменённая колонка", () => {
+  it("single modified column", () => {
     const t = new ChangeTracker(rows, columns, pk).setCell(0, 1, "Alicia");
     const stmts = t.buildStatements("db", "t");
     expect(stmts).toHaveLength(1);
@@ -104,7 +104,7 @@ describe("buildStatements — UPDATE", () => {
     });
   });
 
-  it("несколько изменённых колонок в одном SET", () => {
+  it("multiple modified columns in a single SET", () => {
     const t = new ChangeTracker(rows, columns, pk).setCell(0, 1, "Alicia").setCell(0, 2, "a@b.c");
     const stmts = t.buildStatements("db", "t");
     expect(stmts).toHaveLength(1);
@@ -112,7 +112,7 @@ describe("buildStatements — UPDATE", () => {
     expect(stmts[0].params).toEqual(["Alicia", "a@b.c", 1]);
   });
 
-  it("WHERE с несколькими pk-колонками", () => {
+  it("WHERE with multiple pk columns", () => {
     const cols2: ColumnMeta[] = [
       col("a", { primaryKey: true }),
       col("b", { primaryKey: true }),
@@ -127,7 +127,7 @@ describe("buildStatements — UPDATE", () => {
     });
   });
 
-  it("WHERE с pk = NULL в исходной строке", () => {
+  it("WHERE with pk = NULL in the original row", () => {
     const rows2: CellValue[][] = [[null, "Alice", "a@b.c"]];
     const t = new ChangeTracker(rows2, columns, pk).setCell(0, 1, "Alicia");
     const stmts = t.buildStatements("db", "t");
@@ -135,7 +135,7 @@ describe("buildStatements — UPDATE", () => {
     expect(stmts[0].params).toEqual(["Alicia"]);
   });
 
-  it("изменение самой pk-колонки: WHERE по старому значению, SET по новому", () => {
+  it("modifying the pk column itself: WHERE uses the old value, SET the new one", () => {
     const t = new ChangeTracker(rows, columns, pk).setCell(0, 0, 99);
     const stmts = t.buildStatements("db", "t");
     expect(stmts[0]).toEqual({
@@ -146,7 +146,7 @@ describe("buildStatements — UPDATE", () => {
 });
 
 describe("buildStatements — DELETE", () => {
-  it("строит DELETE по оригинальным pk-значениям", () => {
+  it("builds DELETE using the original pk values", () => {
     const t = new ChangeTracker(rows, columns, pk).deleteRow(1);
     const stmts = t.buildStatements("db", "t");
     expect(stmts).toHaveLength(1);
@@ -158,7 +158,7 @@ describe("buildStatements — DELETE", () => {
 });
 
 describe("buildStatements — INSERT", () => {
-  it("частично заполненная новая строка: только не-null колонки", () => {
+  it("partially filled new row: only non-null columns", () => {
     const t0 = new ChangeTracker(rows, columns, pk);
     const { tracker: t1, rowIndex } = t0.insertRow();
     const t2 = t1.setCell(rowIndex, 1, "Carol");
@@ -170,7 +170,7 @@ describe("buildStatements — INSERT", () => {
     });
   });
 
-  it("полностью пустая новая строка", () => {
+  it("completely empty new row", () => {
     const t0 = new ChangeTracker(rows, columns, pk);
     const { tracker: t1 } = t0.insertRow();
     const stmts = t1.buildStatements("db", "t");
@@ -182,8 +182,8 @@ describe("buildStatements — INSERT", () => {
   });
 });
 
-describe("insert затем delete", () => {
-  it("исключается из buildStatements полностью", () => {
+describe("insert then delete", () => {
+  it("is fully excluded from buildStatements", () => {
     const t0 = new ChangeTracker(rows, columns, pk);
     const { tracker: t1, rowIndex } = t0.insertRow();
     const t2 = t1.setCell(rowIndex, 1, "Carol").deleteRow(rowIndex);
@@ -192,8 +192,8 @@ describe("insert затем delete", () => {
   });
 });
 
-describe("порядок DELETE -> UPDATE -> INSERT", () => {
-  it("формирует statements в правильном порядке за один вызов", () => {
+describe("DELETE -> UPDATE -> INSERT order", () => {
+  it("produces statements in the correct order in a single call", () => {
     const t0 = new ChangeTracker(rows, columns, pk);
     const t1 = t0.deleteRow(1).setCell(0, 1, "Alicia");
     const { tracker: t2 } = t1.insertRow();
@@ -207,18 +207,18 @@ describe("порядок DELETE -> UPDATE -> INSERT", () => {
   });
 });
 
-describe("отсутствие pkColumns", () => {
-  it("бросает исключение при update без pkColumns", () => {
+describe("missing pkColumns", () => {
+  it("throws on update without pkColumns", () => {
     const t = new ChangeTracker(rows, columns, []).setCell(0, 1, "Alicia");
     expect(() => t.buildStatements("db", "t")).toThrow();
   });
 
-  it("бросает исключение при delete без pkColumns", () => {
+  it("throws on delete without pkColumns", () => {
     const t = new ChangeTracker(rows, columns, []).deleteRow(0);
     expect(() => t.buildStatements("db", "t")).toThrow();
   });
 
-  it("не бросает исключение, если pkColumns пуст, но менялись только insert-строки", () => {
+  it("does not throw when pkColumns is empty but only insert rows changed", () => {
     const t0 = new ChangeTracker(rows, columns, []);
     const { tracker: t1 } = t0.insertRow();
     const t2 = t1.setCell(2, 1, "Carol");

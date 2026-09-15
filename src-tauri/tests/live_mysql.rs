@@ -48,7 +48,9 @@ fn req(sql: &str, session: &str, max_rows: u32) -> ExecuteRequest {
 #[tokio::test]
 async fn types_are_converted_by_column_type() {
     let Some((m, h)) = setup().await else { return };
-    let r = execute::execute(&m, &h, req("SELECT * FROM customers ORDER BY id", "s1", 500)).await.unwrap();
+    let r = execute::execute(&m, &h, req("SELECT * FROM customers ORDER BY id", "s1", 500))
+        .await
+        .unwrap();
     assert_eq!(r.len(), 1);
     let res = &r[0];
     assert!(matches!(res.kind, StatementResultKind::Rows));
@@ -74,7 +76,13 @@ async fn types_are_converted_by_column_type() {
     assert_eq!(carol[3], json!("-12.25"));
     assert_eq!(carol[9], json!(123));
 
-    let r = execute::execute(&m, &h, req("SELECT weight, rating, price FROM products WHERE id=1", "s1", 500)).await.unwrap();
+    let r = execute::execute(
+        &m,
+        &h,
+        req("SELECT weight, rating, price FROM products WHERE id=1", "s1", 500),
+    )
+    .await
+    .unwrap();
     assert_eq!(r[0].rows[0], vec![json!(0.5), json!(4.5), json!("9.99")]);
     assert_eq!(r[0].columns[0].type_name, "FLOAT");
     assert_eq!(r[0].columns[2].type_name, "DECIMAL");
@@ -83,7 +91,8 @@ async fn types_are_converted_by_column_type() {
 #[tokio::test]
 async fn multiple_statements_truncation_and_errors() {
     let Some((m, h)) = setup().await else { return };
-    let sql = "SELECT id FROM big_table ORDER BY id; UPDATE big_table SET v = v WHERE id < 5; SELECT * FROM nope; SELECT 1";
+    let sql =
+        "SELECT id FROM big_table ORDER BY id; UPDATE big_table SET v = v WHERE id < 5; SELECT * FROM nope; SELECT 1";
     let mut r = req(sql, "s2", 100);
     r.stop_on_error = false;
     let r = execute::execute(&m, &h, r).await.unwrap();
@@ -97,16 +106,28 @@ async fn multiple_statements_truncation_and_errors() {
     assert_eq!(r[3].rows[0][0], json!(1));
 
     // stop_on_error
-    let r = execute::execute(&m, &h, req("SELECT * FROM nope; SELECT 1", "s2", 100)).await.unwrap();
+    let r = execute::execute(&m, &h, req("SELECT * FROM nope; SELECT 1", "s2", 100))
+        .await
+        .unwrap();
     assert_eq!(r.len(), 1);
 }
 
 #[tokio::test]
 async fn stored_procedure_returns_multiple_sets() {
     let Some((m, h)) = setup().await else { return };
-    let r = execute::execute(&m, &h, req("CALL two_sets()", "s3", 100)).await.unwrap();
-    let rows: Vec<_> = r.iter().filter(|x| matches!(x.kind, StatementResultKind::Rows)).collect();
-    assert_eq!(rows.len(), 2, "{:?}", r.iter().map(|x| (x.kind, x.rows.len())).collect::<Vec<_>>());
+    let r = execute::execute(&m, &h, req("CALL two_sets()", "s3", 100))
+        .await
+        .unwrap();
+    let rows: Vec<_> = r
+        .iter()
+        .filter(|x| matches!(x.kind, StatementResultKind::Rows))
+        .collect();
+    assert_eq!(
+        rows.len(),
+        2,
+        "{:?}",
+        r.iter().map(|x| (x.kind, x.rows.len())).collect::<Vec<_>>()
+    );
     assert_eq!(rows[0].rows[0][0], json!(1));
     assert_eq!(rows[1].rows[0], vec![json!("b"), Value::Null]);
 }
@@ -125,21 +146,69 @@ async fn session_keeps_state_between_calls() {
 #[tokio::test]
 async fn apply_changes_commits_and_rolls_back() {
     let Some((m, h)) = setup().await else { return };
-    execute::execute(&m, &h, req("DROP TABLE IF EXISTS t_apply; CREATE TABLE t_apply (id INT PRIMARY KEY, s VARCHAR(10), n INT NULL)", "s6", 10)).await.unwrap();
-    let ok = execute::apply_changes(&m, "c1", "s6", vec![
-        ParamStatement { sql: "INSERT INTO `shop`.`t_apply` (`id`,`s`,`n`) VALUES (?,?,?)".into(), params: vec![json!(1), json!("a"), Value::Null] },
-        ParamStatement { sql: "INSERT INTO `shop`.`t_apply` (`id`,`s`) VALUES (?,?)".into(), params: vec![json!(2), json!("б")] },
-        ParamStatement { sql: "UPDATE `shop`.`t_apply` SET `n`=? WHERE `id`=?".into(), params: vec![json!(7), json!(1)] },
-    ]).await.unwrap();
+    execute::execute(
+        &m,
+        &h,
+        req(
+            "DROP TABLE IF EXISTS t_apply; CREATE TABLE t_apply (id INT PRIMARY KEY, s VARCHAR(10), n INT NULL)",
+            "s6",
+            10,
+        ),
+    )
+    .await
+    .unwrap();
+    let ok = execute::apply_changes(
+        &m,
+        "c1",
+        "s6",
+        vec![
+            ParamStatement {
+                sql: "INSERT INTO `shop`.`t_apply` (`id`,`s`,`n`) VALUES (?,?,?)".into(),
+                params: vec![json!(1), json!("a"), Value::Null],
+            },
+            ParamStatement {
+                sql: "INSERT INTO `shop`.`t_apply` (`id`,`s`) VALUES (?,?)".into(),
+                params: vec![json!(2), json!("б")],
+            },
+            ParamStatement {
+                sql: "UPDATE `shop`.`t_apply` SET `n`=? WHERE `id`=?".into(),
+                params: vec![json!(7), json!(1)],
+            },
+        ],
+    )
+    .await
+    .unwrap();
     assert_eq!(ok.affected_rows, 3);
-    let bad = execute::apply_changes(&m, "c1", "s6", vec![
-        ParamStatement { sql: "DELETE FROM `shop`.`t_apply` WHERE `id`=?".into(), params: vec![json!(2)] },
-        ParamStatement { sql: "INSERT INTO `shop`.`t_apply` (`id`) VALUES (?)".into(), params: vec![json!(1)] }, // дубликат PK
-    ]).await;
+    let bad = execute::apply_changes(
+        &m,
+        "c1",
+        "s6",
+        vec![
+            ParamStatement {
+                sql: "DELETE FROM `shop`.`t_apply` WHERE `id`=?".into(),
+                params: vec![json!(2)],
+            },
+            ParamStatement {
+                sql: "INSERT INTO `shop`.`t_apply` (`id`) VALUES (?)".into(),
+                params: vec![json!(1)],
+            }, // дубликат PK
+        ],
+    )
+    .await;
     assert!(bad.is_err());
-    let r = execute::execute(&m, &h, req("SELECT id, s, n FROM t_apply ORDER BY id", "s6", 10)).await.unwrap();
-    assert_eq!(r[0].rows, vec![vec![json!(1), json!("a"), json!(7)], vec![json!(2), json!("б"), Value::Null]]);
-    execute::execute(&m, &h, req("DROP TABLE t_apply", "s6", 10)).await.unwrap();
+    let r = execute::execute(&m, &h, req("SELECT id, s, n FROM t_apply ORDER BY id", "s6", 10))
+        .await
+        .unwrap();
+    assert_eq!(
+        r[0].rows,
+        vec![
+            vec![json!(1), json!("a"), json!(7)],
+            vec![json!(2), json!("б"), Value::Null]
+        ]
+    );
+    execute::execute(&m, &h, req("DROP TABLE t_apply", "s6", 10))
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -158,7 +227,10 @@ async fn cancel_kills_running_query() {
     let res = res.unwrap();
     assert!(start.elapsed().as_secs() < 5, "запрос не был отменён");
     // SLEEP при KILL QUERY возвращает 1 либо ошибку 1317 — оба варианта допустимы
-    assert!(matches!(res[0].kind, StatementResultKind::Rows | StatementResultKind::Error));
+    assert!(matches!(
+        res[0].kind,
+        StatementResultKind::Rows | StatementResultKind::Error
+    ));
     // сессия после отмены продолжает работать
     let r = execute::execute(&m, &h, req("SELECT 5", "s7", 10)).await.unwrap();
     assert_eq!(r[0].rows[0][0], json!(5));
@@ -189,6 +261,8 @@ async fn schema_queries() {
     assert_eq!(fks[0].on_delete, "CASCADE");
     let ddl = schema::get_table_ddl(&mut conn, "shop", "customers").await.unwrap();
     assert!(ddl.starts_with("CREATE TABLE `customers`"));
-    let vddl = schema::get_table_ddl(&mut conn, "shop", "active_customers").await.unwrap();
+    let vddl = schema::get_table_ddl(&mut conn, "shop", "active_customers")
+        .await
+        .unwrap();
     assert!(vddl.contains("VIEW"), "{vddl}");
 }

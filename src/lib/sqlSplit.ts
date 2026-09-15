@@ -1,12 +1,12 @@
-// Разбиение SQL-текста на отдельные выражения (statements) с учётом строк,
-// комментариев и директивы DELIMITER (как в mysql CLI / DataGrip).
+// Splits SQL text into individual statements, accounting for string literals,
+// comments and the DELIMITER directive (like the mysql CLI / DataGrip).
 
 export interface Statement {
-  /** Текст выражения, обрезанный (trim) по краям. */
+  /** Statement text, trimmed at both ends. */
   sql: string;
-  /** Символьный offset начала в исходной строке (до trim). */
+  /** Character offset of the start in the source string (before trim). */
   from: number;
-  /** Символьный offset конца (exclusive), в исходной строке (до trim). */
+  /** Character offset of the end (exclusive), in the source string (before trim). */
   to: number;
 }
 
@@ -19,8 +19,8 @@ function isWhitespaceChar(c: string): boolean {
 }
 
 /**
- * Разбивает SQL-текст на отдельные выражения.
- * Пустые выражения и выражения из одних комментариев/пробелов пропускаются.
+ * Splits SQL text into individual statements.
+ * Empty statements, and statements consisting only of comments/whitespace, are skipped.
  */
 export function splitStatements(sql: string): Statement[] {
   const result: Statement[] = [];
@@ -59,13 +59,13 @@ export function splitStatements(sql: string): Statement[] {
         continue;
       }
 
-      // DELIMITER-директива распознаётся, только если от начала строки до
-      // текущей позиции были одни пробелы/табы.
+      // The DELIMITER directive is only recognized if the text from the start of
+      // the line to the current position is nothing but spaces/tabs.
       const between = sql.slice(lineStart, i);
       if (/^[ \t]*$/.test(between)) {
         const m = DELIMITER_RE.exec(sql.slice(i));
         if (m) {
-          // Строка с DELIMITER не входит ни в одно выражение.
+          // A line with DELIMITER is not part of any statement.
           flush(lineStart);
           let lineEnd = sql.indexOf("\n", i);
           if (lineEnd === -1) lineEnd = n;
@@ -175,9 +175,9 @@ export function splitStatements(sql: string): Statement[] {
 }
 
 /**
- * Находит выражение, в диапазон [from, to) которого попадает pos.
- * Если pos находится в разделителе/пробелах сразу после выражения —
- * возвращает ближайшее ПРЕДЫДУЩЕЕ выражение (курсор "ещё внутри" него).
+ * Finds the statement whose [from, to) range contains pos.
+ * If pos is in the delimiter/whitespace right after a statement, returns the
+ * nearest PRECEDING statement (the cursor is "still inside" it).
  */
 export function statementAtCursor(sql: string, pos: number): Statement | null {
   const statements = splitStatements(sql);

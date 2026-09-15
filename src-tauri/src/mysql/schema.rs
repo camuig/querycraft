@@ -1,4 +1,4 @@
-//! Метаданные схемы через `information_schema` (на соединении из пула, не сессии).
+//! Schema metadata via `information_schema` (on a connection from the pool, not a session).
 
 use mysql_async::prelude::Queryable;
 use mysql_async::{Conn, Row, Value};
@@ -21,7 +21,7 @@ pub struct TableInfo {
     pub name: String,
     pub kind: TableKind,
     pub engine: Option<String>,
-    /// Приблизительное число строк из information_schema.
+    /// Approximate row count from information_schema.
     pub rows: Option<u64>,
     pub comment: String,
 }
@@ -30,9 +30,9 @@ pub struct TableInfo {
 #[serde(rename_all = "camelCase")]
 pub struct ColumnInfo {
     pub name: String,
-    /// Например "int", "varchar".
+    /// E.g. "int", "varchar".
     pub data_type: String,
-    /// Полный тип, например "varchar(255)", "int unsigned".
+    /// Full type, e.g. "varchar(255)", "int unsigned".
     pub column_type: String,
     pub nullable: bool,
     /// "PRI" | "UNI" | "MUL" | ""
@@ -73,7 +73,17 @@ pub async fn list_databases(conn: &mut Conn) -> AppResult<Vec<String>> {
 /// (TABLE_NAME, TABLE_TYPE, ENGINE, TABLE_ROWS, TABLE_COMMENT)
 type TableRow = (String, String, Option<String>, Option<u64>, String);
 /// (COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, IS_NULLABLE, COLUMN_KEY, COLUMN_DEFAULT, EXTRA, COLUMN_COMMENT, ORDINAL_POSITION)
-type ColumnRow = (String, String, String, String, String, Option<String>, String, String, u32);
+type ColumnRow = (
+    String,
+    String,
+    String,
+    String,
+    String,
+    Option<String>,
+    String,
+    String,
+    u32,
+);
 
 pub async fn list_tables(conn: &mut Conn, database: &str) -> AppResult<Vec<TableInfo>> {
     let rows: Vec<TableRow> = conn
@@ -92,7 +102,13 @@ pub async fn list_tables(conn: &mut Conn, database: &str) -> AppResult<Vec<Table
             } else {
                 TableKind::Table
             };
-            TableInfo { name, kind, engine, rows, comment }
+            TableInfo {
+                name,
+                kind,
+                engine,
+                rows,
+                comment,
+            }
         })
         .collect())
 }
@@ -108,17 +124,19 @@ pub async fn list_columns(conn: &mut Conn, database: &str, table: &str) -> AppRe
 
     Ok(rows
         .into_iter()
-        .map(|(name, data_type, column_type, is_nullable, key, default_value, extra, comment, ordinal)| ColumnInfo {
-            name,
-            data_type,
-            column_type,
-            nullable: is_nullable.eq_ignore_ascii_case("YES"),
-            key,
-            default_value,
-            extra,
-            comment,
-            ordinal,
-        })
+        .map(
+            |(name, data_type, column_type, is_nullable, key, default_value, extra, comment, ordinal)| ColumnInfo {
+                name,
+                data_type,
+                column_type,
+                nullable: is_nullable.eq_ignore_ascii_case("YES"),
+                key,
+                default_value,
+                extra,
+                comment,
+                ordinal,
+            },
+        )
         .collect())
 }
 
@@ -188,9 +206,9 @@ pub async fn list_foreign_keys(conn: &mut Conn, database: &str, table: &str) -> 
     Ok(result)
 }
 
-/// `SHOW CREATE TABLE` работает и для представлений (MySQL возвращает
-/// `CREATE VIEW ...`), поэтому пробуем его первым и откатываемся на
-/// `SHOW CREATE VIEW` только если TABLE-вариант вернул ошибку.
+/// `SHOW CREATE TABLE` also works for views (MySQL returns
+/// `CREATE VIEW ...`), so we try it first and fall back to
+/// `SHOW CREATE VIEW` only if the TABLE variant returned an error.
 pub async fn get_table_ddl(conn: &mut Conn, database: &str, table: &str) -> AppResult<String> {
     let qualified = format!("{}.{}", quote_ident(database), quote_ident(table));
 
@@ -200,7 +218,7 @@ pub async fn get_table_ddl(conn: &mut Conn, database: &str, table: &str) -> AppR
     }
 }
 
-/// `SHOW CREATE TABLE`/`SHOW CREATE VIEW` — DDL всегда во втором столбце (индекс 1).
+/// `SHOW CREATE TABLE`/`SHOW CREATE VIEW` — the DDL is always in the second column (index 1).
 async fn show_create_ddl(conn: &mut Conn, sql: &str) -> AppResult<String> {
     let row: Option<Row> = conn.query_first(sql).await?;
     let row = row.ok_or_else(|| AppError::Mysql("SHOW CREATE returned an empty result".into()))?;

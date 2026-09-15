@@ -15,7 +15,7 @@ interface ContextMenuProps {
   onClose: () => void;
 }
 
-/** Универсальное контекстное меню; закрывается по клику вне себя или по Esc. */
+/** Generic context menu; closes on outside click or Esc. */
 export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
 

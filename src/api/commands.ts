@@ -1,4 +1,4 @@
-// Типизированные обёртки над Tauri invoke(). Единственное место, где фронтенд знает имена команд.
+// Typed wrappers over Tauri invoke(). The only place where the frontend knows command names.
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { mockInvoke } from "./mock";
 import type {
@@ -16,11 +16,11 @@ import type {
   TableInfo,
 } from "./types";
 
-/** В браузере без Tauri (UI-разработка) команды обслуживает мок. */
+/** In a browser without Tauri (UI development), commands are served by the mock. */
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 const invoke: typeof tauriInvoke = isTauri ? tauriInvoke : (cmd, args) => mockInvoke(cmd, args as Record<string, unknown>);
 
-// --- Подключения -----------------------------------------------------------
+// --- Connections -------------------------------------------------------------
 
 export const listConnections = () => invoke<ConnectionConfig[]>("list_connections");
 
@@ -29,17 +29,17 @@ export const saveConnection = (input: ConnectionInput) =>
 
 export const deleteConnection = (id: string) => invoke<void>("delete_connection", { id });
 
-/** Проверка подключения без сохранения. */
+/** Tests a connection without saving it. */
 export const testConnection = (input: ConnectionInput) =>
   invoke<ServerInfo>("test_connection", { input });
 
-/** Открыть пул соединений для подключения (нужно перед любыми запросами). */
+/** Opens a connection pool for the connection (required before any queries). */
 export const connect = (connectionId: string) => invoke<ServerInfo>("connect", { connectionId });
 
-/** Закрыть пул и все сессии подключения. */
+/** Closes the pool and all sessions of the connection. */
 export const disconnect = (connectionId: string) => invoke<void>("disconnect", { connectionId });
 
-// --- Схема -----------------------------------------------------------------
+// --- Schema --------------------------------------------------------------
 
 export const listDatabases = (connectionId: string) =>
   invoke<string[]>("list_databases", { connectionId });
@@ -59,25 +59,25 @@ export const listForeignKeys = (connectionId: string, database: string, table: s
 export const getTableDdl = (connectionId: string, database: string, table: string) =>
   invoke<string>("get_table_ddl", { connectionId, database, table });
 
-// --- Выполнение ------------------------------------------------------------
+// --- Execution -------------------------------------------------------------
 
-/** Разбивает sql на выражения и выполняет их последовательно в сессии. */
+/** Splits sql into statements and runs them sequentially in the session. */
 export const executeQuery = (request: ExecuteRequest) =>
   invoke<StatementResult[]>("execute_query", { request });
 
-/** KILL QUERY для запроса, запущенного с этим queryId. */
+/** KILL QUERY for the query started with this queryId. */
 export const cancelQuery = (connectionId: string, queryId: string) =>
   invoke<void>("cancel_query", { connectionId, queryId });
 
-/** Выполнить параметризованные выражения в одной транзакции (редактирование данных). */
+/** Runs parameterized statements in a single transaction (data editing). */
 export const applyChanges = (connectionId: string, sessionId: string, statements: ParamStatement[]) =>
   invoke<ApplyResult>("apply_changes", { connectionId, sessionId, statements });
 
-/** Закрыть соединение сессии (при закрытии вкладки). */
+/** Closes the session connection (when a tab is closed). */
 export const closeSession = (connectionId: string, sessionId: string) =>
   invoke<void>("close_session", { connectionId, sessionId });
 
-// --- История ---------------------------------------------------------------
+// --- History ---------------------------------------------------------------
 
 export const listHistory = (limit = 200) => invoke<QueryHistoryEntry[]>("list_history", { limit });
 

@@ -1,14 +1,14 @@
-/** Подсказки при вводе условия WHERE: имена колонок + базовые ключевые слова SQL. */
+/** Suggestions while typing a WHERE condition: column names + basic SQL keywords. */
 
 export interface WhereSuggestion {
-  /** Текст подстановки. */
+  /** Replacement text. */
   text: string;
   kind: "column" | "keyword";
 }
 
 export interface WhereSuggestResult {
   items: WhereSuggestion[];
-  /** Границы заменяемого слова в исходной строке. */
+  /** Bounds of the word being replaced in the source string. */
   wordStart: number;
   wordEnd: number;
 }
@@ -17,7 +17,7 @@ const KEYWORDS = ["AND", "OR", "NOT", "IN", "IS NULL", "IS NOT NULL", "LIKE", "B
 
 const IDENT_CHAR = /[A-Za-z0-9_$]/;
 
-/** Находит идентификатор, в котором стоит каретка (буквы, цифры, `_`, `$`). */
+/** Finds the identifier the caret is inside of (letters, digits, `_`, `$`). */
 export function wordAtCaret(text: string, caret: number): { start: number; end: number; word: string } {
   const pos = Math.max(0, Math.min(caret, text.length));
   let start = pos;
@@ -28,8 +28,8 @@ export function wordAtCaret(text: string, caret: number): { start: number; end: 
 }
 
 /**
- * Возвращает подсказки для текущего слова перед кареткой. Регистр не учитывается;
- * колонки идут первыми, затем ключевые слова. Пустой префикс — подсказок нет.
+ * Returns suggestions for the current word before the caret. Case-insensitive;
+ * columns come first, then keywords. Empty prefix means no suggestions.
  */
 export function suggestWhere(text: string, caret: number, columns: readonly string[], limit = 12): WhereSuggestResult {
   const { start, end, word } = wordAtCaret(text, caret);
@@ -48,7 +48,7 @@ export function suggestWhere(text: string, caret: number, columns: readonly stri
   return { items: items.slice(0, limit), wordStart: start, wordEnd: end };
 }
 
-/** Заменяет слово [wordStart, wordEnd) на подсказку; возвращает новый текст и позицию каретки. */
+/** Replaces the word [wordStart, wordEnd) with the suggestion; returns the new text and caret position. */
 export function applySuggestion(text: string, wordStart: number, wordEnd: number, replacement: string): { text: string; caret: number } {
   const next = text.slice(0, wordStart) + replacement + text.slice(wordEnd);
   return { text: next, caret: wordStart + replacement.length };

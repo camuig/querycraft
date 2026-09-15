@@ -1,5 +1,5 @@
-// Чистая модель дерева проводника: собирает плоский список видимых узлов
-// из состояния стора (без побочных эффектов — загрузку данных инициирует ExplorerPanel).
+// Pure explorer tree model: builds a flat list of visible nodes
+// from store state (no side effects — data loading is triggered by ExplorerPanel).
 import type { ColumnInfo, ConnectionConfig, ForeignKeyInfo, IndexInfo, TableInfo } from "../../api/types";
 import type { ConnectionStatus } from "../../store/connectionsStore";
 import { dbKey, tableKey } from "../../store/explorerStore";
@@ -67,7 +67,7 @@ function matches(name: string, filter: string): boolean {
   return filter === "" || name.toLowerCase().includes(filter);
 }
 
-/** Дочерние узлы для узла "загрузка"/"ошибка" на заданной глубине. */
+/** Child nodes for a "loading"/"error" node at a given depth. */
 function statusChildren(depth: number, connectionId: string, database: string | undefined, key: string, isLoading: boolean, error: string | undefined): TreeNode[] {
   if (isLoading) {
     return [{ key: `${key}#loading`, kind: "loading", depth, connectionId, database, label: "Loading…", expandable: false }];

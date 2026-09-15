@@ -10,11 +10,11 @@ interface SortState {
 
 export interface ResultsPanelProps {
   results: StatementResult[];
-  /** Вызывается при клике "Ещё" для обрезанного результата — вызывающий код перевыполняет с большим лимитом. */
+  /** Called when clicking "More" on a truncated result — the caller re-runs with a higher limit. */
   onLoadMore?: (index: number) => void;
 }
 
-/** null всегда первым, числа сравниваются численно, остальное — localeCompare. */
+/** null always first, numbers compared numerically, everything else via localeCompare. */
 function compareCell(a: CellValue, b: CellValue, dir: 1 | -1): number {
   if (a === null && b === null) return 0;
   if (a === null) return -1;
@@ -32,7 +32,7 @@ function titleFor(r: StatementResult, i: number): string {
   return `Result ${i + 1}`;
 }
 
-/** Список результатов выполнения (вкладки, если их несколько) с гридом, сортировкой и экспортом. */
+/** List of execution results (tabs, if there are several) with a grid, sorting, and export. */
 export function ResultsPanel(props: ResultsPanelProps) {
   const { results, onLoadMore } = props;
   const [activeIndex, setActiveIndex] = useState(0);

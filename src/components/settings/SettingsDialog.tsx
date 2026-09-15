@@ -13,7 +13,7 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; hint: string }[] =
   { value: "dark", label: "Dark", hint: "" },
 ];
 
-/** Диалог настроек: тема, лимит строк, размер шрифта редактора. Изменения применяются сразу. */
+/** Settings dialog: theme, row limit, editor font size. Changes apply immediately. */
 export function SettingsDialog() {
   const theme = useSettingsStore((s) => s.theme);
   const setTheme = useSettingsStore((s) => s.setTheme);

@@ -1,5 +1,5 @@
-//! Хранилище конфигураций подключений: `connections.json` в каталоге конфигурации
-//! приложения + пароли в системном keyring (сервис "QueryCraft", ключ — id подключения).
+//! Storage for connection configurations: `connections.json` in the app's config directory
+//! plus passwords in the system keyring (service "QueryCraft", key — connection id).
 
 use std::collections::HashMap;
 use std::fs;
@@ -15,7 +15,7 @@ use crate::error::{AppError, AppResult};
 const KEYRING_SERVICE: &str = "QueryCraft";
 const CONNECTIONS_FILE: &str = "connections.json";
 
-/// То, что реально хранится на диске — без пароля и без вычисляемого `hasPassword`.
+/// What's actually stored on disk — without the password and without the computed `hasPassword`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct StoredConnection {
     id: String,
@@ -31,7 +31,7 @@ struct StoredConnection {
     color: Option<String>,
 }
 
-/// Публичная конфигурация подключения (контракт с фронтендом).
+/// Public connection configuration (contract with the frontend).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionConfig {
@@ -46,7 +46,7 @@ pub struct ConnectionConfig {
     pub has_password: bool,
 }
 
-/// То, что фронтенд отправляет при сохранении/тесте подключения.
+/// What the frontend sends when saving/testing a connection.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionInput {
@@ -65,15 +65,15 @@ pub struct ConnectionInput {
 pub struct ConnectionStore {
     file_path: PathBuf,
     connections: Mutex<Vec<StoredConnection>>,
-    /// Пароли, введённые в этой сессии, но не сохранённые в keyring
-    /// (savePassword = false). Позволяет connect/test использовать их,
-    /// пока приложение не закрыто.
+    /// Passwords entered in this session but not saved to the keyring
+    /// (savePassword = false). Lets connect/test use them
+    /// until the app is closed.
     session_passwords: Mutex<HashMap<String, String>>,
 }
 
 impl ConnectionStore {
-    /// Загружает список подключений из `<app_config_dir>/connections.json`,
-    /// создавая каталог/файл при необходимости.
+    /// Loads the list of connections from `<app_config_dir>/connections.json`,
+    /// creating the directory/file if needed.
     pub fn load(app: &tauri::AppHandle) -> AppResult<Self> {
         use tauri::Manager;
 
@@ -112,8 +112,8 @@ impl ConnectionStore {
         Ok(Entry::new(KEYRING_SERVICE, id)?)
     }
 
-    /// Есть ли сохранённый пароль в keyring. Ошибки чтения (недоступный keyring
-    /// в CI/headless-окружениях) трактуются как "пароля нет" с предупреждением в лог.
+    /// Whether a password is saved in the keyring. Read errors (keyring unavailable
+    /// in CI/headless environments) are treated as "no password" with a warning logged.
     fn has_saved_password(id: &str) -> bool {
         match Self::keyring_entry(id) {
             Ok(entry) => match entry.get_password() {
@@ -159,7 +159,7 @@ impl ConnectionStore {
             .ok_or_else(|| AppError::ConnectionNotFound(id.to_string()))
     }
 
-    /// Внутренний конфиг (без сериализации `hasPassword`) — нужен коду подключения.
+    /// Internal config (without serializing `hasPassword`) — needed by the connection code.
     pub(crate) fn get_stored(&self, id: &str) -> AppResult<StoredConnectionView> {
         let connections = self.connections.lock();
         connections
@@ -199,7 +199,7 @@ impl ConnectionStore {
             self.persist(&connections)?;
         }
 
-        // Пароль: сохранить в keyring, удалить из keyring, или закэшировать на сессию.
+        // Password: save to the keyring, remove from the keyring, or cache for the session.
         if input.save_password {
             if let Some(password) = &input.password {
                 let entry = Self::keyring_entry(&id)?;
@@ -237,8 +237,8 @@ impl ConnectionStore {
         }
     }
 
-    /// Пароль для подключения: сперва keyring, затем кэш сессии.
-    /// Ошибки чтения keyring не фатальны — просто нет сохранённого пароля.
+    /// Password for the connection: keyring first, then the session cache.
+    /// Keyring read errors are not fatal — it just means no password is saved.
     pub fn get_password(&self, id: &str) -> AppResult<Option<String>> {
         let from_keyring = match Self::keyring_entry(id) {
             Ok(entry) => match entry.get_password() {
@@ -263,8 +263,8 @@ impl ConnectionStore {
     }
 }
 
-/// Внутреннее представление подключения без сериализуемого `hasPassword` —
-/// используется при построении `OptsBuilder`.
+/// Internal representation of a connection without the serializable `hasPassword` —
+/// used when building `OptsBuilder`.
 #[derive(Debug, Clone)]
 pub struct StoredConnectionView {
     pub host: String,

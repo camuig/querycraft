@@ -2,7 +2,7 @@ import { create } from "zustand";
 import * as api from "../api/commands";
 import type { ColumnInfo, ForeignKeyInfo, IndexInfo, TableInfo } from "../api/types";
 
-/** Кэш метаданных схемы: ключи — `${connectionId}`, `${connectionId}/${db}`, `${connectionId}/${db}/${table}`. */
+/** Schema metadata cache: keys are `${connectionId}`, `${connectionId}/${db}`, `${connectionId}/${db}/${table}`. */
 interface ExplorerState {
   databases: Record<string, string[]>;
   tables: Record<string, TableInfo[]>;
@@ -11,15 +11,15 @@ interface ExplorerState {
   foreignKeys: Record<string, ForeignKeyInfo[]>;
   loading: Record<string, boolean>;
   errors: Record<string, string>;
-  /** Раскрытые узлы дерева (ключи узлов). */
+  /** Expanded tree nodes (node keys). */
   expanded: Record<string, boolean>;
   filter: string;
 
-  /** Ключ выбранного узла дерева (см. схему ключей в explorer/treeModel.ts). */
+  /** Key of the selected tree node (see the key scheme in explorer/treeModel.ts). */
   selectedKey: string | null;
-  /** Подключение, к которому относится выбранный узел (или сам узел — если это подключение). */
+  /** Connection the selected node belongs to (or the node itself, if it is a connection). */
   selectedConnectionId: string | null;
-  /** База данных выбранного узла (null для узла подключения). */
+  /** Database of the selected node (null for a connection node). */
   selectedDatabase: string | null;
 
   loadDatabases: (connectionId: string, force?: boolean) => Promise<string[]>;
@@ -34,7 +34,7 @@ interface ExplorerState {
   setSelectedConnectionId: (connectionId: string | null) => void;
   setSelectedDatabase: (database: string | null) => void;
   setSelectedKey: (key: string | null) => void;
-  /** Атомарно выставить выбранный узел дерева и связанные подключение/базу. */
+  /** Atomically sets the selected tree node and the related connection/database. */
   selectNode: (key: string | null, connectionId: string | null, database: string | null) => void;
 }
 
@@ -99,7 +99,7 @@ export const useExplorerStore = create<ExplorerState>()((set, get) => {
     selectNode: (key, connectionId, database) =>
       set({ selectedKey: key, selectedConnectionId: connectionId, selectedDatabase: database }),
 
-    /** Сбросить кэш всех ключей, начинающихся с prefix (например, при Refresh). */
+    /** Clears the cache for all keys starting with prefix (e.g. on Refresh). */
     invalidate: (prefix) =>
       set((s) => ({
         databases: dropPrefix(s.databases, prefix),

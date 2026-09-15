@@ -17,7 +17,7 @@ const STATUS_LABEL: Record<ConnectionStatus, string> = {
   disconnected: "disconnected",
 };
 
-/** Нижний статус-бар: подключение/база активной вкладки слева, версия сервера справа. */
+/** Bottom status bar: active tab's connection/database on the left, server version on the right. */
 export function StatusBar() {
   const tabs = useTabsStore((s) => s.tabs);
   const activeTabId = useTabsStore((s) => s.activeTabId);

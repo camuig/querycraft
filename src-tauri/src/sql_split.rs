@@ -1,9 +1,9 @@
-//! Разбиение текста SQL на отдельные выражения.
+//! Splits SQL text into individual statements.
 //!
-//! Учитывает строковые литералы (', ", `) с backslash-экранированием и
-//! удвоенными кавычками, комментарии (`--`, `#`, `/* */`) и директиву
-//! `DELIMITER`, которая меняет разделитель выражений (нужно для процедур
-//! вида `DELIMITER $$ ... END$$ DELIMITER ;`).
+//! Accounts for string literals (', ", `) with backslash escaping and
+//! doubled quotes, comments (`--`, `#`, `/* */`), and the
+//! `DELIMITER` directive, which changes the statement delimiter (needed for procedures
+//! like `DELIMITER $$ ... END$$ DELIMITER ;`).
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Statement {
@@ -22,8 +22,8 @@ enum State {
     BlockComment,
 }
 
-/// Проверяет, начинается ли по смещению `pos` строка со слова `word`
-/// без учёта регистра (используется для поиска `DELIMITER` в начале строки).
+/// Checks whether the string at offset `pos` starts with the word `word`
+/// case-insensitively (used to find `DELIMITER` at the start of a line).
 fn starts_with_ci(bytes: &[u8], pos: usize, word: &str) -> bool {
     let word_bytes = word.as_bytes();
     if pos + word_bytes.len() > bytes.len() {
@@ -35,10 +35,10 @@ fn starts_with_ci(bytes: &[u8], pos: usize, word: &str) -> bool {
         .all(|(a, b)| a.eq_ignore_ascii_case(b))
 }
 
-/// `true`, если байт по смещению `pos` — начало строки (после `\n`, `\r\n` или начало файла),
-/// возможно с ведущими пробелами/табами.
+/// `true` if the byte at offset `pos` is the start of a line (after `\n`, `\r\n`, or the start of the file),
+/// possibly with leading spaces/tabs.
 fn is_line_start(bytes: &[u8], mut pos: usize) -> bool {
-    // Отматываем назад через пробелы/табы.
+    // Scan back through spaces/tabs.
     while pos > 0 {
         let prev = bytes[pos - 1];
         if prev == b' ' || prev == b'\t' {
@@ -60,9 +60,9 @@ pub fn split_statements(sql: &str) -> Vec<Statement> {
     let mut stmt_start = 0usize;
     let mut i = 0usize;
 
-    // Флаг: встретили ли в текущем выражении хоть один "содержательный" символ
-    // (не пробел и не комментарий) — чтобы отличать выражения, состоящие только
-    // из комментариев (их не нужно эмитить).
+    // Flag: whether the current statement has any "meaningful" character yet
+    // (not a space or comment) — to distinguish statements made up only
+    // of comments (which shouldn't be emitted).
     macro_rules! push_statement {
         ($end:expr) => {{
             let raw = &sql[stmt_start..$end];
@@ -84,18 +84,18 @@ pub fn split_statements(sql: &str) -> Vec<Statement> {
         match state {
             State::Normal => {
                 let b = bytes[i];
-                // Проверка DELIMITER в начале строки (регистронезависимо), только вне выражения
-                // (т.е. когда с начала текущего выражения были только пробелы/комментарии).
+                // Check for DELIMITER at the start of a line (case-insensitively), only outside a statement
+                // (i.e. only spaces/comments since the start of the current statement).
                 if is_line_start(bytes, i) && starts_with_ci(bytes, i, "delimiter") {
                     let after_kw = i + "delimiter".len();
-                    // должен быть отделён пробелом/табом
+                    // must be separated by a space/tab
                     if after_kw < len && (bytes[after_kw] == b' ' || bytes[after_kw] == b'\t') {
-                        // конец строки — новый разделитель
+                        // end of line — new delimiter
                         let line_end = sql[after_kw..].find('\n').map(|p| after_kw + p).unwrap_or(len);
                         let new_delim = sql[after_kw..line_end].trim().to_string();
                         if !new_delim.is_empty() {
-                            // Всё, что было до DELIMITER в текущем "выражении", должно быть
-                            // уже выражением-разделителем (обычно тут пусто).
+                            // Everything before DELIMITER in the current "statement" must already be
+                            // a delimiter statement (usually empty here).
                             push_statement!(i);
                             delimiter = new_delim;
                             i = if line_end < len { line_end + 1 } else { len };
@@ -119,9 +119,14 @@ pub fn split_statements(sql: &str) -> Vec<Statement> {
                         i += 1;
                     }
                     b'-' if i + 1 < len && bytes[i + 1] == b'-' => {
-                        // `--` считается комментарием только если после него пробел/таб/EOL или конец строки
+                        // `--` is treated as a comment only if followed by a space/tab/EOL or end of string
                         let after = i + 2;
-                        if after >= len || bytes[after] == b' ' || bytes[after] == b'\t' || bytes[after] == b'\n' || bytes[after] == b'\r' {
+                        if after >= len
+                            || bytes[after] == b' '
+                            || bytes[after] == b'\t'
+                            || bytes[after] == b'\n'
+                            || bytes[after] == b'\r'
+                        {
                             state = State::LineComment;
                             i += 2;
                         } else {
@@ -137,7 +142,7 @@ pub fn split_statements(sql: &str) -> Vec<Statement> {
                         i += 2;
                     }
                     _ => {
-                        // Проверяем совпадение с текущим разделителем.
+                        // Check for a match against the current delimiter.
                         if matches_delimiter(bytes, i, delimiter.as_bytes()) {
                             push_statement!(i);
                             i += delimiter.len();
@@ -151,7 +156,7 @@ pub fn split_statements(sql: &str) -> Vec<Statement> {
             State::SingleQuoted => {
                 match bytes[i] {
                     b'\\' if i + 1 < len => i += 2,
-                    b'\'' if i + 1 < len && bytes[i + 1] == b'\'' => i += 2, // удвоенная кавычка
+                    b'\'' if i + 1 < len && bytes[i + 1] == b'\'' => i += 2, // doubled quote
                     b'\'' => {
                         state = State::Normal;
                         i += 1;
@@ -159,28 +164,24 @@ pub fn split_statements(sql: &str) -> Vec<Statement> {
                     _ => i += 1,
                 }
             }
-            State::DoubleQuoted => {
-                match bytes[i] {
-                    b'\\' if i + 1 < len => i += 2,
-                    b'"' if i + 1 < len && bytes[i + 1] == b'"' => i += 2,
-                    b'"' => {
-                        state = State::Normal;
-                        i += 1;
-                    }
-                    _ => i += 1,
+            State::DoubleQuoted => match bytes[i] {
+                b'\\' if i + 1 < len => i += 2,
+                b'"' if i + 1 < len && bytes[i + 1] == b'"' => i += 2,
+                b'"' => {
+                    state = State::Normal;
+                    i += 1;
                 }
-            }
-            State::Backtick => {
-                match bytes[i] {
-                    b'\\' if i + 1 < len => i += 2,
-                    b'`' if i + 1 < len && bytes[i + 1] == b'`' => i += 2,
-                    b'`' => {
-                        state = State::Normal;
-                        i += 1;
-                    }
-                    _ => i += 1,
+                _ => i += 1,
+            },
+            State::Backtick => match bytes[i] {
+                b'\\' if i + 1 < len => i += 2,
+                b'`' if i + 1 < len && bytes[i + 1] == b'`' => i += 2,
+                b'`' => {
+                    state = State::Normal;
+                    i += 1;
                 }
-            }
+                _ => i += 1,
+            },
             State::LineComment => {
                 if bytes[i] == b'\n' {
                     state = State::Normal;
@@ -198,7 +199,7 @@ pub fn split_statements(sql: &str) -> Vec<Statement> {
         }
     }
 
-    // Последнее выражение без завершающего разделителя.
+    // The last statement without a trailing delimiter.
     push_statement!(len);
 
     result
@@ -211,7 +212,7 @@ fn matches_delimiter(bytes: &[u8], pos: usize, delim: &[u8]) -> bool {
     &bytes[pos..pos + delim.len()] == delim
 }
 
-/// Проверяет, что в тексте выражения есть что-то, кроме комментариев и пробелов.
+/// Checks that the statement text has something besides comments and whitespace.
 fn has_non_comment_content(text: &str) -> bool {
     let bytes = text.as_bytes();
     let len = bytes.len();
@@ -223,7 +224,12 @@ fn has_non_comment_content(text: &str) -> bool {
                 b' ' | b'\t' | b'\n' | b'\r' => i += 1,
                 b'-' if i + 1 < len && bytes[i + 1] == b'-' => {
                     let after = i + 2;
-                    if after >= len || bytes[after] == b' ' || bytes[after] == b'\t' || bytes[after] == b'\n' || bytes[after] == b'\r' {
+                    if after >= len
+                        || bytes[after] == b' '
+                        || bytes[after] == b'\t'
+                        || bytes[after] == b'\n'
+                        || bytes[after] == b'\r'
+                    {
                         state = State::LineComment;
                         i += 2;
                     } else {
@@ -298,18 +304,12 @@ mod tests {
 
     #[test]
     fn semicolon_inside_single_quotes_is_not_a_separator() {
-        assert_eq!(
-            sqls("SELECT 'a;b'; SELECT 2"),
-            vec!["SELECT 'a;b'", "SELECT 2"]
-        );
+        assert_eq!(sqls("SELECT 'a;b'; SELECT 2"), vec!["SELECT 'a;b'", "SELECT 2"]);
     }
 
     #[test]
     fn semicolon_inside_double_quotes_is_not_a_separator() {
-        assert_eq!(
-            sqls("SELECT \"a;b\"; SELECT 2"),
-            vec!["SELECT \"a;b\"", "SELECT 2"]
-        );
+        assert_eq!(sqls("SELECT \"a;b\"; SELECT 2"), vec!["SELECT \"a;b\"", "SELECT 2"]);
     }
 
     #[test]
@@ -346,8 +346,8 @@ mod tests {
 
     #[test]
     fn double_dash_without_following_space_is_not_a_comment() {
-        // `--foo` не является комментарием по правилам MySQL (не отделён пробелом),
-        // поэтому это просто два минуса в тексте выражения.
+        // `--foo` is not a comment under MySQL's rules (not followed by a space),
+        // so it's just two minus signs in the statement text.
         assert_eq!(sqls("SELECT 1--2"), vec!["SELECT 1--2"]);
     }
 
@@ -377,15 +377,13 @@ mod tests {
 
     #[test]
     fn statement_consisting_only_of_block_comment_is_skipped() {
-        assert_eq!(
-            sqls("/* just a comment */; SELECT 1;"),
-            vec!["SELECT 1"]
-        );
+        assert_eq!(sqls("/* just a comment */; SELECT 1;"), vec!["SELECT 1"]);
     }
 
     #[test]
     fn delimiter_directive_for_stored_procedure() {
-        let input = "DELIMITER $$\nCREATE PROCEDURE p()\nBEGIN\n  SELECT 1;\n  SELECT 2;\nEND$$\nDELIMITER ;\nSELECT 3;";
+        let input =
+            "DELIMITER $$\nCREATE PROCEDURE p()\nBEGIN\n  SELECT 1;\n  SELECT 2;\nEND$$\nDELIMITER ;\nSELECT 3;";
         let stmts = sqls(input);
         assert_eq!(stmts.len(), 2);
         assert!(stmts[0].starts_with("CREATE PROCEDURE p()"));
@@ -423,14 +421,14 @@ mod tests {
         assert_eq!(stmts.len(), 2);
         assert_eq!(stmts[0].sql, "SELECT 'привет'");
         assert_eq!(stmts[1].sql, "SELECT 'мир'");
-        // Позиции должны быть валидными UTF-8 границами.
+        // Positions must be valid UTF-8 boundaries.
         assert_eq!(&input[stmts[0].start..stmts[0].end], "SELECT 'привет'");
         assert_eq!(&input[stmts[1].start..stmts[1].end], "SELECT 'мир'");
     }
 
     #[test]
     fn delimiter_word_not_at_line_start_is_not_a_directive() {
-        // "delimiter" встречается не в начале строки — не должно ломать разбор.
+        // "delimiter" doesn't appear at the start of a line — shouldn't break parsing.
         let input = "SELECT 'x delimiter y'; SELECT 1;";
         assert_eq!(sqls(input), vec!["SELECT 'x delimiter y'", "SELECT 1"]);
     }

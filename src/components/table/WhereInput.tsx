@@ -6,7 +6,7 @@ import { applySuggestion, suggestWhere, type WhereSuggestion } from "../../lib/w
 interface WhereInputProps {
   value: string;
   onChange: (value: string) => void;
-  /** Enter без открытого списка подсказок — применить фильтр. */
+  /** Enter with no suggestion list open — apply the filter. */
   onApply: () => void;
   columns: readonly string[];
   placeholder?: string;
@@ -19,13 +19,13 @@ interface SuggestState {
   active: number;
 }
 
-/** Поле условия WHERE с подсказками по именам колонок (без автозамены: подстановка только по Tab/Enter/клику). */
+/** WHERE clause input with column name suggestions (no autocomplete: insertion only via Tab/Enter/click). */
 export function WhereInput({ value, onChange, onApply, columns, placeholder }: WhereInputProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [suggest, setSuggest] = useState<SuggestState | null>(null);
   const pendingCaret = useRef<number | null>(null);
 
-  // После подстановки ставим каретку в конец вставленного слова.
+  // After insertion, place the caret at the end of the inserted word.
   useEffect(() => {
     if (pendingCaret.current === null) return;
     const el = inputRef.current;
@@ -107,7 +107,7 @@ export function WhereInput({ value, onChange, onApply, columns, placeholder }: W
               role="option"
               aria-selected={i === suggest.active}
               className={`where-suggest-item ${item.kind} ${i === suggest.active ? "active" : ""}`}
-              // mousedown, а не click: иначе blur закроет список раньше клика.
+              // mousedown, not click: otherwise blur closes the list before the click registers.
               onMouseDown={(e) => {
                 e.preventDefault();
                 accept(i);

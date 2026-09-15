@@ -1,5 +1,5 @@
-//! Выполнение SQL: разбиение на выражения, потоковое чтение результатов до
-//! `maxRows`, и применение параметризованных изменений в одной транзакции.
+//! SQL execution: splitting into statements, streaming results up to
+//! `maxRows`, and applying parameterized changes in a single transaction.
 
 use std::time::Instant;
 
@@ -64,8 +64,8 @@ pub struct ApplyResult {
     pub duration_ms: u64,
 }
 
-/// RAII-хелпер: снимает запись о выполняющемся запросе при выходе из области
-/// видимости (успех, ошибка или ранний `break`).
+/// RAII helper: removes the running-query record when leaving scope
+/// (success, error, or an early `break`).
 struct RunningQueryGuard<'a> {
     manager: &'a ConnectionManager,
     query_id: &'a str,
@@ -77,10 +77,10 @@ impl Drop for RunningQueryGuard<'_> {
     }
 }
 
-/// Читает все наборы результатов текущего `QueryResult`, по одному
-/// `StatementResult` на набор (для `CALL proc()`, возвращающего несколько).
-/// Ошибка чтения (например, обрыв соединения на втором наборе) возвращается
-/// как есть — вызывающий код превращает её в `StatementResult` с kind="error".
+/// Reads all result sets of the current `QueryResult`, one
+/// `StatementResult` per set (for `CALL proc()`, which can return several).
+/// A read error (e.g. a dropped connection on the second set) is returned
+/// as-is — the caller turns it into a `StatementResult` with kind="error".
 async fn collect_result_sets(
     query_result: &mut QueryResult<'_, 'static, TextProtocol>,
     sql: &str,
@@ -101,13 +101,16 @@ async fn collect_result_sets(
             while let Some(row) = query_result.next().await? {
                 if rows.len() < max_rows {
                     let values = row.unwrap();
-                    let json_row: Vec<CellValue> =
-                        values.iter().zip(columns.iter()).map(|(v, c)| value_to_json(v, c)).collect();
+                    let json_row: Vec<CellValue> = values
+                        .iter()
+                        .zip(columns.iter())
+                        .map(|(v, c)| value_to_json(v, c))
+                        .collect();
                     rows.push(json_row);
                 } else {
                     truncated = true;
-                    // Строка уже прочитана и отброшена — цикл продолжит читать
-                    // (и отбрасывать) до конца текущего набора.
+                    // The row is already read and discarded — the loop keeps reading
+                    // (and discarding) until the end of the current set.
                 }
             }
 
@@ -120,11 +123,11 @@ async fn collect_result_sets(
                 affected_rows: 0,
                 last_insert_id: None,
                 error: None,
-                duration_ms: 0, // проставляется вызывающим кодом
+                duration_ms: 0, // set by the caller
             });
         } else {
-            // Набор без колонок (INSERT/UPDATE/DELETE/DDL) — один next()
-            // продвигает к следующему набору, если он есть.
+            // A set without columns (INSERT/UPDATE/DELETE/DDL) — a single next()
+            // advances to the next set, if there is one.
             query_result.next().await?;
             per_set_results.push(StatementResult {
                 sql: sql.to_string(),
@@ -157,7 +160,11 @@ pub async fn execute(
         .await?;
 
     let statements = split_statements(&request.sql);
-    let max_rows = if request.max_rows == 0 { DEFAULT_MAX_ROWS } else { request.max_rows as usize };
+    let max_rows = if request.max_rows == 0 {
+        DEFAULT_MAX_ROWS
+    } else {
+        request.max_rows as usize
+    };
 
     let mut results = Vec::with_capacity(statements.len());
 
@@ -165,7 +172,10 @@ pub async fn execute(
         let mut conn = session_conn.lock().await;
         let thread_id = conn.id();
         manager.register_query(&request.query_id, &request.connection_id, thread_id);
-        let _guard = RunningQueryGuard { manager, query_id: &request.query_id };
+        let _guard = RunningQueryGuard {
+            manager,
+            query_id: &request.query_id,
+        };
 
         let start = Instant::now();
         let outcome: mysql_async::Result<Vec<StatementResult>> = match conn.query_iter(stmt.sql.clone()).await {
@@ -181,12 +191,24 @@ pub async fn execute(
                 for r in &mut per_set_results {
                     r.duration_ms = duration_ms;
                 }
-                history.record(&request.connection_id, request.database.as_deref(), &stmt.sql, duration_ms, true)?;
+                history.record(
+                    &request.connection_id,
+                    request.database.as_deref(),
+                    &stmt.sql,
+                    duration_ms,
+                    true,
+                )?;
                 results.extend(per_set_results);
             }
             Err(e) => {
                 let app_err = AppError::from(e);
-                history.record(&request.connection_id, request.database.as_deref(), &stmt.sql, duration_ms, false)?;
+                history.record(
+                    &request.connection_id,
+                    request.database.as_deref(),
+                    &stmt.sql,
+                    duration_ms,
+                    false,
+                )?;
                 results.push(StatementResult {
                     sql: stmt.sql.clone(),
                     kind: StatementResultKind::Error,
@@ -209,8 +231,8 @@ pub async fn execute(
     Ok(results)
 }
 
-/// Выполняет параметризованные выражения в одной транзакции (редактирование данных).
-/// Откатывает транзакцию и возвращает ошибку при первом же сбое.
+/// Executes parameterized statements in a single transaction (data editing).
+/// Rolls back the transaction and returns an error on the first failure.
 pub async fn apply_changes(
     manager: &ConnectionManager,
     connection_id: &str,

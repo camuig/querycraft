@@ -1,5 +1,5 @@
-// Мок IPC для разработки UI в обычном браузере (без Tauri): `pnpm dev` и открыть http://localhost:1420.
-// Активируется только когда нет window.__TAURI_INTERNALS__. В сборке приложения не используется.
+// Mock IPC for UI development in a plain browser (without Tauri): `pnpm dev` and open http://localhost:1420.
+// Activated only when window.__TAURI_INTERNALS__ is absent. Not used in the application build.
 import type {
   ColumnInfo,
   ColumnMeta,

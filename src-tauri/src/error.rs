@@ -1,5 +1,5 @@
-//! Единая ошибка приложения. Команды Tauri возвращают `Result<T, AppError>`,
-//! `AppError` сериализуется как строка — именно её видит фронтенд.
+//! Unified application error. Tauri commands return `Result<T, AppError>`,
+//! `AppError` is serialized as a string — that's what the frontend sees.
 
 use serde::{Serialize, Serializer};
 
@@ -30,7 +30,10 @@ impl From<mysql_async::Error> for AppError {
             mysql_async::Error::Server(server_error) => {
                 let mut msg = format!("[{}] {}", server_error.code, server_error.message);
                 if !server_error.state.is_empty() {
-                    msg = format!("[{}, {}] {}", server_error.code, server_error.state, server_error.message);
+                    msg = format!(
+                        "[{}, {}] {}",
+                        server_error.code, server_error.state, server_error.message
+                    );
                 }
                 AppError::Mysql(msg)
             }
@@ -57,8 +60,8 @@ impl From<&str> for AppError {
     }
 }
 
-// Команды Tauri хотят Result<T, E: Serialize>, ошибка передаётся во фронтенд
-// в виде обычной строки (см. src/api/commands.ts — там ловится String).
+// Tauri commands want Result<T, E: Serialize>; the error is passed to the frontend
+// as a plain string (see src/api/commands.ts — it catches a String there).
 impl Serialize for AppError {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

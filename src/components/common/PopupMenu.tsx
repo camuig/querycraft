@@ -1,17 +1,17 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 interface PopupMenuProps {
-  /** Желаемая точка привязки (viewport). */
+  /** Desired anchor point (viewport). */
   x: number;
   y: number;
-  /** Высота элемента-якоря: если меню не влезает снизу, оно откроется над якорем. */
+  /** Height of the anchor element: if the menu doesn't fit below, it opens above the anchor. */
   anchorHeight?: number;
   children: ReactNode;
 }
 
 const MARGIN = 8;
 
-/** Всплывающее меню, которое после монтирования сдвигается так, чтобы не выходить за границы окна. */
+/** Popup menu that repositions itself after mounting so it stays within the window bounds. */
 export function PopupMenu({ x, y, anchorHeight = 0, children }: PopupMenuProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState({ left: x, top: y, visible: false });

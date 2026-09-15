@@ -7,7 +7,7 @@ import { toast } from "../../store/toastStore";
 import * as api from "../../api/commands";
 import { SqlEditor } from "../editor/SqlEditor";
 
-/** DDL таблицы (SHOW CREATE TABLE) — только чтение, с кнопкой копирования. */
+/** Table DDL (SHOW CREATE TABLE) — read-only, with a copy button. */
 export function TableDdlTab({ tab, active }: { tab: DdlTabModel; active: boolean }) {
   const connect = useConnectionsStore((s) => s.connect);
   const theme = useSettingsStore(selectResolvedTheme);

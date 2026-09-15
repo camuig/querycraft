@@ -1,5 +1,5 @@
-// Контракт между фронтендом и Rust-бэкендом. Зеркало структур в src-tauri/src.
-// Все поля в camelCase (serde rename_all = "camelCase" на стороне Rust).
+// Contract between the frontend and the Rust backend. Mirrors the structs in src-tauri/src.
+// All fields are camelCase (serde rename_all = "camelCase" on the Rust side).
 
 export interface ConnectionConfig {
   id: string;
@@ -7,16 +7,16 @@ export interface ConnectionConfig {
   host: string;
   port: number;
   user: string;
-  /** База данных по умолчанию (может быть пустой). */
+  /** Default database (can be empty). */
   database: string | null;
   ssl: boolean;
-  /** Цвет метки подключения (hex) — как в DataGrip для prod/dev. */
+  /** Connection tag color (hex) — like DataGrip's prod/dev coloring. */
   color: string | null;
-  /** Есть ли сохранённый пароль в keyring. */
+  /** Whether a password is saved in the keyring. */
   hasPassword: boolean;
 }
 
-/** То, что фронтенд отправляет при сохранении/тесте подключения. */
+/** What the frontend sends when saving/testing a connection. */
 export interface ConnectionInput {
   id: string | null;
   name: string;
@@ -32,7 +32,7 @@ export interface ConnectionInput {
 
 export interface ServerInfo {
   serverVersion: string;
-  /** CONNECTION_ID() сессии (для отладки). */
+  /** Session's CONNECTION_ID() (for debugging). */
   connectionId: number;
 }
 
@@ -42,16 +42,16 @@ export interface TableInfo {
   name: string;
   kind: TableKind;
   engine: string | null;
-  /** Приблизительное число строк из information_schema. */
+  /** Approximate row count from information_schema. */
   rows: number | null;
   comment: string;
 }
 
 export interface ColumnInfo {
   name: string;
-  /** Например "int", "varchar". */
+  /** E.g. "int", "varchar". */
   dataType: string;
-  /** Полный тип, например "varchar(255)", "int unsigned". */
+  /** Full type, e.g. "varchar(255)", "int unsigned". */
   columnType: string;
   nullable: boolean;
   /** "PRI" | "UNI" | "MUL" | "" */
@@ -60,7 +60,7 @@ export interface ColumnInfo {
   /** auto_increment, on update ... */
   extra: string;
   comment: string;
-  /** Порядковый номер, начиная с 1. */
+  /** Ordinal position, starting at 1. */
   ordinal: number;
 }
 
@@ -82,37 +82,37 @@ export interface ForeignKeyInfo {
 }
 
 /**
- * Значение ячейки в JSON:
+ * Cell value in JSON:
  *  - null — SQL NULL
- *  - number — целые в пределах safe integer, float/double
- *  - string — всё остальное (текст, decimal, большие целые, даты как "YYYY-MM-DD HH:MM:SS", бинарные как "0x...")
- *  - boolean — не используется бэкендом, но допускается при редактировании
+ *  - number — integers within the safe integer range, float/double
+ *  - string — everything else (text, decimal, large integers, dates as "YYYY-MM-DD HH:MM:SS", binary as "0x...")
+ *  - boolean — not used by the backend, but allowed while editing
  */
 export type CellValue = null | number | string | boolean;
 
 export interface ColumnMeta {
   name: string;
-  /** Исходная таблица (если известна). */
+  /** Source table (if known). */
   table: string | null;
   database: string | null;
-  /** Имя типа MySQL в верхнем регистре: "VARCHAR", "INT", "DATETIME", "DECIMAL", "BLOB", "JSON"... */
+  /** Uppercase MySQL type name: "VARCHAR", "INT", "DATETIME", "DECIMAL", "BLOB", "JSON"... */
   typeName: string;
   unsigned: boolean;
   nullable: boolean;
   primaryKey: boolean;
-  /** Бинарные данные (BLOB/BINARY) — редактирование недоступно в MVP. */
+  /** Binary data (BLOB/BINARY) — editing not supported in the MVP. */
   binary: boolean;
 }
 
 export type StatementResultKind = "rows" | "affected" | "error";
 
 export interface StatementResult {
-  /** Текст выполненного выражения. */
+  /** Text of the executed statement. */
   sql: string;
   kind: StatementResultKind;
   columns: ColumnMeta[];
   rows: CellValue[][];
-  /** true, если строки обрезаны по лимиту maxRows. */
+  /** true if rows were truncated by the maxRows limit. */
   truncated: boolean;
   affectedRows: number;
   lastInsertId: number | null;
@@ -122,16 +122,16 @@ export interface StatementResult {
 
 export interface ExecuteRequest {
   connectionId: string;
-  /** Идентификатор сессии (вкладки) — своё соединение MySQL. Создаётся лениво. */
+  /** Session (tab) identifier — its own MySQL connection. Created lazily. */
   sessionId: string;
-  /** Идентификатор запроса для отмены. */
+  /** Query identifier, used for cancellation. */
   queryId: string;
   sql: string;
-  /** Лимит строк на один результат (по умолчанию 500). */
+  /** Row limit per result (defaults to 500). */
   maxRows: number;
-  /** Если задано — выполнить USE перед запросом (для новой сессии). */
+  /** If set, run USE before the query (for a new session). */
   database: string | null;
-  /** Прекращать выполнение при первой ошибке. */
+  /** Stop execution on the first error. */
   stopOnError: boolean;
 }
 

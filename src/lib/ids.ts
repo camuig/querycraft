@@ -1,4 +1,4 @@
-/** Уникальный идентификатор (вкладки, сессии, запросы). */
+/** Unique identifier (tabs, sessions, queries). */
 export function newId(): string {
   return crypto.randomUUID();
 }

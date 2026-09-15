@@ -1,4 +1,4 @@
-// Форматирование ячеек и экспорт результатов грида в CSV/TSV/JSON/SQL.
+// Cell formatting and grid result export to CSV/TSV/JSON/SQL.
 
 import type { CellValue, ColumnMeta } from "../api/types";
 import { quoteIdent, qualify, sqlLiteral } from "./sqlBuilder";
@@ -6,11 +6,11 @@ import { quoteIdent, qualify, sqlLiteral } from "./sqlBuilder";
 const MAX_CELL_LENGTH = 1000;
 
 /**
- * Форматирует значение ячейки для отображения в гриде.
- * null -> "" (признак null грид показывает сам через CSS-класс, тут не пишем "<null>").
+ * Formats a cell value for display in the grid.
+ * null -> "" (the grid marks null itself via a CSS class, so we don't write "<null>" here).
  * number -> String(v).
  * boolean -> String(v) ("true"/"false").
- * string -> сама строка; если длина > 1000 символов — обрезается до 1000 + "…".
+ * string -> the string itself; if longer than 1000 characters, truncated to 1000 + "…".
  */
 export function formatCell(v: CellValue, _meta?: ColumnMeta): string {
   if (v === null) return "";
@@ -20,7 +20,7 @@ export function formatCell(v: CellValue, _meta?: ColumnMeta): string {
   return String(v);
 }
 
-/** Экранирует значение для CSV-поля: кавычки при наличии `,`, `"`, `\n`, `\r`, null -> пустое поле. */
+/** Escapes a value for a CSV field: quoted when it contains `,`, `"`, `\n`, `\r`; null -> empty field. */
 function csvField(v: CellValue): string {
   if (v === null) return "";
   const s = typeof v === "string" ? v : String(v);
@@ -31,9 +31,9 @@ function csvField(v: CellValue): string {
 }
 
 /**
- * CSV: первая строка — заголовки колонок, разделитель `,`, значения в кавычках
- * при наличии `,`/`"`/переводов строк (кавычки внутри дублируются), null -> "",
- * строки разделены `\n`.
+ * CSV: the first row is column headers, delimiter `,`, values are quoted
+ * when they contain `,`/`"`/newlines (inner quotes are doubled), null -> "",
+ * rows are separated by `\n`.
  */
 export function toCsv(columns: ColumnMeta[], rows: CellValue[][]): string {
   const header = columns.map((c) => csvField(c.name)).join(",");
@@ -41,7 +41,7 @@ export function toCsv(columns: ColumnMeta[], rows: CellValue[][]): string {
   return [header, ...lines].join("\n");
 }
 
-/** Экранирует значение для TSV-поля: табы и переводы строк заменяются на пробел, null -> "". */
+/** Escapes a value for a TSV field: tabs and newlines are replaced with a space; null -> "". */
 function tsvField(v: CellValue): string {
   if (v === null) return "";
   const s = typeof v === "string" ? v : String(v);
@@ -49,8 +49,8 @@ function tsvField(v: CellValue): string {
 }
 
 /**
- * TSV: первая строка — заголовки, разделитель — таб. Табы и переводы строк
- * внутри значений заменяются на пробел (\t -> " ", \n/\r -> " "), null -> "".
+ * TSV: the first row is headers, delimiter is a tab. Tabs and newlines
+ * inside values are replaced with a space (\t -> " ", \n/\r -> " "), null -> "".
  */
 export function toTsv(columns: ColumnMeta[], rows: CellValue[][]): string {
   const header = columns.map((c) => tsvField(c.name)).join("\t");
@@ -60,7 +60,7 @@ export function toTsv(columns: ColumnMeta[], rows: CellValue[][]): string {
 
 export type CopyFormat = "tsv" | "csv";
 
-/** Текст для буфера обмена: диапазон значений в TSV или CSV, опционально с заголовками. */
+/** Text for the clipboard: a range of values in TSV or CSV, optionally with headers. */
 export function rowsToClipboardText(columns: ColumnMeta[], rows: CellValue[][], format: CopyFormat, withHeaders: boolean): string {
   const field = format === "csv" ? csvField : tsvField;
   const sep = format === "csv" ? "," : "\t";
@@ -69,7 +69,7 @@ export function rowsToClipboardText(columns: ColumnMeta[], rows: CellValue[][], 
   return lines.join("\n");
 }
 
-/** JSON.stringify массива объектов {colName: value}, с отступом 2. */
+/** JSON.stringify of an array of {colName: value} objects, indented with 2 spaces. */
 export function toJson(columns: ColumnMeta[], rows: CellValue[][]): string {
   const arr = rows.map((row) => {
     const obj: Record<string, CellValue> = {};
@@ -81,7 +81,7 @@ export function toJson(columns: ColumnMeta[], rows: CellValue[][]): string {
   return JSON.stringify(arr, null, 2);
 }
 
-/** Многострочный дамп: один INSERT INTO ... VALUES (...); на строку. */
+/** Multi-line dump: one INSERT INTO ... VALUES (...); per line. */
 export function toSqlInserts(
   database: string | null,
   table: string,

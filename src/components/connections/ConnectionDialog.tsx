@@ -32,7 +32,7 @@ const EMPTY_FORM: FormState = {
   color: null,
 };
 
-/** Модальное окно создания/редактирования подключения. */
+/** Modal for creating/editing a connection. */
 export function ConnectionDialog() {
   const dialog = useConnectionsStore((s) => s.dialog);
   const closeDialog = useConnectionsStore((s) => s.closeDialog);

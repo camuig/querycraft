@@ -25,7 +25,7 @@ interface TreeRowProps {
   onContextMenu: (e: React.MouseEvent) => void;
 }
 
-/** Одна строка дерева проводника: отступ, шеврон, иконка, название, доп. текст справа. */
+/** A single explorer tree row: indent, chevron, icon, name, extra text on the right. */
 export function TreeRow({ node, selected, expanded, style, onSelect, onToggleExpand, onDoubleClick, onContextMenu }: TreeRowProps) {
   const isPlain = node.kind === "loading" || node.kind === "error";
 

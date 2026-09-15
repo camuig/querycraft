@@ -10,10 +10,10 @@ import { PopupMenu } from "../common/PopupMenu";
 export interface ExportMenuProps {
   columns: ColumnMeta[];
   rows: CellValue[][];
-  /** Имя файла без расширения. */
+  /** File name without extension. */
   fileBaseName?: string;
   database?: string | null;
-  /** Имя таблицы для SQL INSERT (если результат — не единая таблица, подойдёт условное имя). */
+  /** Table name for SQL INSERT (if the result isn't a single table, an arbitrary name works). */
   table?: string;
 }
 
@@ -25,7 +25,7 @@ async function copyText(text: string): Promise<void> {
   }
 }
 
-/** Кнопка "Экспорт ▾" с меню: CSV/JSON в файл, копирование как TSV/SQL INSERT. */
+/** "Export ▾" button with a menu: CSV/JSON to file, copy as TSV/SQL INSERT. */
 export function ExportMenu(props: ExportMenuProps) {
   const [pos, setPos] = useState<{ x: number; y: number; anchorHeight: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);

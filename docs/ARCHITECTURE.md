@@ -1,74 +1,83 @@
-# QueryCraft — архитектура MVP
+# QueryCraft — architecture
 
-Десктопный клиент MySQL в духе DataGrip. Кроссплатформенный (macOS, Windows, Linux), быстрый.
+A DataGrip-style desktop MySQL client. Cross-platform (macOS, Windows, Linux), fast.
 
-## Стек
+## Stack
 
-| Слой | Технология | Почему |
-|------|-----------|--------|
-| Оболочка | Tauri 2 | Нативное окно + системный WebView, бинарник ~10 МБ, старт < 1 с, память в разы меньше Electron |
-| Бэкенд | Rust, tokio, `mysql_async` | Асинхронный драйвер, потоковое чтение результатов, отмена запросов через `KILL QUERY` |
-| Пароли | `keyring` | Системное хранилище: Keychain (macOS), Credential Manager (Windows), Secret Service (Linux) |
-| Фронтенд | React 19 + TypeScript + Vite | Быстрая разработка UI, знакомый стек |
-| Состояние | zustand | Минимум бойлерплейта |
-| SQL-редактор | CodeMirror 6 + `@codemirror/lang-sql` | Лёгкий (в отличие от Monaco), схемно-зависимый автокомплит из коробки |
-| Грид | `@tanstack/react-virtual` | Виртуализация по строкам и колонкам — сотни тысяч ячеек без тормозов |
-| Панели | `react-resizable-panels` | Раздвижные панели как в DataGrip |
+| Layer | Technology | Why |
+|-------|-----------|-----|
+| Shell | Tauri 2 | Native window + system WebView, ~10 MB binary, sub-second startup, a fraction of Electron's memory |
+| Backend | Rust, tokio, `mysql_async` | Async driver, streaming result reads, query cancellation via `KILL QUERY` |
+| Passwords | `keyring` | System secret storage: Keychain (macOS), Credential Manager (Windows), Secret Service (Linux) |
+| Frontend | React 19 + TypeScript + Vite | Fast UI development, familiar stack |
+| State | zustand | Minimal boilerplate |
+| SQL editor | CodeMirror 6 + `@codemirror/lang-sql` | Lightweight (unlike Monaco), schema-aware autocomplete out of the box |
+| Grid | `@tanstack/react-virtual` | Row and column virtualization — hundreds of thousands of cells without jank |
+| Panels | `react-resizable-panels` | Resizable panels, DataGrip-style |
 
-## Состав MVP
+## Feature scope
 
-1. **Подключения**: создать / изменить / удалить / проверить подключение MySQL (host, port, user, password, база по умолчанию, SSL). Конфиги — JSON в каталоге приложения, пароли — в системном keyring.
-2. **Проводник БД** (левая панель): подключение → базы → таблицы / представления → колонки, индексы, внешние ключи. Ленивая загрузка узлов, фильтр по имени.
-3. **SQL-консоль**: вкладки, подсветка, автокомплит по схеме, выполнение текущего выражения / выделения / всего (Ctrl/Cmd+Enter), отмена запроса, несколько результатов для нескольких выражений, время выполнения, история запросов.
-4. **Грид результатов**: виртуализация, сортировка по клику, копирование ячеек / строк (TSV), NULL отдельным стилем, лимит 500 строк с подгрузкой следующей страницы.
-5. **Данные таблицы**: открыть таблицу → грид с пагинацией, фильтр `WHERE`, сортировка, **редактирование ячеек**, добавление и удаление строк с отложенной фиксацией (Submit / Revert) — изменения применяются в транзакции по первичному ключу.
-6. **DDL таблицы**: `SHOW CREATE TABLE` с подсветкой.
-7. **Экспорт** результата в CSV / JSON (в файл или буфер обмена).
-8. **Темы**: тёмная (по умолчанию, в духе Darcula) и светлая. Раскладка: тулбар, проводник слева, вкладки по центру, результаты снизу, статус-бар.
+1. **Connections**: create / edit / delete / test a MySQL connection (host, port, user, password, default database, SSL). Configs are stored as JSON in the app's data directory; passwords go into the system keyring.
+2. **Database explorer** (left panel): connection → databases → tables / views → columns, indexes, foreign keys. Lazy node loading, name filter, context menus for common actions (refresh, copy name, open data/DDL, and similar operations per node kind).
+3. **SQL console**: tabs, syntax highlighting, schema-aware autocomplete, running the current statement / selection / whole script (Ctrl/Cmd+Enter, Ctrl/Cmd+Shift+Enter), query cancellation, multiple result sets for multi-statement scripts, execution time, query history. Each console tab keeps its own connection session.
+4. **Results grid**: virtualized rows and columns, click-to-sort, DataGrip-style selection — drag, Shift+click and Shift+arrows for ranges, row-number click selects a row, header click selects a column, Ctrl/Cmd+A selects all; arrow/Home/End/PageUp/PageDown/Tab navigation. Copying the selection: Ctrl/Cmd+C copies TSV, a context menu offers CSV and header variants. NULL is rendered with a distinct style.
+5. **Table data tab**: open a table → paginated grid with a `WHERE` filter that suggests column names and SQL keywords while typing (Tab/Enter/click to accept, Esc to dismiss, no autocorrect interference), sorting, cell editing, adding and deleting rows with deferred commit (Submit / Revert) applied inside a single transaction. Clipboard paste (Ctrl/Cmd+V or context menu) detects the delimiter (tab, `;`, `,` or `|`), adds missing rows automatically, turns empty values and `NULL` into SQL NULL, and fills a single value across a multi-cell selection.
+6. **Table DDL tab**: `SHOW CREATE TABLE` with syntax highlighting.
+7. **Export**: results to CSV / JSON / TSV (file or clipboard) and to SQL INSERT statements.
+8. **Themes**: system (default, follows the OS setting and switches live), light and dark. A settings dialog (Cmd+, / Ctrl+Alt+S) controls theme, row limit and editor font size; the native menu also exposes the theme and the settings.
+9. **Keymap**: shortcuts replicate DataGrip defaults (see the table in the README). `src/lib/keymap.ts` matches `KeyboardEvent.code` per platform; components register handlers on the command bus while active, so a shared key such as Cmd+Enter runs the console in a console tab and submits changes in a data tab. The native menu (`src-tauri/src/menu.rs`) emits an `app-menu` event with the action id, which goes through the same bus.
 
-Вне MVP: другие СУБД, диаграммы, миграции, рефакторинги схемы, сравнение схем, SSH-туннели, редактирование структуры таблиц через UI.
+Out of scope: other databases, ER diagrams, migrations, schema refactoring, schema comparison, SSH tunnels, editing table structure through the UI.
 
-## Модель сессий
+## Session model
 
-Как в DataGrip, у каждой консоли и каждой вкладки данных — **своё соединение** (`sessionId`), поэтому `USE`, временные таблицы и транзакции живут в рамках вкладки. Метаданные (проводник, автокомплит) берутся из отдельного пула соединений подключения.
+As in DataGrip, every console and every data tab owns its **own connection** (`sessionId`), so `USE`, temporary tables and transactions live within that tab. Metadata (explorer, autocomplete) is served from a separate connection pool tied to the connection config.
 
-Отмена запроса: бэкенд помнит `CONNECTION_ID()` соединения сессии; `cancel_query` открывает служебное соединение и делает `KILL QUERY <id>`.
+Query cancellation: the backend remembers the session connection's `CONNECTION_ID()`; `cancel_query` opens a side connection and issues `KILL QUERY <id>`.
 
-## Структура кода
+## Code layout
 
 ```
 src-tauri/src/
-  lib.rs              — сборка Tauri, регистрация команд и плагинов
-  commands.rs         — #[tauri::command] обёртки (тонкие)
-  error.rs            — AppError -> String для IPC
-  connections.rs      — хранилище конфигов (JSON) + keyring
-  sql_split.rs        — разбиение SQL на выражения (строки, комментарии, DELIMITER)
+  lib.rs              — Tauri app setup, command and plugin registration
+  main.rs             — binary entry point
+  commands.rs         — #[tauri::command] wrappers (thin)
+  menu.rs             — native application menu; item ids equal keymap action names
+  error.rs            — AppError -> String for IPC
+  connections.rs       — connection config store (JSON) + keyring
+  history.rs          — query history storage
+  sql_split.rs        — splitting SQL into statements (strings, comments, DELIMITER)
   mysql/
-    mod.rs            — ConnectionManager: пулы, сессии, активные запросы
-    execute.rs        — выполнение выражений, потоковое чтение до лимита
-    convert.rs        — mysql Value -> JSON по типу колонки
-    schema.rs         — information_schema: базы, таблицы, колонки, индексы, FK, DDL
+    mod.rs            — ConnectionManager: pools, sessions, active queries
+    execute.rs        — statement execution, streaming reads up to the row limit
+    convert.rs        — mysql Value -> JSON by column type
+    schema.rs         — information_schema: databases, tables, columns, indexes, FKs, DDL
 src/
-  api/types.ts        — типы контракта (зеркало Rust-структур, camelCase)
-  api/commands.ts     — типизированные обёртки над invoke()
-  store/              — zustand: connections, tabs, settings, explorer
-  lib/                — чистые функции: sqlSplit, sqlBuilder, changeTracker, format, export
+  api/types.ts        — contract types (mirrors Rust structs, camelCase)
+  api/commands.ts     — typed wrappers over invoke()
+  api/mock.ts         — IPC mock for running the UI in a plain browser without Tauri
+  store/              — zustand: connections, tabs, explorer, settings, status, toasts
+  lib/                — pure functions: sqlSplit, sqlBuilder, changeTracker, pasteParser,
+                         whereSuggest, format/export, ids, input props (each with unit tests)
+  lib/keymap.ts       — DataGrip-style shortcuts per platform (single source of truth)
+  lib/commandBus.ts   — routes keyboard shortcuts and menu events to the active component
   components/
-    layout/           — AppShell, Toolbar, StatusBar
-    explorer/         — дерево БД
-    connections/      — диалог подключения
-    editor/           — SqlEditor (CodeMirror), ConsoleTab
-    grid/             — DataGrid (виртуальный), ResultsPanel
-    table/            — TableDataTab (просмотр + редактирование), TableDdlTab
-    common/           — кнопки, иконки, модалки
-  styles/             — theme.css (CSS-переменные тем), layout.css
+    layout/           — AppShell, Toolbar, StatusBar, TabsBar, TabContent, useAppCommands (global shortcuts + menu)
+    explorer/         — database tree: panel, tree model, row, context menu, keyboard nav
+    connections/      — connection dialog
+    editor/           — SqlEditor (CodeMirror), ConsoleTab, editor commands (duplicate line, …)
+    grid/             — DataGrid (virtualized), ResultsPanel, GridCell, selection hook, ExportMenu
+    table/            — TableDataTab (view + edit), TableDdlTab, WhereInput
+    settings/         — SettingsDialog (theme, row limit, editor font size)
+    common/           — Logo, PopupMenu, Toasts, and other shared building blocks
+  styles/             — theme.css (theme CSS variables), layout.css, editor.css, grid.css, explorer.css
 ```
 
-## Контракт IPC
+## IPC contract
 
-Все команды возвращают `Result<T, String>`; строка ошибки показывается пользователю. Имена аргументов в Rust — snake_case, во фронтенде — camelCase (Tauri конвертирует автоматически). Полный список — в `src/api/commands.ts`.
+All commands return `Result<T, String>`; the error string is shown to the user. Rust argument names are snake_case, frontend argument names are camelCase (Tauri converts automatically). The full list of commands lives in `src/api/commands.ts`.
 
-## Тесты
+## Tests
 
-- Rust: `cargo test` — разбиение SQL, конвертация значений, хранилище подключений.
-- TS: `vitest` — sqlSplit (позиция курсора), sqlBuilder (квотирование, генерация UPDATE/INSERT/DELETE), changeTracker, format/export.
+- Rust: `cargo test` — SQL splitting, value conversion, connection store.
+- TS: `vitest` — sqlSplit (cursor position), sqlBuilder (quoting, UPDATE/INSERT/DELETE generation), changeTracker, pasteParser (delimiter detection, quoted fields), whereSuggest, format/export, keymap, commandBus, editor commands.

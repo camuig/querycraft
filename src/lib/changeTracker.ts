@@ -1,5 +1,5 @@
-// Модель отложенных изменений грида таблицы (Submit/Revert, как в DataGrip).
-// Иммутабельный класс: каждый мутирующий метод возвращает НОВЫЙ инстанс.
+// Model of pending table grid changes (Submit/Revert, as in DataGrip).
+// Immutable class: every mutating method returns a NEW instance.
 
 import type { CellValue, ColumnMeta, ParamStatement } from "../api/types";
 import { quoteIdent, qualify } from "./sqlBuilder";
@@ -53,7 +53,7 @@ export class ChangeTracker {
     return this.originalRows.length + this.insertedRowIndices.size;
   }
 
-  /** Текущее количество строк (включая insert), для удобства рендера. */
+  /** Current row count (including inserts), for render convenience. */
   get rows(): CellValue[][] {
     const total = this.totalRowCount;
     const result: CellValue[][] = [];
@@ -67,7 +67,7 @@ export class ChangeTracker {
     return result;
   }
 
-  /** Отредактированное значение ячейки или исходное (null для новых строк по умолчанию). */
+  /** Edited cell value, or the original one (null for new rows by default). */
   getValue(rowIndex: number, colIndex: number): CellValue {
     const rowEdits = this.edited.get(rowIndex);
     if (rowEdits && rowEdits.has(colIndex)) return rowEdits.get(colIndex) as CellValue;
@@ -98,7 +98,7 @@ export class ChangeTracker {
     return this.withChanges({ deletedRowIndices: s });
   }
 
-  /** Добавляет новую строку в конец (все ячейки null), помеченную как inserted. */
+  /** Appends a new row at the end (all cells null), marked as inserted. */
   insertRow(): { tracker: ChangeTracker; rowIndex: number } {
     const rowIndex = this.totalRowCount;
     const s = new Set(this.insertedRowIndices);
@@ -144,7 +144,7 @@ export class ChangeTracker {
     return deletes.length > 0 || updates.length > 0 || inserts.length > 0;
   }
 
-  /** Раскладывает все строки по действиям: delete/update/insert. Insert+delete строки исключаются. */
+  /** Splits all rows into actions: delete/update/insert. Insert+delete rows are excluded. */
   private classifyRows(): ClassifiedRows {
     const deletes: number[] = [];
     const updates: number[] = [];
@@ -155,7 +155,7 @@ export class ChangeTracker {
       const inserted = this.insertedRowIndices.has(r);
       const deleted = this.deletedRowIndices.has(r);
 
-      if (inserted && deleted) continue; // отменяют друг друга — ни в один statement не попадает
+      if (inserted && deleted) continue; // they cancel out — not included in any statement
       if (deleted) {
         deletes.push(r);
         continue;
@@ -181,7 +181,7 @@ export class ChangeTracker {
     return { deletes, updates, inserts };
   }
 
-  /** Строит параметризованные SQL: DELETE -> UPDATE -> INSERT. */
+  /** Builds parameterized SQL: DELETE -> UPDATE -> INSERT. */
   buildStatements(database: string | null, table: string): ParamStatement[] {
     const { deletes, updates, inserts } = this.classifyRows();
     const target = qualify(database, table);

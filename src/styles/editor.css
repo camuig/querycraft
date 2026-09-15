@@ -1,4 +1,4 @@
-/* SQL-редактор (CodeMirror) и консоль. */
+/* SQL editor (CodeMirror) and console. */
 .sql-editor {
   height: 100%;
   width: 100%;
@@ -59,7 +59,7 @@
   min-height: 0;
 }
 
-/* Панель DDL/читаемых SQL-блоков */
+/* DDL / read-only SQL block panel */
 .ddl-tab {
   height: 100%;
   display: flex;
@@ -81,7 +81,7 @@
   min-height: 0;
 }
 
-/* Данные таблицы */
+/* Table data */
 .table-data-tab {
   height: 100%;
   display: flex;

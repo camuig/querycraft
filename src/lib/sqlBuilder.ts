@@ -1,21 +1,21 @@
-// Хелперы для построения SQL: экранирование идентификаторов/литералов и SELECT.
+// Helpers for building SQL: escaping identifiers/literals and building SELECT.
 
 import type { CellValue } from "../api/types";
 
-/** Оборачивает имя в обратные кавычки, удваивая внутренние `. */
+/** Wraps a name in backticks, doubling internal backticks. */
 export function quoteIdent(name: string): string {
   return "`" + name.replace(/`/g, "``") + "`";
 }
 
-/** "`db`.`table`" или просто "`table`", если db === null. */
+/** "`db`.`table`", or just "`table`" if db === null. */
 export function qualify(db: string | null, table: string): string {
   return db ? `${quoteIdent(db)}.${quoteIdent(table)}` : quoteIdent(table);
 }
 
 /**
- * Преобразует CellValue в SQL-литерал.
- * null -> NULL; number -> как есть; boolean -> 1/0;
- * string -> в одинарных кавычках с экранированием спецсимволов бэкслешем.
+ * Converts a CellValue to a SQL literal.
+ * null -> NULL; number -> as is; boolean -> 1/0;
+ * string -> single-quoted, with special characters escaped using a backslash.
  */
 export function sqlLiteral(v: CellValue): string {
   if (v === null) return "NULL";
@@ -41,14 +41,14 @@ export interface OrderBySpec {
 export interface BuildSelectOptions {
   database: string | null;
   table: string;
-  /** Произвольное WHERE-условие без слова WHERE, может быть пустым/null. */
+  /** Arbitrary WHERE condition without the WHERE keyword; can be empty/null. */
   where?: string | null;
   orderBy?: OrderBySpec[];
   limit?: number;
   offset?: number;
 }
 
-/** Строит SELECT * FROM ... [WHERE ...] [ORDER BY ...] [LIMIT ...] [OFFSET ...]. */
+/** Builds SELECT * FROM ... [WHERE ...] [ORDER BY ...] [LIMIT ...] [OFFSET ...]. */
 export function buildSelect(opts: BuildSelectOptions): string {
   let sql = `SELECT * FROM ${qualify(opts.database, opts.table)}`;
 

@@ -1,18 +1,18 @@
-//! Конвертация значений MySQL в JSON по типу колонки и обратно (для параметров).
+//! Converts MySQL values to JSON based on column type, and back (for parameters).
 //!
-//! Текстовый протокол (`query_iter`) возвращает почти всё как `Value::Bytes` —
-//! конвертировать нужно по `column.column_type()`, а не по варианту `Value`.
+//! The text protocol (`query_iter`) returns almost everything as `Value::Bytes` —
+//! conversion must be based on `column.column_type()`, not on the `Value` variant.
 
 use mysql_async::consts::{ColumnFlags, ColumnType};
 use mysql_async::{Column, Value};
 use serde::{Deserialize, Serialize};
 
-/// Значение ячейки в JSON: null | number | string | boolean (контракт `CellValue`).
+/// A cell value in JSON: null | number | string | boolean (the `CellValue` contract).
 pub type CellValue = serde_json::Value;
 
-/// Наибольшее целое, которое JS может представить точно (2^53 - 1).
+/// The largest integer that JS can represent exactly (2^53 - 1).
 const MAX_SAFE_INT: u64 = 9_007_199_254_740_991;
-/// Ограничение на размер hex-строки для бинарных значений (в hex-символах).
+/// Limit on the hex string size for binary values (in hex characters).
 const MAX_HEX_CHARS: usize = 64 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -124,8 +124,8 @@ fn type_name(ct: ColumnType, binary: bool) -> String {
     s.to_string()
 }
 
-/// Конвертирует значение ячейки в JSON, используя тип колонки для интерпретации
-/// байтов текстового протокола.
+/// Converts a cell value to JSON, using the column type to interpret
+/// the text protocol's bytes.
 pub fn value_to_json(v: &Value, col: &Column) -> serde_json::Value {
     match v {
         Value::NULL => serde_json::Value::Null,
@@ -135,12 +135,13 @@ pub fn value_to_json(v: &Value, col: &Column) -> serde_json::Value {
         Value::Float(f) => float_to_json(*f as f64),
         Value::Double(f) => float_to_json(*f),
         Value::Date(y, mo, d, h, mi, s, us) => {
-            let date_only = matches!(col.column_type(), ColumnType::MYSQL_TYPE_DATE | ColumnType::MYSQL_TYPE_NEWDATE);
+            let date_only = matches!(
+                col.column_type(),
+                ColumnType::MYSQL_TYPE_DATE | ColumnType::MYSQL_TYPE_NEWDATE
+            );
             serde_json::Value::String(format_date(*y, *mo, *d, *h, *mi, *s, *us, date_only))
         }
-        Value::Time(neg, days, h, mi, s, us) => {
-            serde_json::Value::String(format_time(*neg, *days, *h, *mi, *s, *us))
-        }
+        Value::Time(neg, days, h, mi, s, us) => serde_json::Value::String(format_time(*neg, *days, *h, *mi, *s, *us)),
     }
 }
 
@@ -173,8 +174,8 @@ fn bytes_value_to_json(bytes: &[u8], col: &Column) -> serde_json::Value {
     }
 }
 
-/// Парсит текстовое представление целого числа и решает, влезает ли оно
-/// в JS-safe-integer диапазон; если нет — отдаёт исходный текст строкой.
+/// Parses the text representation of an integer and decides whether it fits
+/// within the JS-safe-integer range; if not, returns the original text as a string.
 pub(crate) fn bytes_to_number(bytes: &[u8], unsigned: bool) -> serde_json::Value {
     let text = String::from_utf8_lossy(bytes).into_owned();
     if unsigned {
@@ -195,8 +196,8 @@ pub(crate) fn bytes_to_float(bytes: &[u8]) -> serde_json::Value {
     }
 }
 
-/// Хекс-строка вида "0xAABBCC", обрезанная до `MAX_HEX_CHARS` hex-символов
-/// (добавляет "…" при обрезке).
+/// A hex string like "0xAABBCC", truncated to `MAX_HEX_CHARS` hex characters
+/// (appends "…" when truncated).
 pub(crate) fn bytes_to_hex(bytes: &[u8]) -> String {
     let truncated = bytes.len().saturating_mul(2) > MAX_HEX_CHARS;
     let take = if truncated { MAX_HEX_CHARS / 2 } else { bytes.len() };
@@ -247,9 +248,9 @@ fn float_to_json(n: f64) -> serde_json::Value {
     }
 }
 
-/// `date_only` — колонка типа DATE (без времени); в этом случае, если все
-/// компоненты времени нулевые, печатаем только дату.
-#[allow(clippy::too_many_arguments)] // компоненты даты/времени MySQL естественно разворачиваются в отдельные поля
+/// `date_only` — a DATE column (no time); in this case, if all
+/// time components are zero, only the date is printed.
+#[allow(clippy::too_many_arguments)] // MySQL date/time components naturally unpack into separate fields
 pub(crate) fn format_date(y: u16, mo: u8, d: u8, h: u8, mi: u8, s: u8, us: u32, date_only: bool) -> String {
     if date_only && h == 0 && mi == 0 && s == 0 && us == 0 {
         format!("{y:04}-{mo:02}-{d:02}")
@@ -270,9 +271,9 @@ pub(crate) fn format_time(neg: bool, days: u32, h: u8, mi: u8, s: u8, us: u32) -
     }
 }
 
-/// Конвертирует JSON-значение параметра в `mysql_async::Value` для позиционных `?`.
-/// Числа отправляются как целые/дробные, строки — всегда текстом (без
-/// эвристики "похоже на hex" — она неоднозначна с обычными строковыми значениями).
+/// Converts a JSON parameter value into `mysql_async::Value` for positional `?` placeholders.
+/// Numbers are sent as integers/floats, strings always as text (without
+/// a "looks like hex" heuristic — it would be ambiguous with regular string values).
 pub fn json_to_value(v: &serde_json::Value) -> Value {
     match v {
         serde_json::Value::Null => Value::NULL,
@@ -309,8 +310,8 @@ mod tests {
 
     #[test]
     fn bytes_to_number_beyond_safe_int_becomes_string() {
-        // 2^63 - 1, гарантированно не влезает как точное f64/JS-число в контексте u64,
-        // но проверим именно превышение MAX_SAFE_INT.
+        // 2^63 - 1, guaranteed not to fit as an exact f64/JS number in the u64 context,
+        // but check specifically for exceeding MAX_SAFE_INT.
         let big = (MAX_SAFE_INT + 1).to_string();
         assert_eq!(bytes_to_number(big.as_bytes(), true), serde_json::json!(big));
     }
@@ -324,7 +325,10 @@ mod tests {
 
     #[test]
     fn bytes_to_number_unparsable_falls_back_to_string() {
-        assert_eq!(bytes_to_number(b"not-a-number", false), serde_json::json!("not-a-number"));
+        assert_eq!(
+            bytes_to_number(b"not-a-number", false),
+            serde_json::json!("not-a-number")
+        );
     }
 
     #[test]
@@ -373,7 +377,7 @@ mod tests {
 
     #[test]
     fn format_time_negative_with_days_and_fraction() {
-        // 1 день 2 часа => 26 часов, отрицательное время
+        // 1 day 2 hours => 26 hours, negative time
         assert_eq!(format_time(true, 1, 2, 3, 4, 500_000), "-26:03:04.500000");
     }
 

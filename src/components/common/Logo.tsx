@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 
-/** Марка QueryCraft (точки по контуру "Q"); цвет берётся из currentColor, акцентные точки — из --logo-accent. */
+/** QueryCraft mark (dots along the outline of a "Q"); color comes from currentColor, accent dots from --logo-accent. */
 export function Logo({ size = 24, style }: { size?: number; style?: CSSProperties }) {
   return (
     <svg viewBox="0 0 100 100" width={size} height={size} style={style} aria-hidden="true" focusable="false">

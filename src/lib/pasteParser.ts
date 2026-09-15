@@ -1,12 +1,12 @@
-// Разбор текста из буфера обмена в таблицу значений (как вставка в DataGrip):
-// строки — по переносам, колонки — по табуляции, точке с запятой, запятой или «|».
+// Parses clipboard text into a table of values (like pasting in DataGrip):
+// rows split on newlines, columns split on tab, semicolon, comma or "|".
 import type { CellValue } from "../api/types";
 
 const DELIMITERS = ["\t", ";", ",", "|"] as const;
 
 export type Delimiter = (typeof DELIMITERS)[number];
 
-/** Определяет разделитель колонок: первый из кандидатов, который встречается в первой непустой строке. */
+/** Detects the column delimiter: the first candidate found in the first non-empty line. */
 export function detectDelimiter(lines: string[]): Delimiter | null {
   const sample = lines.find((l) => l.trim().length > 0) ?? "";
   for (const d of DELIMITERS) {
@@ -15,7 +15,7 @@ export function detectDelimiter(lines: string[]): Delimiter | null {
   return null;
 }
 
-/** Разбивает строку по разделителю с учётом кавычек "..." (CSV-стиль, "" — экранированная кавычка). */
+/** Splits a line by delimiter, honoring "..." quotes (CSV-style, "" is an escaped quote). */
 export function splitLine(line: string, delimiter: Delimiter): string[] {
   const out: string[] = [];
   let cur = "";
@@ -46,7 +46,7 @@ export function splitLine(line: string, delimiter: Delimiter): string[] {
   return out;
 }
 
-/** Текстовое значение ячейки → CellValue: пустая строка, NULL и <null> считаются SQL NULL. */
+/** Cell text value -> CellValue: empty string, NULL and <null> are treated as SQL NULL. */
 export function toCellValue(raw: string): CellValue {
   const t = raw.trim();
   if (t === "" || t.toUpperCase() === "NULL" || t === "<null>") return null;
@@ -54,8 +54,8 @@ export function toCellValue(raw: string): CellValue {
 }
 
 /**
- * Разбирает текст буфера в матрицу значений. Пустые строки в конце отбрасываются,
- * пустые строки в середине становятся строками с одним NULL.
+ * Parses clipboard text into a matrix of values. Trailing empty lines are dropped;
+ * empty lines in the middle become rows with a single NULL.
  */
 export function parseClipboardTable(text: string): CellValue[][] {
   const lines = text.replace(/\r\n?/g, "\n").split("\n");
@@ -69,9 +69,9 @@ export function parseClipboardTable(text: string): CellValue[][] {
 }
 
 /**
- * Растягивает вставляемую матрицу на выделенный диапазон (как DataGrip): одно значение
- * заполняет все ячейки, одна строка повторяется по строкам, одна колонка — по колонкам.
- * Если диапазон 1×1 или матрица больше диапазона — возвращается как есть.
+ * Expands the pasted matrix to fill the selected range (like DataGrip): a single value
+ * fills every cell, a single row repeats down the rows, a single column repeats across columns.
+ * If the range is 1x1 or the matrix is larger than the range, it is returned as is.
  */
 export function expandToRange(values: CellValue[][], rangeRows: number, rangeCols: number): CellValue[][] {
   if (values.length === 0) return values;

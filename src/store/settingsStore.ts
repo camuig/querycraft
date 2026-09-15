@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-/** Реально применяемая тема. */
+/** The theme actually applied. */
 export type ResolvedTheme = "dark" | "light";
-/** Предпочтение пользователя: "system" — следовать за настройкой ОС. */
+/** User preference: "system" means follow the OS setting. */
 export type ThemePreference = ResolvedTheme | "system";
 
 export const MAX_ROWS_OPTIONS = [100, 500, 1000, 5000];
@@ -12,12 +12,12 @@ export const MAX_EDITOR_FONT_SIZE = 24;
 
 interface SettingsState {
   theme: ThemePreference;
-  /** Тёмная ли тема у системы (обновляется через matchMedia в App). Не сохраняется. */
+  /** Whether the system theme is dark (updated via matchMedia in App). Not persisted. */
   systemDark: boolean;
-  /** Лимит строк на результат. */
+  /** Row limit per result. */
   maxRows: number;
   editorFontSize: number;
-  /** Открыт ли диалог настроек. Не сохраняется. */
+  /** Whether the settings dialog is open. Not persisted. */
   dialogOpen: boolean;
   setTheme: (theme: ThemePreference) => void;
   setSystemDark: (dark: boolean) => void;
@@ -56,6 +56,6 @@ export const useSettingsStore = create<SettingsState>()(
   ),
 );
 
-/** Селектор итоговой темы с учётом режима "system". */
+/** Selector for the resolved theme, accounting for "system" mode. */
 export const selectResolvedTheme = (s: Pick<SettingsState, "theme" | "systemDark">): ResolvedTheme =>
   s.theme === "system" ? (s.systemDark ? "dark" : "light") : s.theme;

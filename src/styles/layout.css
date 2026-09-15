@@ -1,4 +1,4 @@
-/* Раскладка приложения: тулбар / проводник | вкладки / статус-бар. */
+/* App layout: toolbar / explorer | tabs / status bar. */
 .app {
   display: flex;
   flex-direction: column;
@@ -88,7 +88,7 @@
   height: 1px;
 }
 
-/* Вкладки редактора */
+/* Editor tabs */
 .tabs-bar {
   display: flex;
   align-items: stretch;
@@ -159,7 +159,7 @@
   font-size: 11px;
 }
 
-/* Модальные окна */
+/* Modal windows */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -213,7 +213,7 @@
   align-items: center;
 }
 
-/* Контекстное меню */
+/* Context menu */
 .context-menu {
   position: fixed;
   z-index: 200;
@@ -244,7 +244,7 @@
   margin: 4px 0;
 }
 
-/* Уведомления */
+/* Notifications */
 .toasts {
   position: fixed;
   right: 12px;
@@ -274,7 +274,7 @@
   border-left-color: var(--success);
 }
 
-/* Диалог настроек */
+/* Settings dialog */
 .segmented {
   display: inline-flex;
   border: 1px solid var(--border-strong);
@@ -295,7 +295,7 @@
   color: var(--accent-fg);
 }
 
-/* Логотип */
+/* Logo */
 .toolbar .brand {
   display: flex;
   align-items: center;

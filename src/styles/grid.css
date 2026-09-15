@@ -1,4 +1,4 @@
-/* Виртуализированный грид результатов / данных таблицы. */
+/* Virtualized grid for query results / table data. */
 .data-grid {
   height: 100%;
   width: 100%;
@@ -215,7 +215,7 @@
   color: var(--fg);
 }
 
-/* Результаты запроса */
+/* Query results */
 .results-panel {
   height: 100%;
   display: flex;

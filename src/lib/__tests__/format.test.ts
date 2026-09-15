@@ -18,7 +18,7 @@ function col(name: string): ColumnMeta {
 const columns: ColumnMeta[] = [col("id"), col("name")];
 
 describe("formatCell", () => {
-  it("null -> пустая строка", () => {
+  it("null -> empty string", () => {
     expect(formatCell(null)).toBe("");
   });
 
@@ -32,11 +32,11 @@ describe("formatCell", () => {
     expect(formatCell(false)).toBe("false");
   });
 
-  it("строка возвращается как есть, если короче лимита", () => {
+  it("string is returned as is when shorter than the limit", () => {
     expect(formatCell("hello")).toBe("hello");
   });
 
-  it("длинная строка обрезается до 1000 символов с добавлением …", () => {
+  it("long string is truncated to 1000 characters with … appended", () => {
     const long = "a".repeat(1500);
     const result = formatCell(long);
     expect(result.length).toBe(1001);
@@ -44,45 +44,45 @@ describe("formatCell", () => {
     expect(result.slice(0, 1000)).toBe("a".repeat(1000));
   });
 
-  it("строка ровно 1000 символов не обрезается", () => {
+  it("string of exactly 1000 characters is not truncated", () => {
     const s = "a".repeat(1000);
     expect(formatCell(s)).toBe(s);
   });
 });
 
 describe("toCsv", () => {
-  it("экранирует поля с запятой, кавычками и переводом строки", () => {
+  it("escapes fields with commas, quotes and newlines", () => {
     const rows: CellValue[][] = [["a,b", 'say "hi"'], ["line1\nline2", null]];
     const csv = toCsv(columns, rows);
     expect(csv).toBe('id,name\n"a,b","say ""hi"""\n"line1\nline2",');
   });
 
-  it("null -> пустое поле", () => {
+  it("null -> empty field", () => {
     const csv = toCsv(columns, [[null, null]]);
     expect(csv).toBe("id,name\n,");
   });
 
-  it("простые значения без спецсимволов не оборачиваются в кавычки", () => {
+  it("plain values without special characters are not quoted", () => {
     const csv = toCsv(columns, [[1, "Alice"]]);
     expect(csv).toBe("id,name\n1,Alice");
   });
 });
 
 describe("toTsv", () => {
-  it("заменяет табы и переводы строк на пробел", () => {
+  it("replaces tabs and newlines with a space", () => {
     const rows: CellValue[][] = [["a\tb", "c\nd\re"]];
     const tsv = toTsv(columns, rows);
     expect(tsv).toBe("id\tname\na b\tc d e");
   });
 
-  it("null -> пустая строка", () => {
+  it("null -> empty string", () => {
     const tsv = toTsv(columns, [[null, "x"]]);
     expect(tsv).toBe("id\tname\n\tx");
   });
 });
 
 describe("toJson", () => {
-  it("строит массив объектов {colName: value}", () => {
+  it("builds an array of {colName: value} objects", () => {
     const rows: CellValue[][] = [
       [1, "Alice"],
       [2, null],
@@ -92,25 +92,25 @@ describe("toJson", () => {
       { id: 1, name: "Alice" },
       { id: 2, name: null },
     ]);
-    // отступ 2 пробела
+    // 2-space indent
     expect(json).toContain('\n  {\n    "id": 1');
   });
 });
 
 describe("toSqlInserts", () => {
-  it("экранирует спецсимволы и использует qualify с database", () => {
+  it("escapes special characters and uses qualify with database", () => {
     const rows: CellValue[][] = [[1, "O'Brien"]];
     const sql = toSqlInserts("mydb", "users", columns, rows);
     expect(sql).toBe("INSERT INTO `mydb`.`users` (`id`, `name`) VALUES (1, 'O\\'Brien');");
   });
 
-  it("qualify с database=null не добавляет префикс базы", () => {
+  it("qualify with database=null does not add a database prefix", () => {
     const rows: CellValue[][] = [[1, "Alice"]];
     const sql = toSqlInserts(null, "users", columns, rows);
     expect(sql).toBe("INSERT INTO `users` (`id`, `name`) VALUES (1, 'Alice');");
   });
 
-  it("каждая строка — отдельный INSERT, разделены переводом строки", () => {
+  it("each row is a separate INSERT, separated by a newline", () => {
     const rows: CellValue[][] = [
       [1, "Alice"],
       [2, null],

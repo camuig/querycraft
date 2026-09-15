@@ -1,6 +1,6 @@
-//! Менеджер MySQL-соединений: пул метаданных на подключение + выделенные
-//! соединения (`Conn`) на сессию (консоль/вкладка данных) + реестр активных
-//! запросов для отмены через `KILL QUERY`.
+//! MySQL connection manager: a metadata pool per connection + dedicated
+//! connections (`Conn`) per session (console/data tab) + a registry of active
+//! queries for cancellation via `KILL QUERY`.
 
 pub mod convert;
 pub mod execute;
@@ -22,12 +22,12 @@ use crate::error::{AppError, AppResult};
 #[serde(rename_all = "camelCase")]
 pub struct ServerInfo {
     pub server_version: String,
-    /// CONNECTION_ID() сессии (для отладки).
+    /// The session's CONNECTION_ID() (for debugging).
     pub connection_id: u32,
 }
 
-/// Экранирует идентификатор (имя БД/таблицы) для подстановки в DDL-запрос
-/// обратными кавычками, удваивая уже имеющиеся backtick-и.
+/// Escapes an identifier (DB/table name) for use in a DDL query
+/// with backticks, doubling any backticks already present.
 pub(crate) fn quote_ident(name: &str) -> String {
     format!("`{}`", name.replace('`', "``"))
 }
@@ -44,7 +44,7 @@ struct ConnectionEntry {
 
 pub struct ConnectionManager {
     connections: parking_lot::Mutex<HashMap<String, Arc<ConnectionEntry>>>,
-    /// query_id -> (connection_id, mysql thread id) — для cancel_query.
+    /// query_id -> (connection_id, mysql thread id) — for cancel_query.
     running_queries: parking_lot::Mutex<HashMap<String, (String, u32)>>,
 }
 
@@ -81,8 +81,8 @@ impl ConnectionManager {
         builder.into()
     }
 
-    /// Проверка подключения без сохранения состояния: открывает временное
-    /// соединение, делает тестовый запрос и сразу закрывает его.
+    /// Tests a connection without keeping any state: opens a temporary
+    /// connection, runs a test query, and closes it right away.
     pub async fn test_connection(config: &StoredConnectionView, password: Option<String>) -> AppResult<ServerInfo> {
         let opts = Self::build_opts(config, password);
         let mut conn = Conn::new(opts).await?;
@@ -95,17 +95,24 @@ impl ConnectionManager {
         let row: Option<(String, u32)> = conn.query_first("SELECT VERSION(), CONNECTION_ID()").await?;
         let (server_version, connection_id) =
             row.ok_or_else(|| AppError::Mysql("Empty response from the server on connect".into()))?;
-        Ok(ServerInfo { server_version, connection_id })
+        Ok(ServerInfo {
+            server_version,
+            connection_id,
+        })
     }
 
-    /// Открывает пул метаданных для подключения (идемпотентно — повторный
-    /// вызов пересоздаёт пул с актуальным паролем).
-    pub async fn connect(&self, id: &str, config: &StoredConnectionView, password: Option<String>) -> AppResult<ServerInfo> {
+    /// Opens the metadata pool for a connection (idempotent — a repeated
+    /// call recreates the pool with the current password).
+    pub async fn connect(
+        &self,
+        id: &str,
+        config: &StoredConnectionView,
+        password: Option<String>,
+    ) -> AppResult<ServerInfo> {
         let opts = Self::build_opts(config, password);
 
-        let pool_opts = PoolOpts::default().with_constraints(
-            PoolConstraints::new(1, 4).expect("1 <= 4 and 4 > 0 — valid pool constraints"),
-        );
+        let pool_opts = PoolOpts::default()
+            .with_constraints(PoolConstraints::new(1, 4).expect("1 <= 4 and 4 > 0 — valid pool constraints"));
         let pool = Pool::new(OptsBuilder::from_opts(opts.clone()).pool_opts(pool_opts));
 
         let mut conn = pool.get_conn().await?;
@@ -119,7 +126,7 @@ impl ConnectionManager {
             sessions: AsyncMutex::new(HashMap::new()),
         });
 
-        // Если подключение уже было открыто — закрываем старый пул/сессии.
+        // If the connection was already open, close the old pool/sessions.
         let previous = self.connections.lock().insert(id.to_string(), entry);
         if let Some(previous) = previous {
             let _ = previous.pool.clone().disconnect().await;
@@ -136,7 +143,7 @@ impl ConnectionManager {
             .ok_or_else(|| AppError::ConnectionNotFound(connection_id.to_string()))
     }
 
-    /// Закрывает пул и все сессии подключения.
+    /// Closes the pool and all sessions for a connection.
     pub async fn disconnect(&self, connection_id: &str) -> AppResult<()> {
         let entry = self.connections.lock().remove(connection_id);
         if let Some(entry) = entry {
@@ -147,15 +154,15 @@ impl ConnectionManager {
         Ok(())
     }
 
-    /// Соединение из пула метаданных (для запросов к information_schema и т.п.).
+    /// A connection from the metadata pool (for queries to information_schema, etc.).
     pub async fn metadata_conn(&self, connection_id: &str) -> AppResult<Conn> {
         let entry = self.entry(connection_id)?;
         Ok(entry.pool.get_conn().await?)
     }
 
-    /// Выделенное соединение сессии (консоль/вкладка данных). Создаётся лениво
-    /// и никогда не возвращается в пул. Если существующее соединение мертво
-    /// (например, его убили через KILL), пересоздаёт его.
+    /// The session's dedicated connection (console/data tab). Created lazily
+    /// and never returned to the pool. If the existing connection is dead
+    /// (e.g. it was killed via KILL), it's recreated.
     pub async fn get_session(
         &self,
         connection_id: &str,
@@ -166,8 +173,8 @@ impl ConnectionManager {
         let mut sessions = entry.sessions.lock().await;
 
         if let Some(session) = sessions.get(session_id) {
-            // Если соединение сейчас занято запросом (мьютекс захвачен), считаем его
-            // живым: ждать здесь нельзя — мы держим замок на всей таблице сессий.
+            // If the connection is currently busy with a query (mutex held), treat it
+            // as alive: we can't wait here since we hold the lock on the whole session table.
             let alive = match session.conn.try_lock() {
                 Ok(mut conn) => conn.ping().await.is_ok(),
                 Err(_) => true,
@@ -187,7 +194,7 @@ impl ConnectionManager {
         Ok(conn)
     }
 
-    /// Закрывает выделенное соединение сессии (при закрытии вкладки).
+    /// Closes the session's dedicated connection (when a tab is closed).
     pub async fn close_session(&self, connection_id: &str, session_id: &str) -> AppResult<()> {
         let entry = self.connections.lock().get(connection_id).cloned();
         if let Some(entry) = entry {
@@ -196,7 +203,7 @@ impl ConnectionManager {
         Ok(())
     }
 
-    /// Запоминает mysql-thread-id запроса, чтобы его можно было отменить.
+    /// Remembers the query's mysql thread id so it can be cancelled.
     pub fn register_query(&self, query_id: &str, connection_id: &str, thread_id: u32) {
         self.running_queries
             .lock()
@@ -207,7 +214,7 @@ impl ConnectionManager {
         self.running_queries.lock().remove(query_id);
     }
 
-    /// `KILL QUERY <thread_id>` через служебное соединение из пула.
+    /// `KILL QUERY <thread_id>` via a utility connection from the pool.
     pub async fn cancel_query(&self, connection_id: &str, query_id: &str) -> AppResult<()> {
         let thread_id = self.running_queries.lock().get(query_id).map(|(_, tid)| *tid);
         let Some(thread_id) = thread_id else {

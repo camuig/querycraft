@@ -1,6 +1,6 @@
 /**
- * Отключение системной автозамены/автокапитализации/проверки орфографии для текстовых полей.
- * В WKWebView (macOS) без этих атрибутов ввод вроде `account_id` превращается в `Account_id`.
+ * Disables system autocorrect/autocapitalization/spellcheck for text fields.
+ * In WKWebView (macOS), without these attributes, typing e.g. `account_id` turns into `Account_id`.
  */
 export const NO_AUTOCORRECT = {
   autoCorrect: "off",

@@ -1,5 +1,5 @@
-//! История выполненных запросов: `history.json` в каталоге данных приложения,
-//! не более `MAX_ENTRIES` записей (старые обрезаются).
+//! History of executed queries: `history.json` in the app's data directory,
+//! at most `MAX_ENTRIES` entries (older ones are trimmed).
 
 use std::fs;
 use std::path::PathBuf;
@@ -13,7 +13,7 @@ use crate::error::AppResult;
 
 const HISTORY_FILE: &str = "history.json";
 const MAX_ENTRIES: usize = 1000;
-/// Ограничение длины сохранённого SQL-текста в истории.
+/// Limit on the length of saved SQL text in history.
 const MAX_SQL_LEN: usize = 10_000;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,7 +35,7 @@ pub struct History {
 }
 
 impl History {
-    /// Загружает историю из `<app_data_dir>/history.json`, создавая каталог при необходимости.
+    /// Loads history from `<app_data_dir>/history.json`, creating the directory if needed.
     pub fn load(app: &tauri::AppHandle) -> AppResult<Self> {
         use tauri::Manager;
 
@@ -57,12 +57,18 @@ impl History {
             Vec::new()
         };
 
-        Ok(Self { file_path, entries: Mutex::new(entries) })
+        Ok(Self {
+            file_path,
+            entries: Mutex::new(entries),
+        })
     }
 
-    /// История в произвольном файле (для тестов и отладки).
+    /// History stored in an arbitrary file (for tests and debugging).
     pub fn at_path(file_path: PathBuf) -> Self {
-        Self { file_path, entries: Mutex::new(Vec::new()) }
+        Self {
+            file_path,
+            entries: Mutex::new(Vec::new()),
+        }
     }
 
     fn persist(&self, entries: &[QueryHistoryEntry]) -> AppResult<()> {
@@ -71,9 +77,16 @@ impl History {
         Ok(())
     }
 
-    /// Добавляет запись в начало истории (новые — первыми), обрезая SQL и
-    /// список до лимитов, и сразу сохраняет на диск.
-    pub fn record(&self, connection_id: &str, database: Option<&str>, sql: &str, duration_ms: u64, success: bool) -> AppResult<()> {
+    /// Adds an entry to the front of history (newest first), trimming the SQL
+    /// and the list to their limits, and saves to disk immediately.
+    pub fn record(
+        &self,
+        connection_id: &str,
+        database: Option<&str>,
+        sql: &str,
+        duration_ms: u64,
+        success: bool,
+    ) -> AppResult<()> {
         let truncated_sql: String = sql.chars().take(MAX_SQL_LEN).collect();
         let entry = QueryHistoryEntry {
             id: Uuid::new_v4().to_string(),
@@ -91,7 +104,7 @@ impl History {
         self.persist(&entries)
     }
 
-    /// Последние `limit` записей, самые новые — первыми.
+    /// The last `limit` entries, newest first.
     pub fn list(&self, limit: usize) -> Vec<QueryHistoryEntry> {
         let entries = self.entries.lock();
         entries.iter().take(limit).cloned().collect()
