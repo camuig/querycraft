@@ -2,6 +2,7 @@ import { memo, useEffect, useRef } from "react";
 import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
 import type { CellValue, ColumnMeta } from "../../api/types";
 import { formatCell } from "../../lib/format";
+import { NO_AUTOCORRECT } from "../../lib/inputProps";
 
 export interface GridCellProps {
   value: CellValue;
@@ -43,6 +44,7 @@ function GridCellImpl(props: GridCellProps) {
         <input
           ref={inputRef}
           className="grid-cell-input"
+          {...NO_AUTOCORRECT}
           defaultValue={props.editingInitialValue}
           onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
             e.stopPropagation();
