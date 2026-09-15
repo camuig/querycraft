@@ -15,6 +15,10 @@ export type { GridCellPos, GridRange } from "./useGridSelection";
 
 const ROW_HEIGHT = 24;
 const HEADER_HEIGHT = 36;
+const MIN_COLUMN_WIDTH = 40;
+const MAX_COLUMN_WIDTH = 2000;
+/** Upper bound for the automatically measured width; wider columns can still be resized by hand. */
+const MAX_AUTO_COLUMN_WIDTH = 400;
 const MEASURE_FONT = '12.5px "JetBrains Mono", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
 
 export interface DataGridProps {
@@ -29,8 +33,8 @@ export interface DataGridProps {
   editable?: boolean;
   onEditCell?: (row: number, col: number, value: CellValue) => void;
   /**
-   * Вставка из буфера (⌘/Ctrl+V) начиная с ячейки (row, col): values — матрица строк × колонок.
-   * Если не задан, вставка недоступна.
+   * Paste from clipboard (⌘/Ctrl+V) starting at cell (row, col): values is a matrix of rows × columns.
+   * If not provided, paste is unavailable.
    */
   onPaste?: (row: number, col: number, values: CellValue[][]) => void;
   onKeyDown?: (e: KeyboardEvent<HTMLDivElement>) => void;
@@ -69,11 +73,11 @@ function computeColumnWidths(columns: ColumnMeta[], rows: CellValue[][]): number
       const w = measureTextWidth(text);
       if (w > max) max = w;
     }
-    return clamp(Math.ceil(max) + 26, 60, 400);
+    return clamp(Math.ceil(max) + 26, 60, MAX_AUTO_COLUMN_WIDTH);
   });
 }
 
-/** Виртуализированный грид (строки и колонки) с выделением, редактированием и копированием. */
+/** Virtualized grid (rows and columns) with selection, editing, and copying. */
 export function DataGrid(props: DataGridProps) {
   const { columns, rows, getCellValue, cellClass, sort, onSort, selectedCell, onSelectCell, editable, onEditCell, onPaste } = props;
 
@@ -82,11 +86,13 @@ export function DataGrid(props: DataGridProps) {
   const gutterInnerRef = useRef<HTMLDivElement | null>(null);
 
   const [widths, setWidths] = useState<number[] | null>(null);
+  const hasRows = rows.length > 0;
   useEffect(() => {
     setWidths(computeColumnWidths(columns, rows));
-    // ширины пересчитываются только когда меняется набор колонок (новый запрос/таблица)
+    // Widths are measured when the column set changes (new query / table) and once more when the
+    // first rows arrive, since the data tab may render the new columns before its rows are ready.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columns]);
+  }, [columns, hasRows]);
 
   const colWidths = widths && widths.length === columns.length ? widths : columns.map(() => 120);
   const gutterWidth = Math.max(44, String(rows.length).length * 9 + 20);
@@ -164,6 +170,13 @@ export function DataGrid(props: DataGridProps) {
     horizontal: true,
   });
 
+  // The virtualizer caches item sizes and does not re-read `estimateSize` on its own,
+  // so after a manual resize (or a fresh auto-measure) the cache must be dropped explicitly.
+  useEffect(() => {
+    colVirtualizer.measure();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [widths]);
+
   useEffect(() => {
     if (!sel.selection) return;
     rowVirtualizer.scrollToIndex(sel.selection.focus.row, { align: "auto" });
@@ -187,7 +200,7 @@ export function DataGrid(props: DataGridProps) {
       const onMove = (ev: MouseEvent) => {
         const st = resizeStateRef.current;
         if (!st) return;
-        const nextWidth = clamp(st.startWidth + (ev.clientX - st.startX), 60, 400);
+        const nextWidth = clamp(st.startWidth + (ev.clientX - st.startX), MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH);
         setWidths((w) => {
           const base = w && w.length === columns.length ? w.slice() : columns.map(() => 120);
           base[st.col] = nextWidth;
@@ -216,7 +229,7 @@ export function DataGrid(props: DataGridProps) {
       if (parsed.length === 0) return;
       const range = sel.range;
       const start = range ? { row: range.minRow, col: range.minCol } : { row: rows.length, col: 0 };
-      // Выделено несколько ячеек — значение (строка, колонка) размножается на весь диапазон, как в DataGrip.
+      // Multiple cells selected — the value at (row, col) is replicated across the whole range, like in DataGrip.
       const values = range ? expandToRange(parsed, range.maxRow - range.minRow + 1, range.maxCol - range.minCol + 1) : parsed;
       onPaste(start.row, start.col, values);
     },
@@ -246,15 +259,15 @@ export function DataGrid(props: DataGridProps) {
       className="data-grid"
       tabIndex={0}
       onMouseDown={(e) => {
-        // Не даём браузеру начать нативное выделение текста при протяжке по ячейкам;
-        // фокус переводим на грид вручную (preventDefault отменяет и его).
+        // Prevent the browser from starting native text selection while dragging across cells;
+        // we move focus to the grid manually (preventDefault also cancels that).
         if (e.target instanceof HTMLInputElement || e.target === scrollRef.current) return;
         e.preventDefault();
         if (document.activeElement !== e.currentTarget) e.currentTarget.focus();
       }}
       onKeyDown={handleKeyDown}
       onPaste={(e) => {
-        // Запасной путь: событие paste от системы (если чтение буфера через API недоступно).
+        // Fallback path: the system's paste event (when reading the clipboard via the API is unavailable).
         if (pasteInFlight.current || sel.editingCell || !editable || !onPaste) return;
         const text = e.clipboardData.getData("text/plain");
         if (!text) return;
