@@ -16,6 +16,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Clipboard paste into the table grid with delimiter detection and fill-paste.
 - DataGrip-style grid selection: ranges, rows, columns, copy as TSV/CSV with or without headers.
 
+### Security
+
+- SSL connections now verify the server certificate and host name by default; a per-connection
+  "Verify server certificate" option allows self-signed certificates.
+- The WebView runs under a restrictive Content Security Policy.
+
 ### Fixed
 
 - Column widths in the grid can now be resized by dragging the header edge.
