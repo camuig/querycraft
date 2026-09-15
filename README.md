@@ -68,14 +68,22 @@ Download the installer for your platform from the
 [Releases](https://github.com/camuig/querycraft/releases) page (`.dmg` for macOS on Apple Silicon and Intel,
 `.msi` / `.exe` for Windows, `.AppImage` / `.deb` / `.rpm` for Linux), or build from source as described below.
 
-The binaries are not code-signed yet. On macOS, Gatekeeper reports the app as damaged after the download;
-remove the quarantine attribute once and it opens normally:
+The binaries are not code-signed or notarized yet, so both macOS and Windows warn before the first launch.
+
+### macOS: "QueryCraft is damaged and can't be opened"
+
+Apple has not notarized the app, so Gatekeeper refuses it after the download. Copy `QueryCraft.app` to
+*Applications*, then run this command once in Terminal to clear the quarantine flag:
 
 ```bash
-xattr -d com.apple.quarantine /Applications/QueryCraft.app
+xattr -dr com.apple.quarantine /Applications/QueryCraft.app
 ```
 
-On Windows, SmartScreen shows an "unknown publisher" warning: choose *More info* → *Run anyway*.
+After that the app opens normally. Repeat the command after installing a new version.
+
+### Windows: "unknown publisher"
+
+SmartScreen shows a warning for the installer: choose *More info* → *Run anyway*.
 
 ## Development
 
