@@ -2,6 +2,20 @@
   "name": "query-craft",
   "private": true,
   "version": "0.1.0",
+  "description": "Fast cross-platform MySQL desktop client in the spirit of DataGrip",
+  "license": "Apache-2.0",
+  "author": "Andrey Shnayder",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/camuig/querycraft.git"
+  },
+  "bugs": {
+    "url": "https://github.com/camuig/querycraft/issues"
+  },
+  "homepage": "https://github.com/camuig/querycraft#readme",
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +23,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "icons": "rsvg-convert -w 1024 -h 1024 src/assets/logo-icon.svg -o /tmp/querycraft-icon.png && tauri icon /tmp/querycraft-icon.png && rm -rf src-tauri/icons/android src-tauri/icons/ios"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.0",
