@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file. Entries are gen
 [release-please](https://github.com/googleapis/release-please) from the Conventional Commits history, and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0](https://github.com/camuig/querycraft/compare/v0.2.0...v0.3.0) (2026-09-16)
+
+
+### Features
+
+* **app:** check for updates and install them automatically ([2554101](https://github.com/camuig/querycraft/commit/25541013cf75a91095c21eaa5d6ffb68a86a2694))
+* **grid:** count the rows behind a truncated result ([feb01ba](https://github.com/camuig/querycraft/commit/feb01ba66042651832ac0410ba81c86c84c40958))
+* **grid:** export results to excel ([4cbab56](https://github.com/camuig/querycraft/commit/4cbab56cd3febdebadef4628600990e4807bdae5))
+* **grid:** export the complete result set to a file ([c7fff96](https://github.com/camuig/querycraft/commit/c7fff96f53dc2ad435d15bd71b3e6fc3a0de91e4))
+
 ## [0.2.0](https://github.com/camuig/querycraft/compare/v0.1.0...v0.2.0) (2026-09-16)
 
 
