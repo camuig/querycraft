@@ -57,6 +57,8 @@ fn build_url(base_url: &str, params: &[(&str, String)]) -> AppResult<Url> {
         pairs.append_pair("default_format", "JSONCompactEachRowWithNamesAndTypes");
         pairs.append_pair("output_format_json_quote_64bit_integers", "0");
         pairs.append_pair("output_format_json_quote_denormals", "1");
+        // Otherwise an exception is wrapped into the output format (`[]\n[]\n["Code: ..."]`).
+        pairs.append_pair("http_write_exception_in_output_format", "0");
         for (key, value) in params {
             pairs.append_pair(key, value);
         }
@@ -83,7 +85,16 @@ pub(crate) fn parse_written_rows(summary_header: &str) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_written_rows;
+    use super::{build_url, parse_written_rows};
+
+    #[test]
+    fn build_url_sets_plain_text_exceptions_and_keeps_params() {
+        let url = build_url("http://localhost:8123/", &[("database", "shop".to_string())]).unwrap();
+        let query = url.query().unwrap();
+        assert!(query.contains("default_format=JSONCompactEachRowWithNamesAndTypes"));
+        assert!(query.contains("http_write_exception_in_output_format=0"));
+        assert!(query.contains("database=shop"));
+    }
 
     #[test]
     fn parse_written_rows_reads_the_field() {
