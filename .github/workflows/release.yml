@@ -10,6 +10,13 @@ on:
         description: Tag to build, for example v0.2.0
         required: true
         type: string
+    secrets:
+      TAURI_SIGNING_PRIVATE_KEY:
+        description: Private key that signs the updater artifacts
+        required: true
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD:
+        description: Password of the private key (empty when the key has none)
+        required: false
   workflow_dispatch:
     inputs:
       tag:
