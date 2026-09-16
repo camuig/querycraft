@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { DbIcon } from "../common/DbIcon";
 import type { TreeNode } from "./treeModel";
 
 const KIND_ICON: Partial<Record<TreeNode["kind"], string>> = {
@@ -66,6 +67,11 @@ export function TreeRow({
         <>
           {node.colorHex && <span className="tree-dot" style={{ background: node.colorHex }} />}
           <span className="tree-dot" style={{ background: node.statusColor }} />
+          {node.dbKind && (
+            <span className="tree-icon">
+              <DbIcon kind={node.dbKind} size={14} />
+            </span>
+          )}
         </>
       )}
 

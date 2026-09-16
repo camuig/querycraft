@@ -1,3 +1,4 @@
+import { dialectFor } from "../../lib/dialect";
 import type { ConnectionStatus } from "../../store/connectionsStore";
 import { useConnectionsStore } from "../../store/connectionsStore";
 import { useStatusStore } from "../../store/statusStore";
@@ -47,8 +48,10 @@ export function StatusBar() {
       <div className="spacer" />
       {message && <span className="text-select">{message}</span>}
       <div className="spacer" />
-      {runtime?.status === "connected" && runtime.serverInfo && (
-        <span className="muted">MySQL {runtime.serverInfo.serverVersion}</span>
+      {runtime?.status === "connected" && runtime.serverInfo && config && (
+        <span className="muted">
+          {dialectFor(config.kind).label} {runtime.serverInfo.serverVersion}
+        </span>
       )}
     </div>
   );

@@ -214,6 +214,21 @@
   align-items: center;
 }
 
+.segmented {
+  flex-wrap: wrap;
+}
+.segmented button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+}
+.segmented button.active {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+
 /* Context menu */
 .context-menu {
   position: fixed;

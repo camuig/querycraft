@@ -1,6 +1,6 @@
 // Pure explorer tree model: builds a flat list of visible nodes
 // from store state (no side effects — data loading is triggered by ExplorerPanel).
-import type { ColumnInfo, ConnectionConfig, ForeignKeyInfo, IndexInfo, TableInfo } from "../../api/types";
+import type { ColumnInfo, ConnectionConfig, DbKind, ForeignKeyInfo, IndexInfo, TableInfo } from "../../api/types";
 import type { ConnectionStatus } from "../../store/connectionsStore";
 import { dbKey, tableKey } from "../../store/explorerStore";
 
@@ -36,6 +36,8 @@ export interface TreeNode {
   statusColor?: string;
   bold?: boolean;
   keyGlyph?: string;
+  /** Engine of the connection node, used to pick its icon. */
+  dbKind?: DbKind;
 }
 
 export interface TreeModelInput {
@@ -104,6 +106,7 @@ export function buildTree(input: TreeModelInput): TreeNode[] {
       expandable: true,
       colorHex: conn.color,
       statusColor: STATUS_COLOR[status],
+      dbKind: conn.kind,
     });
 
     if (!input.expanded[cKey]) continue;
