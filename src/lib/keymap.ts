@@ -26,7 +26,8 @@ export type AppAction =
   | "focusExplorer"
   | "openTableData"
   | "goToDdl"
-  | "openSettings";
+  | "openSettings"
+  | "checkForUpdates";
 
 export type Platform = "mac" | "other";
 
@@ -111,6 +112,7 @@ export const KEYMAP: Record<AppAction, ActionSpec> = {
     mac: [sc("Comma", { meta: true })],
     other: [sc("KeyS", { ctrl: true, alt: true })],
   },
+  checkForUpdates: { label: "Check for updates", mac: [], other: [] },
 };
 
 export function detectPlatform(

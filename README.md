@@ -41,7 +41,10 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
   split values across columns, `NULL` and empty cells become SQL NULL; a single value fills a selected range.
 - **DDL view** — `SHOW CREATE TABLE` (synthesized from the catalog for PostgreSQL) with highlighting.
 - **Themes** — system (follows the OS and switches live), light and dark.
-- **Native menu** and **DataGrip keymap** (see below); settings dialog for theme, row limit and editor font size.
+- **Native menu** and **DataGrip keymap** (see below); settings dialog for theme, row limit, editor font size
+  and updates.
+- **Automatic updates** — new releases are downloaded from GitHub at startup and applied after a restart
+  (see [Updates](#updates)).
 
 ## Keyboard shortcuts
 
@@ -114,6 +117,16 @@ After that the app opens normally. Repeat the command after installing a new ver
 
 SmartScreen shows a warning for the installer: choose *More info* → *Run anyway*.
 
+### Updates
+
+At startup QueryCraft checks the latest GitHub release and, if it is newer, downloads it in the background:
+on macOS and Linux (AppImage) the new version is installed at once and starts at the next launch, on Windows
+the installer runs when you agree to restart. A notification with a *Restart* button appears when the update
+is ready; *Help → Check for Updates…* (or *Check now* in Settings) runs the check by hand. The startup check
+can be switched off in Settings (*Check for updates at startup and install them automatically*). Every update
+is verified against the public key embedded in the app before it is installed. Installations from `.deb` /
+`.rpm` are left to the package manager: the app only shows a short notice with a link to the new release.
+
 ## Development
 
 Requirements: Rust (stable), Node.js 20+, [pnpm](https://pnpm.io) and the
@@ -167,6 +180,13 @@ ssh-add "${TMPDIR:-/tmp}/querycraft-ssh/id_ed25519" && QUERYCRAFT_TEST_SSH=1 QUE
 ```
 
 Application icons are generated from `src/assets/logo-icon.svg` with `pnpm icons` (requires `rsvg-convert`).
+
+Release builds sign the updater artifacts with a [minisign](https://jedisct1.github.io/minisign/) key: the
+public key lives in `src-tauri/tauri.conf.json` (`plugins.updater.pubkey`), the private key is the
+`TAURI_SIGNING_PRIVATE_KEY` repository secret (plus `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`) used by
+`release.yml`, which also uploads the `latest.json` manifest the app polls. A local `pnpm tauri build`
+needs the same variables (`pnpm tauri signer generate -w ~/.tauri/querycraft.key` creates a new pair, but
+apps built with the old public key cannot verify updates signed with a new one).
 
 ## Project layout
 

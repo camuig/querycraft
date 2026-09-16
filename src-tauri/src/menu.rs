@@ -184,6 +184,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
     help.append_items(&[
         &item(app, "help:github", "QueryCraft on GitHub", None)?,
         &item(app, "help:issue", "Report an Issue…", None)?,
+        &sep(app)?,
+        &item(app, "checkForUpdates", "Check for Updates…", None)?,
     ])?;
     #[cfg(not(target_os = "macos"))]
     help.append_items(&[

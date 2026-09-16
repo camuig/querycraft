@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { updaterAvailable } from "../../api/updater";
 import {
   MAX_EDITOR_FONT_SIZE,
   MAX_ROWS_OPTIONS,
@@ -6,6 +7,7 @@ import {
   type ThemePreference,
   useSettingsStore,
 } from "../../store/settingsStore";
+import { describeStatus, useUpdateStore } from "../../store/updateStore";
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; hint: string }[] = [
   { value: "system", label: "System", hint: "Follow the OS appearance" },
@@ -13,7 +15,7 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; hint: string }[] =
   { value: "dark", label: "Dark", hint: "" },
 ];
 
-/** Settings dialog: theme, row limit, editor font size. Changes apply immediately. */
+/** Settings dialog: theme, row limit, editor font size, updates. Changes apply immediately. */
 export function SettingsDialog() {
   const theme = useSettingsStore((s) => s.theme);
   const setTheme = useSettingsStore((s) => s.setTheme);
@@ -21,7 +23,12 @@ export function SettingsDialog() {
   const setMaxRows = useSettingsStore((s) => s.setMaxRows);
   const editorFontSize = useSettingsStore((s) => s.editorFontSize);
   const setEditorFontSize = useSettingsStore((s) => s.setEditorFontSize);
+  const autoUpdate = useSettingsStore((s) => s.autoUpdate);
+  const setAutoUpdate = useSettingsStore((s) => s.setAutoUpdate);
   const closeDialog = useSettingsStore((s) => s.closeDialog);
+  const updateStatus = useUpdateStore((s) => s.status);
+  const checkForUpdates = useUpdateStore((s) => s.check);
+  const updateBusy = updateStatus.kind === "checking" || updateStatus.kind === "downloading";
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -73,6 +80,23 @@ export function SettingsDialog() {
               onChange={(e) => setEditorFontSize(Number(e.target.value))}
               style={{ width: 80 }}
             />
+
+            <span className="form-label">Updates</span>
+            <div className="form-row">
+              <label style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 6 }}>
+                <input type="checkbox" checked={autoUpdate} onChange={(e) => setAutoUpdate(e.target.checked)} />
+                Check for updates at startup and install them automatically
+              </label>
+            </div>
+            <span className="form-label" />
+            <div className="form-row">
+              <button type="button" disabled={updateBusy || !updaterAvailable} onClick={() => checkForUpdates(true)}>
+                Check now
+              </button>
+              <span className="form-hint" style={{ margin: 0 }}>
+                {describeStatus(updateStatus)}
+              </span>
+            </div>
           </div>
         </div>
         <div className="modal-footer">

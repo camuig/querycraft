@@ -17,12 +17,15 @@ interface SettingsState {
   /** Row limit per result. */
   maxRows: number;
   editorFontSize: number;
+  /** Check for a new version at startup and install it automatically. */
+  autoUpdate: boolean;
   /** Whether the settings dialog is open. Not persisted. */
   dialogOpen: boolean;
   setTheme: (theme: ThemePreference) => void;
   setSystemDark: (dark: boolean) => void;
   setMaxRows: (n: number) => void;
   setEditorFontSize: (n: number) => void;
+  setAutoUpdate: (on: boolean) => void;
   openDialog: () => void;
   closeDialog: () => void;
 }
@@ -40,6 +43,7 @@ export const useSettingsStore = create<SettingsState>()(
       systemDark: readSystemDark(),
       maxRows: 500,
       editorFontSize: 13,
+      autoUpdate: true,
       dialogOpen: false,
       setTheme: (theme) => set({ theme }),
       setSystemDark: (systemDark) => set({ systemDark }),
@@ -48,12 +52,18 @@ export const useSettingsStore = create<SettingsState>()(
         set({
           editorFontSize: Math.min(MAX_EDITOR_FONT_SIZE, Math.max(MIN_EDITOR_FONT_SIZE, Math.round(editorFontSize))),
         }),
+      setAutoUpdate: (autoUpdate) => set({ autoUpdate }),
       openDialog: () => set({ dialogOpen: true }),
       closeDialog: () => set({ dialogOpen: false }),
     }),
     {
       name: "querycraft-settings",
-      partialize: (s) => ({ theme: s.theme, maxRows: s.maxRows, editorFontSize: s.editorFontSize }),
+      partialize: (s) => ({
+        theme: s.theme,
+        maxRows: s.maxRows,
+        editorFontSize: s.editorFontSize,
+        autoUpdate: s.autoUpdate,
+      }),
     },
   ),
 );

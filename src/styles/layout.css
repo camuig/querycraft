@@ -312,6 +312,9 @@
 }
 .toast {
   max-width: 420px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 10px 14px;
   background: var(--bg-tooltip);
   border: 1px solid var(--border-strong);
@@ -328,6 +331,10 @@
 }
 .toast.success {
   border-left-color: var(--success);
+}
+.toast button {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* Settings dialog */

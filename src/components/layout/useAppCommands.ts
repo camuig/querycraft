@@ -6,6 +6,7 @@ import { useConnectionsStore } from "../../store/connectionsStore";
 import { useExplorerStore } from "../../store/explorerStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { useTabsStore } from "../../store/tabsStore";
+import { useUpdateStore } from "../../store/updateStore";
 
 /** Actions that are safe to trigger while the focus is inside a text field or the SQL editor. */
 const ALLOWED_IN_TEXT_FIELDS = new Set<AppAction>([
@@ -47,6 +48,7 @@ export function useAppCommands() {
   useEffect(() => {
     const offs = [
       registerCommand("openSettings", () => useSettingsStore.getState().openDialog()),
+      registerCommand("checkForUpdates", () => void useUpdateStore.getState().check(true)),
       registerCommand("newConnection", () => useConnectionsStore.getState().openDialog("new")),
       registerCommand("newConsole", () => {
         const explorer = useExplorerStore.getState();

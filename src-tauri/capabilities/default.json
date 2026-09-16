@@ -13,6 +13,8 @@
     "fs:allow-read-text-file",
     "clipboard-manager:allow-write-text",
     "clipboard-manager:allow-read-text",
-    "window-state:default"
+    "window-state:default",
+    "updater:default",
+    "process:allow-restart"
   ]
 }

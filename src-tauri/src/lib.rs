@@ -7,6 +7,7 @@ pub mod error;
 pub mod history;
 pub mod menu;
 pub mod sql_split;
+pub mod updates;
 
 use tauri::Manager;
 
@@ -25,6 +26,8 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_window_state::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let handle = app.handle();
             let connections = ConnectionStore::load(handle)?;
@@ -59,6 +62,7 @@ pub fn run() {
             commands::list_history,
             commands::clear_history,
             menu::set_theme_menu,
+            updates::update_mode,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
