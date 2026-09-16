@@ -12,7 +12,8 @@ cd "$dir"
 if [ ! -f server.crt ]; then
   openssl req -x509 -newkey rsa:2048 -nodes -keyout ca.key -out ca.crt -days 365 -subj "/CN=QueryCraft Test CA"
   openssl req -newkey rsa:2048 -nodes -keyout server.key -out server.csr -subj "/CN=localhost"
-  printf 'subjectAltName=DNS:localhost,IP:127.0.0.1\n' > san.ext
+  # The docker names let the certificate verify through an SSH tunnel too (scripts/ssh-server.sh).
+  printf 'subjectAltName=DNS:localhost,IP:127.0.0.1,DNS:querycraft-mariadb,DNS:querycraft-postgres,DNS:querycraft-clickhouse\nextendedKeyUsage=serverAuth\n' > san.ext
   openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 365 -extfile san.ext
   chmod 644 server.key
 fi
