@@ -197,6 +197,46 @@
   border-top: 1px solid var(--border);
 }
 
+.modal-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-tabs button {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 4px;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  color: var(--fg-muted);
+}
+.modal-tabs button.active {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+}
+.modal-tabs button:disabled {
+  color: var(--fg-muted);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.form-section {
+  grid-column: 1 / -1;
+  font-weight: 600;
+  margin: 4px 0 -2px;
+}
+.form-section:first-child {
+  margin-top: 0;
+}
+.form-hint {
+  grid-column: 2;
+  color: var(--fg-muted);
+  font-size: 12px;
+  margin-top: -4px;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: 110px 1fr;
