@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file. Entries are gen
 [release-please](https://github.com/googleapis/release-please) from the Conventional Commits history, and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0](https://github.com/camuig/querycraft/compare/v0.1.0...v0.2.0) (2026-09-16)
+
+
+### Features
+
+* **db:** add clickhouse driver ([2869419](https://github.com/camuig/querycraft/commit/2869419d62f64ea74979f713fd7c56b4a2e9f4eb))
+* **db:** add postgresql driver ([e1b6ecd](https://github.com/camuig/querycraft/commit/e1b6ecdb62e6496ae6249266eac9b497a7cae9a6))
+* **db:** add sqlite driver ([07bd3d1](https://github.com/camuig/querycraft/commit/07bd3d1c8bedaf2ac0f14140004db52884d4285f))
+* **db:** add ssh tunnels and ca certificates to connections ([cbc5c0d](https://github.com/camuig/querycraft/commit/cbc5c0dc2bcc89a43932f7a99e7364bc26c07bc7))
+* **ui:** add the ssh/ssl tab to the connection dialog ([7c1e303](https://github.com/camuig/querycraft/commit/7c1e3033a60d9146f1ecc6a5e4c70703ff5f5a29))
+* **ui:** choose the engine in the connection dialog ([632bcaf](https://github.com/camuig/querycraft/commit/632bcaf34f03df131e7c2486eea614477423def7))
+* **ui:** quote identifiers and literals per engine ([8da88fd](https://github.com/camuig/querycraft/commit/8da88fd70366287f150541a974130ae136d27f4d))
+
+
+### Bug Fixes
+
+* **db:** reach the ssh agent on windows ([9449fb7](https://github.com/camuig/querycraft/commit/9449fb771f799b346def16b6983486639d891b04))
+* **db:** report the cause of connection failures ([35c20bd](https://github.com/camuig/querycraft/commit/35c20bdbe32ec6142383facbcf987c76faec34ee))
+* **db:** return clickhouse errors as plain text ([eb2b618](https://github.com/camuig/querycraft/commit/eb2b6186efd5656f88d4df229a04b6bbda8fc62f))
+
 ## [0.1.0] - 2026-09-15
 
 ### Added
