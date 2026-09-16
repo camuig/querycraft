@@ -1,8 +1,10 @@
 # QueryCraft
 
-Fast, lightweight desktop client for MySQL in the spirit of DataGrip. macOS, Windows and Linux.
+Fast, lightweight desktop client for MySQL, MariaDB, PostgreSQL, ClickHouse and SQLite in the spirit of
+DataGrip. macOS, Windows and Linux.
 
-Built with Tauri 2 (Rust, `mysql_async`) and React 19 / TypeScript, CodeMirror 6 and a virtualized grid.
+Built with Tauri 2 (Rust: `mysql_async`, `tokio-postgres`, `rusqlite`, the ClickHouse HTTP interface) and
+React 19 / TypeScript, CodeMirror 6 and a virtualized grid.
 The binary is small, it starts in well under a second, and it uses a fraction of the memory of Electron-based tools.
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 
@@ -10,13 +12,18 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 
 ## Features
 
-- **Connections** — create, test and edit MySQL connections; passwords are stored in the system keyring
-  (Keychain, Credential Manager, Secret Service), never in plain-text files. SSL connections verify the
-  server certificate by default, with an opt-out for self-signed certificates.
-- **Database explorer** — databases → tables and views → columns, indexes, foreign keys. Lazy loading,
-  filtering, context menus, keyboard navigation.
-- **SQL console** — syntax highlighting and schema-aware autocomplete; run the statement under the cursor,
-  the selection or the whole script; cancel running queries; multiple result sets with timings.
+- **Five engines** — MySQL, MariaDB, PostgreSQL, ClickHouse and SQLite, each with its own icon in the
+  explorer, SQL dialect in the editor and identifier quoting in generated SQL. See
+  [Engine notes](#engine-notes) for what differs.
+- **Connections** — create, test and edit connections; passwords are stored in the system keyring
+  (Keychain, Credential Manager, Secret Service), never in plain-text files. SSL/TLS connections verify the
+  server certificate by default, with an opt-out for self-signed certificates. SQLite connections point at
+  a file (or `:memory:`).
+- **Database explorer** — databases (schemas for PostgreSQL) → tables and views → columns, indexes,
+  foreign keys. Lazy loading, filtering, context menus, keyboard navigation.
+- **SQL console** — syntax highlighting and schema-aware autocomplete in the engine's dialect; run the
+  statement under the cursor, the selection or the whole script; cancel running queries; multiple result
+  sets with timings.
 - **Session per tab** — every console and data tab owns its own connection, so `USE`, transactions and
   temporary tables stay scoped to the tab, exactly like DataGrip.
 - **Results grid** — row and column virtualization, sorting, resizable columns, DataGrip-style selection
@@ -26,7 +33,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
   cell editing, add and delete rows, deferred Submit / Revert applied in a single transaction, SQL preview.
 - **Clipboard paste** into the grid: each line becomes a row, missing rows are added, tab / `;` / `,` / `|`
   split values across columns, `NULL` and empty cells become SQL NULL; a single value fills a selected range.
-- **DDL view** — `SHOW CREATE TABLE` with highlighting.
+- **DDL view** — `SHOW CREATE TABLE` (synthesized from the catalog for PostgreSQL) with highlighting.
 - **Themes** — system (follows the OS and switches live), light and dark.
 - **Native menu** and **DataGrip keymap** (see below); settings dialog for theme, row limit and editor font size.
 
@@ -61,6 +68,21 @@ In the SQL editor: duplicate line or selection ⌘D / Ctrl+D, delete line ⌘⌫
 toggle line comment ⌘/ / Ctrl+/, find ⌘F / Ctrl+F.
 
 The keymap lives in [`src/lib/keymap.ts`](src/lib/keymap.ts).
+
+## Engine notes
+
+| | MySQL / MariaDB | PostgreSQL | ClickHouse | SQLite |
+|---|---|---|---|---|
+| Transport | `mysql_async` (native protocol, TLS) | `tokio-postgres` (TLS) | HTTP interface (`reqwest`), port 8123 | `rusqlite` (bundled SQLite) |
+| Explorer level under the connection | databases | schemas of the connected database | databases | `main` and attached databases |
+| Session per tab | dedicated connection, `USE db` | dedicated connection, `search_path` | HTTP `session_id` + `database` | dedicated connection |
+| Cancel | `KILL QUERY` | cancel request | `KILL QUERY WHERE query_id = …` | `sqlite3_interrupt` |
+| Grid editing | by primary key | by primary key | read-only | by primary key |
+| DDL | `SHOW CREATE TABLE` | synthesized from the catalog | `SHOW CREATE TABLE` | `sqlite_master.sql` |
+
+PostgreSQL results are fetched with the simple query protocol (every value arrives as text and is typed by
+the prepared statement's description), so a console `SELECT` without `LIMIT` is buffered before the row
+limit is applied. ClickHouse has no row-level `UPDATE`/`DELETE`, so its data tabs are read-only.
 
 ## Installation
 
@@ -103,16 +125,22 @@ cd src-tauri && cargo test   # backend unit tests
 The UI can be developed in a regular browser without Tauri: run `pnpm dev` and open http://localhost:1420 —
 IPC commands are served by a mock (`src/api/mock.ts`) with sample connections and data.
 
-Backend integration tests against a live MySQL server are skipped unless the DSN is provided:
+Backend integration tests against live servers are skipped unless the DSN is provided
+(`host:port:user:password`); the SQLite suite needs nothing and always runs:
 
 ```bash
-cd src-tauri && QUERYCRAFT_TEST_DSN="127.0.0.1:33070:root:secret" cargo test --test live_mysql
+cd src-tauri
+QUERYCRAFT_TEST_DSN="127.0.0.1:33070:root:secret" cargo test --test live_mysql
+QUERYCRAFT_TEST_PG_DSN="127.0.0.1:33071:postgres:secret" cargo test --test live_postgres
+QUERYCRAFT_TEST_CH_DSN="127.0.0.1:33072:default:secret" cargo test --test live_clickhouse
+cargo test --test sqlite
 ```
 
-A throwaway MySQL server for development:
+Throwaway servers for development on those ports (MySQL 33070, PostgreSQL 33071, ClickHouse 33072,
+MariaDB 33073; password `secret`, database `shop`) are defined in `docker-compose.yml`:
 
 ```bash
-docker run -d --name querycraft-mysql -p 33070:3306 -e MYSQL_ROOT_PASSWORD=secret mysql:8.0
+docker compose up -d            # or: docker compose up -d postgres
 ```
 
 Application icons are generated from `src/assets/logo-icon.svg` with `pnpm icons` (requires `rsvg-convert`).
@@ -120,7 +148,7 @@ Application icons are generated from `src/assets/logo-icon.svg` with `pnpm icons
 ## Project layout
 
 ```
-src-tauri/   Rust backend: Tauri commands, native menu, connection pools, SQL execution, schema metadata
+src-tauri/   Rust backend: Tauri commands, native menu, engine drivers, SQL execution, schema metadata
 src/         React frontend: api (IPC contract), store (zustand), lib (pure functions + tests), components
 docs/        Architecture notes
 ```
