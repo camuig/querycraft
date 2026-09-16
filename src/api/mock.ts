@@ -23,9 +23,12 @@ let connections: ConnectionConfig[] = [
     database: "shop",
     ssl: false,
     sslVerify: true,
+    sslCaPath: null,
     color: "#3574f0",
     path: null,
+    ssh: null,
     hasPassword: true,
+    hasSshSecret: false,
   },
   {
     id: "mock-2",
@@ -37,9 +40,12 @@ let connections: ConnectionConfig[] = [
     database: null,
     ssl: true,
     sslVerify: true,
+    sslCaPath: null,
     color: "#e55765",
     path: null,
+    ssh: { host: "bastion.example.com", port: 22, user: "deploy", auth: "key", keyPath: "~/.ssh/id_ed25519" },
     hasPassword: false,
+    hasSshSecret: true,
   },
 ];
 
@@ -228,9 +234,12 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
         database: input.database,
         ssl: input.ssl,
         sslVerify: input.sslVerify,
+        sslCaPath: input.sslCaPath,
         color: input.color,
         path: input.path,
+        ssh: input.ssh,
         hasPassword: input.savePassword && !!input.password,
+        hasSshSecret: input.savePassword && !!input.sshSecret,
       };
       connections = connections.some((c) => c.id === saved.id)
         ? connections.map((c) => (c.id === saved.id ? saved : c))

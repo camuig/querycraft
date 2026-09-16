@@ -13,9 +13,12 @@ function conn(id: string, name: string, kind: ConnectionConfig["kind"]): Connect
     database: null,
     ssl: false,
     sslVerify: true,
+    sslCaPath: null,
     color: null,
     path: null,
+    ssh: null,
     hasPassword: false,
+    hasSshSecret: false,
   };
 }
 

@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use query_craft_lib::connections::StoredConnectionView;
+use query_craft_lib::connections::{Credentials, StoredConnectionView};
 use query_craft_lib::db::execute::{self, ExecuteRequest};
 use query_craft_lib::db::{ConnectionManager, DbKind, ParamStatement, StatementResultKind, TableKind};
 use query_craft_lib::history::History;
@@ -25,10 +25,15 @@ async fn setup(test: &str) -> (ConnectionManager, History, PathBuf) {
         database: None,
         ssl: false,
         ssl_verify: true,
+        ssl_ca_path: None,
         path: Some(path.to_string_lossy().into_owned()),
+        ssh: None,
     };
     let manager = ConnectionManager::new();
-    manager.connect("c1", &view, None).await.expect("connect");
+    manager
+        .connect("c1", &view, Credentials::default())
+        .await
+        .expect("connect");
     let history = History::at_path(std::env::temp_dir().join(format!("querycraft-test-{test}-history.json")));
     (manager, history, path)
 }
@@ -365,9 +370,11 @@ async fn expression_columns_fall_back_to_storage_class_and_memory_is_shared() {
         database: None,
         ssl: false,
         ssl_verify: true,
+        ssl_ca_path: None,
         path: Some(":memory:".into()),
+        ssh: None,
     };
-    m.connect("mem", &view, None).await.expect("connect");
+    m.connect("mem", &view, Credentials::default()).await.expect("connect");
     let h = History::at_path(std::env::temp_dir().join("querycraft-sqlite-mem-history.json"));
     let mk = |sql: &str, session: &str| ExecuteRequest {
         connection_id: "mem".into(),

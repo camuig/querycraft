@@ -30,7 +30,8 @@ use crate::error::{AppError, AppResult};
 
 use super::schema::{ColumnInfo, ForeignKeyInfo, IndexInfo, TableInfo};
 use super::{
-    CancelHandle, CellValue, ColumnMeta, DbKind, Driver, ParamStatement, ServerInfo, Session, StatementResult,
+    read_ca_certificate, CancelHandle, CellValue, ColumnMeta, DbKind, Driver, Endpoint, ParamStatement, ServerInfo,
+    Session, StatementResult,
 };
 use convert::{column_meta, json_to_text_param, parse_server_version, quote_ident, text_to_cell};
 
@@ -43,9 +44,21 @@ enum TlsChoice {
     Enabled(MakeTlsConnector),
 }
 
-fn build_config(config: &StoredConnectionView, password: Option<String>) -> Config {
+/// The `host` stays the configured name so TLS verifies the right certificate;
+/// through a tunnel `hostaddr` redirects the socket to the tunnel's local end.
+fn build_config(config: &StoredConnectionView, endpoint: &Endpoint, password: Option<String>) -> AppResult<Config> {
     let mut pg_config = Config::new();
-    pg_config.host(config.host.clone()).port(config.port).user(&config.user);
+    pg_config
+        .host(config.host.clone())
+        .port(endpoint.port)
+        .user(&config.user);
+    if endpoint.tunneled {
+        let addr: std::net::IpAddr = endpoint
+            .host
+            .parse()
+            .map_err(|e| AppError::Other(format!("invalid tunnel address {}: {e}", endpoint.host)))?;
+        pg_config.hostaddr(addr);
+    }
     if let Some(password) = password {
         pg_config.password(password);
     }
@@ -58,17 +71,24 @@ fn build_config(config: &StoredConnectionView, password: Option<String>) -> Conf
     if config.ssl {
         pg_config.ssl_mode(tokio_postgres::config::SslMode::Require);
     }
-    pg_config
+    Ok(pg_config)
 }
 
 /// TLS options: the server certificate and host name are verified against
-/// the system trust store by default; verification is skipped only when the
-/// user opted out (self-signed certificates on a trusted network).
+/// the system trust store (plus the configured CA file) by default;
+/// verification is skipped only when the user opted out (self-signed
+/// certificates on a trusted network).
 fn tls_choice(config: &StoredConnectionView) -> AppResult<TlsChoice> {
     if !config.ssl {
         return Ok(TlsChoice::Disabled(NoTls));
     }
-    let connector = TlsConnector::builder()
+    let mut builder = TlsConnector::builder();
+    if let Some(pem) = read_ca_certificate(config)? {
+        let certificate = native_tls::Certificate::from_pem(&pem)
+            .map_err(|e| AppError::Other(format!("The CA certificate file is not a PEM certificate: {e}")))?;
+        builder.add_root_certificate(certificate);
+    }
+    let connector = builder
         .danger_accept_invalid_certs(!config.ssl_verify)
         .danger_accept_invalid_hostnames(!config.ssl_verify)
         .build()
@@ -112,8 +132,12 @@ pub struct PostgresDriver {
 }
 
 impl PostgresDriver {
-    pub async fn connect(config: &StoredConnectionView, password: Option<String>) -> AppResult<Self> {
-        let pg_config = build_config(config, password);
+    pub async fn connect(
+        config: &StoredConnectionView,
+        endpoint: &Endpoint,
+        password: Option<String>,
+    ) -> AppResult<Self> {
+        let pg_config = build_config(config, endpoint, password)?;
         let tls = tls_choice(config)?;
         let metadata = connect_client(&pg_config, &tls).await?;
         Ok(Self {

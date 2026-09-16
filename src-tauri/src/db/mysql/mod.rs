@@ -17,7 +17,8 @@ use crate::error::{AppError, AppResult};
 
 use super::schema::{ColumnInfo, ForeignKeyInfo, IndexInfo, TableInfo};
 use super::{
-    CancelHandle, CellValue, ColumnMeta, DbKind, Driver, ParamStatement, ServerInfo, Session, StatementResult,
+    read_ca_certificate, CancelHandle, CellValue, ColumnMeta, DbKind, Driver, Endpoint, ParamStatement, ServerInfo,
+    Session, StatementResult,
 };
 use convert::{column_meta, json_to_value, value_to_json};
 
@@ -28,32 +29,43 @@ pub(crate) fn quote_ident(name: &str) -> String {
 }
 
 /// TLS options: the server certificate is verified against the system trust
-/// store by default; verification is skipped only when the user opted out
-/// (self-signed certificates on a trusted network).
-fn ssl_opts(verify: bool) -> SslOpts {
-    let opts = SslOpts::default();
-    if verify {
-        opts
-    } else {
-        opts.with_danger_accept_invalid_certs(true)
-            .with_danger_skip_domain_validation(true)
+/// store (plus the configured CA file) by default; verification is skipped
+/// only when the user opted out (self-signed certificates on a trusted network).
+/// Through a tunnel the socket goes to localhost, so the certificate is
+/// checked against the configured host name instead.
+fn ssl_opts(verify: bool, ca: Option<Vec<u8>>, hostname_override: Option<String>) -> SslOpts {
+    let mut opts = SslOpts::default();
+    if let Some(ca) = ca {
+        // `PathOrBuf` is not re-exported by mysql_async; `From<Vec<u8>>` builds the buffer variant.
+        opts = opts.with_root_certs(vec![ca.into()]);
     }
+    if !verify {
+        opts = opts
+            .with_danger_accept_invalid_certs(true)
+            .with_danger_skip_domain_validation(true);
+    }
+    opts.with_danger_tls_hostname_override(hostname_override)
 }
 
-fn build_opts(config: &StoredConnectionView, password: Option<String>) -> Opts {
+fn build_opts(config: &StoredConnectionView, endpoint: &Endpoint, password: Option<String>) -> AppResult<Opts> {
     let mut builder = OptsBuilder::default()
-        .ip_or_hostname(config.host.clone())
-        .tcp_port(config.port)
+        .ip_or_hostname(endpoint.host.clone())
+        .tcp_port(endpoint.port)
         .user(Some(config.user.clone()))
         .pass(password)
         .db_name(config.database.clone())
         .tcp_keepalive(Some(Duration::from_millis(30_000)));
 
     if config.ssl {
-        builder = builder.ssl_opts(Some(ssl_opts(config.ssl_verify)));
+        let hostname_override = endpoint.tunneled.then(|| config.host.clone());
+        builder = builder.ssl_opts(Some(ssl_opts(
+            config.ssl_verify,
+            read_ca_certificate(config)?,
+            hostname_override,
+        )));
     }
 
-    builder.into()
+    Ok(builder.into())
 }
 
 pub struct MysqlDriver {
@@ -63,8 +75,12 @@ pub struct MysqlDriver {
 }
 
 impl MysqlDriver {
-    pub async fn connect(config: &StoredConnectionView, password: Option<String>) -> AppResult<Self> {
-        let opts = build_opts(config, password);
+    pub async fn connect(
+        config: &StoredConnectionView,
+        endpoint: &Endpoint,
+        password: Option<String>,
+    ) -> AppResult<Self> {
+        let opts = build_opts(config, endpoint, password)?;
         let pool_opts = PoolOpts::default()
             .with_constraints(PoolConstraints::new(1, 4).expect("1 <= 4 and 4 > 0 — valid pool constraints"));
         let pool = Pool::new(OptsBuilder::from_opts(opts.clone()).pool_opts(pool_opts));
@@ -244,15 +260,28 @@ mod tests {
 
     #[test]
     fn ssl_opts_verify_certificates_by_default() {
-        let opts = ssl_opts(true);
+        let opts = ssl_opts(true, None, None);
         assert!(!opts.accept_invalid_certs());
         assert!(!opts.skip_domain_validation());
+        assert!(opts.root_certs().is_empty());
+        assert!(opts.tls_hostname_override().is_none());
     }
 
     #[test]
     fn ssl_opts_can_skip_verification_on_request() {
-        let opts = ssl_opts(false);
+        let opts = ssl_opts(false, None, None);
         assert!(opts.accept_invalid_certs());
         assert!(opts.skip_domain_validation());
+    }
+
+    #[test]
+    fn ssl_opts_take_a_ca_and_a_tunnel_host_name() {
+        let opts = ssl_opts(
+            true,
+            Some(b"-----BEGIN CERTIFICATE-----".to_vec()),
+            Some("db.internal".into()),
+        );
+        assert_eq!(opts.root_certs().len(), 1);
+        assert_eq!(opts.tls_hostname_override(), Some("db.internal"));
     }
 }

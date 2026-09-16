@@ -14,12 +14,13 @@ pub mod mysql;
 pub mod postgres;
 pub mod schema;
 pub mod sqlite;
+pub mod ssh;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::connections::StoredConnectionView;
-use crate::error::AppResult;
+use crate::connections::{Credentials, StoredConnectionView};
+use crate::error::{AppError, AppResult};
 
 pub use manager::ConnectionManager;
 pub use schema::{ColumnInfo, ForeignKeyInfo, IndexInfo, TableInfo, TableKind};
@@ -246,22 +247,129 @@ pub trait Driver: Send + Sync {
     async fn close(&self);
 }
 
-/// Opens the backend selected by `config.kind`.
-pub async fn open_driver(config: &StoredConnectionView, password: Option<String>) -> AppResult<Box<dyn Driver>> {
-    Ok(match config.kind {
-        DbKind::Mysql | DbKind::Mariadb => Box::new(mysql::MysqlDriver::connect(config, password).await?),
-        DbKind::Postgres => Box::new(postgres::PostgresDriver::connect(config, password).await?),
-        DbKind::Clickhouse => Box::new(clickhouse::ClickhouseDriver::connect(config, password).await?),
-        DbKind::Sqlite => Box::new(sqlite::SqliteDriver::connect(config).await?),
-    })
+/// Where a driver opens its TCP connection: the configured host and port, or
+/// the local end of the SSH tunnel. TLS keeps verifying the *configured* host
+/// name either way (`config.host`), so drivers must not use `host` for that.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Endpoint {
+    pub host: String,
+    pub port: u16,
+    /// The connection goes through a tunnel, i.e. `host` is not the database host.
+    pub tunneled: bool,
+}
+
+impl Endpoint {
+    pub fn direct(config: &StoredConnectionView) -> Self {
+        Self {
+            host: config.host.clone(),
+            port: config.port,
+            tunneled: false,
+        }
+    }
+
+    fn tunnel(addr: std::net::SocketAddr) -> Self {
+        Self {
+            host: addr.ip().to_string(),
+            port: addr.port(),
+            tunneled: true,
+        }
+    }
+}
+
+/// Reads the CA certificate file named in the config (PEM), if any.
+pub(crate) fn read_ca_certificate(config: &StoredConnectionView) -> AppResult<Option<Vec<u8>>> {
+    let Some(path) = config.ssl_ca_path.as_deref().filter(|p| !p.is_empty()) else {
+        return Ok(None);
+    };
+    std::fs::read(path)
+        .map(Some)
+        .map_err(|e| AppError::Other(format!("Cannot read the CA certificate file {path}: {e}")))
+}
+
+/// An opened backend together with the SSH tunnel it goes through, if any.
+/// The tunnel must outlive the driver, so they are closed together.
+pub struct OpenedDriver {
+    pub driver: Box<dyn Driver>,
+    pub tunnel: Option<ssh::SshTunnel>,
+}
+
+impl OpenedDriver {
+    pub async fn close(&self) {
+        self.driver.close().await;
+        if let Some(tunnel) = &self.tunnel {
+            tunnel.close().await;
+        }
+    }
+}
+
+/// Opens the backend selected by `config.kind`, through an SSH tunnel when one is configured.
+pub async fn open_driver(config: &StoredConnectionView, credentials: Credentials) -> AppResult<OpenedDriver> {
+    open_driver_with(config, credentials, ssh::KnownHosts::Standard).await
+}
+
+/// `open_driver` with an explicit known-hosts file for the tunnel (tests).
+pub async fn open_driver_with(
+    config: &StoredConnectionView,
+    credentials: Credentials,
+    known_hosts: ssh::KnownHosts,
+) -> AppResult<OpenedDriver> {
+    let tunnel = match (&config.ssh, config.kind) {
+        (Some(ssh), kind) if kind != DbKind::Sqlite => Some(
+            ssh::SshTunnel::open(
+                ssh,
+                credentials.ssh_secret.as_deref(),
+                &config.host,
+                config.port,
+                known_hosts,
+            )
+            .await?,
+        ),
+        _ => None,
+    };
+    let endpoint = match &tunnel {
+        Some(tunnel) => Endpoint::tunnel(tunnel.local_addr()),
+        None => Endpoint::direct(config),
+    };
+    let password = credentials.password;
+
+    let opened: AppResult<Box<dyn Driver>> = async {
+        Ok(match config.kind {
+            DbKind::Mysql | DbKind::Mariadb => {
+                Box::new(mysql::MysqlDriver::connect(config, &endpoint, password).await?) as Box<dyn Driver>
+            }
+            DbKind::Postgres => Box::new(postgres::PostgresDriver::connect(config, &endpoint, password).await?),
+            DbKind::Clickhouse => Box::new(clickhouse::ClickhouseDriver::connect(config, &endpoint, password).await?),
+            DbKind::Sqlite => Box::new(sqlite::SqliteDriver::connect(config).await?),
+        })
+    }
+    .await;
+
+    match opened {
+        Ok(driver) => Ok(OpenedDriver { driver, tunnel }),
+        Err(e) => {
+            if let Some(tunnel) = &tunnel {
+                tunnel.close().await;
+            }
+            Err(e)
+        }
+    }
 }
 
 /// Tests a connection without keeping any state: opens the backend, asks for
 /// the server version and closes it right away.
-pub async fn test_connection(config: &StoredConnectionView, password: Option<String>) -> AppResult<ServerInfo> {
-    let driver = open_driver(config, password).await?;
-    let info = driver.server_info().await;
-    driver.close().await;
+pub async fn test_connection(config: &StoredConnectionView, credentials: Credentials) -> AppResult<ServerInfo> {
+    test_connection_with(config, credentials, ssh::KnownHosts::Standard).await
+}
+
+/// `test_connection` with an explicit known-hosts file for the tunnel (tests).
+pub async fn test_connection_with(
+    config: &StoredConnectionView,
+    credentials: Credentials,
+    known_hosts: ssh::KnownHosts,
+) -> AppResult<ServerInfo> {
+    let opened = open_driver_with(config, credentials, known_hosts).await?;
+    let info = opened.driver.server_info().await;
+    opened.close().await;
     info
 }
 

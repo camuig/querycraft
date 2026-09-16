@@ -37,15 +37,15 @@ pub async fn delete_connection(state: State<'_, AppState>, id: String) -> AppRes
 /// Tests a connection without saving it.
 #[tauri::command]
 pub async fn test_connection(input: ConnectionInput) -> AppResult<ServerInfo> {
-    ConnectionManager::test_connection(&input.to_view(), input.password).await
+    ConnectionManager::test_connection(&input.to_view(), input.credentials()).await
 }
 
 /// Opens the driver for a connection (required before any queries).
 #[tauri::command]
 pub async fn connect(state: State<'_, AppState>, connection_id: String) -> AppResult<ServerInfo> {
     let config = state.connections.get_stored(&connection_id)?;
-    let password = state.connections.get_password(&connection_id)?;
-    state.manager.connect(&connection_id, &config, password).await
+    let credentials = state.connections.get_credentials(&connection_id);
+    state.manager.connect(&connection_id, &config, credentials).await
 }
 
 /// Closes the driver and all sessions for a connection.

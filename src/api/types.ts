@@ -4,6 +4,19 @@
 /** Supported database engines (serialized in lowercase, see `DbKind` in src-tauri/src/db/mod.rs). */
 export type DbKind = "mysql" | "mariadb" | "postgres" | "clickhouse" | "sqlite";
 
+/** How the SSH tunnel authenticates: a password, a private key file (optionally with a passphrase) or the running OpenSSH agent. */
+export type SshAuth = "password" | "key" | "agent";
+
+/** SSH tunnel settings (DataGrip's "SSH/SSL" tab): the database is reached through a port forwarded over this host. */
+export interface SshConfig {
+  host: string;
+  port: number;
+  user: string;
+  auth: SshAuth;
+  /** Private key file for `auth === "key"`. */
+  keyPath: string | null;
+}
+
 export interface ConnectionConfig {
   id: string;
   name: string;
@@ -16,12 +29,18 @@ export interface ConnectionConfig {
   ssl: boolean;
   /** Verify the server certificate when SSL is on. */
   sslVerify: boolean;
+  /** PEM file with the CA certificate(s) that sign the server certificate; null uses the system trust store only. */
+  sslCaPath: string | null;
   /** Connection tag color (hex) — like DataGrip's prod/dev coloring. */
   color: string | null;
   /** Database file for file-based engines (SQLite); host/port/user are unused then. */
   path: string | null;
+  /** SSH tunnel; null connects directly. */
+  ssh: SshConfig | null;
   /** Whether a password is saved in the keyring. */
   hasPassword: boolean;
+  /** Whether the SSH password / key passphrase is saved in the keyring. */
+  hasSshSecret: boolean;
 }
 
 /** What the frontend sends when saving/testing a connection. */
@@ -37,8 +56,12 @@ export interface ConnectionInput {
   database: string | null;
   ssl: boolean;
   sslVerify: boolean;
+  sslCaPath: string | null;
   color: string | null;
   path: string | null;
+  ssh: SshConfig | null;
+  /** SSH password (auth "password") or key passphrase (auth "key"); stored under the same "save password" policy. */
+  sshSecret: string | null;
 }
 
 export interface ServerInfo {

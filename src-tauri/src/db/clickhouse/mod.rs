@@ -14,7 +14,9 @@ use crate::connections::StoredConnectionView;
 use crate::error::{AppError, AppResult};
 
 use super::schema::{ColumnInfo, ForeignKeyInfo, IndexInfo, TableInfo};
-use super::{CancelHandle, DbKind, Driver, ParamStatement, ServerInfo, Session, StatementResult};
+use super::{
+    read_ca_certificate, CancelHandle, DbKind, Driver, Endpoint, ParamStatement, ServerInfo, Session, StatementResult,
+};
 use transport::request;
 
 pub struct ClickhouseDriver {
@@ -27,17 +29,36 @@ pub struct ClickhouseDriver {
 }
 
 impl ClickhouseDriver {
-    pub async fn connect(config: &StoredConnectionView, password: Option<String>) -> AppResult<Self> {
+    /// The URL keeps the configured host name so TLS verifies the right certificate;
+    /// through a tunnel that name is resolved to the tunnel's local end instead of DNS.
+    pub async fn connect(
+        config: &StoredConnectionView,
+        endpoint: &Endpoint,
+        password: Option<String>,
+    ) -> AppResult<Self> {
         let mut builder = Client::builder();
-        if config.ssl && !config.ssl_verify {
-            builder = builder.tls_danger_accept_invalid_certs(true);
+        if config.ssl {
+            if let Some(pem) = read_ca_certificate(config)? {
+                let certificate = reqwest::Certificate::from_pem(&pem)
+                    .map_err(|e| AppError::Other(format!("The CA certificate file is not a PEM certificate: {e}")))?;
+                builder = builder.add_root_certificate(certificate);
+            }
+            if !config.ssl_verify {
+                builder = builder.tls_danger_accept_invalid_certs(true);
+            }
+        }
+        if endpoint.tunneled {
+            let addr: std::net::SocketAddr = format!("{}:{}", endpoint.host, endpoint.port)
+                .parse()
+                .map_err(|e| AppError::Other(format!("invalid tunnel address {}: {e}", endpoint.host)))?;
+            builder = builder.resolve(&config.host, addr);
         }
         let client = builder.build()?;
         let scheme = if config.ssl { "https" } else { "http" };
 
         Ok(Self {
             client,
-            base_url: format!("{scheme}://{}:{}/", config.host, config.port),
+            base_url: format!("{scheme}://{}:{}/", config.host, endpoint.port),
             user: config.user.clone(),
             password: password.unwrap_or_default(),
             database: config.database.clone(),

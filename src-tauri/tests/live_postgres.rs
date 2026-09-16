@@ -6,7 +6,7 @@
 //! suite can run against a shared database without clashing with other
 //! backends' fixtures.
 
-use query_craft_lib::connections::StoredConnectionView;
+use query_craft_lib::connections::{Credentials, StoredConnectionView};
 use query_craft_lib::db::execute::{self, ExecuteRequest};
 use query_craft_lib::db::{ConnectionManager, DbKind, ParamStatement, StatementResultKind, TableKind};
 use query_craft_lib::history::History;
@@ -25,7 +25,9 @@ fn dsn() -> Option<(StoredConnectionView, String)> {
             database: Some("shop".to_string()),
             ssl: false,
             ssl_verify: true,
+            ssl_ca_path: None,
             path: None,
+            ssh: None,
         },
         parts[3].to_string(),
     ))
@@ -34,7 +36,10 @@ fn dsn() -> Option<(StoredConnectionView, String)> {
 async fn setup() -> Option<(ConnectionManager, History)> {
     let (view, pass) = dsn()?;
     let manager = ConnectionManager::new();
-    manager.connect("c1", &view, Some(pass)).await.expect("connect");
+    manager
+        .connect("c1", &view, Credentials::password(Some(pass)))
+        .await
+        .expect("connect");
     let history = History::at_path(std::env::temp_dir().join("querycraft-test-history-pg.json"));
 
     // A fresh `qc_test` schema for every test run.

@@ -3,13 +3,16 @@
 //! off the connection must succeed and actually be encrypted, with
 //! verification on the self-signed certificate must be rejected.
 //!
+//! With the CA file of `scripts/tls-servers.sh` (`$TMPDIR/querycraft-tls/ca.crt`)
+//! full verification must succeed for the servers that present that certificate.
+//!
 //! Run with (the ports match docker-compose.yml plus a ClickHouse HTTPS port):
 //! QUERYCRAFT_TEST_TLS="1" cargo test --test live_tls
 //! Individual engines can be overridden with `QUERYCRAFT_TEST_TLS_<ENGINE>`
 //! = `host:port:user:password` (MYSQL, MARIADB, PG, CH). Without
 //! `QUERYCRAFT_TEST_TLS` the tests are skipped.
 
-use query_craft_lib::connections::StoredConnectionView;
+use query_craft_lib::connections::{Credentials, StoredConnectionView};
 use query_craft_lib::db::execute::{self, ExecuteRequest};
 use query_craft_lib::db::{ConnectionManager, DbKind};
 use query_craft_lib::history::History;
@@ -28,7 +31,9 @@ fn view(kind: DbKind, env_name: &str, default: &str) -> Option<StoredConnectionV
         database: Some("shop".into()),
         ssl: true,
         ssl_verify: false,
+        ssl_ca_path: None,
         path: None,
+        ssh: None,
     })
 }
 
@@ -49,12 +54,28 @@ fn req(sql: &str) -> ExecuteRequest {
     }
 }
 
+/// The CA that signed the certificates of the servers from `scripts/tls-servers.sh`.
+fn test_ca() -> Option<String> {
+    let ca = std::env::temp_dir().join("querycraft-tls").join("ca.crt");
+    ca.exists().then(|| ca.to_string_lossy().into_owned())
+}
+
 /// Connects with verification off, runs `probe_sql` on a session and returns
-/// the first row; then asserts that verification on rejects the certificate.
+/// the first row; then asserts that verification on rejects the certificate
+/// and, when `with_ca` and the test CA file exists, that the CA makes it pass.
 async fn check(view: StoredConnectionView, pass: String, probe_sql: &str) -> Vec<serde_json::Value> {
+    check_with_ca(view, pass, probe_sql, true).await
+}
+
+async fn check_with_ca(
+    view: StoredConnectionView,
+    pass: String,
+    probe_sql: &str,
+    with_ca: bool,
+) -> Vec<serde_json::Value> {
     let manager = ConnectionManager::new();
     let info = manager
-        .connect("tls", &view, Some(pass.clone()))
+        .connect("tls", &view, Credentials::password(Some(pass.clone())))
         .await
         .expect("tls connect");
     assert!(!info.server_version.is_empty());
@@ -68,7 +89,7 @@ async fn check(view: StoredConnectionView, pass: String, probe_sql: &str) -> Vec
         ssl_verify: true,
         ..view
     };
-    let err = ConnectionManager::test_connection(&strict, Some(pass))
+    let err = ConnectionManager::test_connection(&strict, Credentials::password(Some(pass.clone())))
         .await
         .expect_err("a self-signed certificate must fail verification");
     let msg = err.to_string().to_lowercase();
@@ -76,6 +97,16 @@ async fn check(view: StoredConnectionView, pass: String, probe_sql: &str) -> Vec
         msg.contains("certificate") || msg.contains("tls") || msg.contains("ssl") || msg.contains("verify"),
         "unexpected error: {msg}"
     );
+
+    if let (true, Some(ca)) = (with_ca, test_ca()) {
+        let trusted = StoredConnectionView {
+            ssl_ca_path: Some(ca),
+            ..strict
+        };
+        ConnectionManager::test_connection(&trusted, Credentials::password(Some(pass)))
+            .await
+            .expect("verification with the CA certificate");
+    }
     row
 }
 
@@ -88,10 +119,12 @@ async fn mysql_tls() {
     ) else {
         return;
     };
-    let cipher = check(
+    // The MySQL container presents its own auto-generated certificate, not the test CA's.
+    let cipher = check_with_ca(
         v,
         password("QUERYCRAFT_TEST_TLS_MYSQL", "127.0.0.1:33070:root:secret"),
         "SELECT VARIABLE_VALUE FROM performance_schema.session_status WHERE VARIABLE_NAME = 'Ssl_cipher'",
+        false,
     )
     .await;
     assert_ne!(cipher[0], json!(""), "session is not encrypted");

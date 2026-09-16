@@ -8,16 +8,22 @@ use std::sync::Arc;
 
 use tokio::sync::Mutex as AsyncMutex;
 
-use crate::connections::StoredConnectionView;
+use crate::connections::{Credentials, StoredConnectionView};
 use crate::error::{AppError, AppResult};
 
-use super::{open_driver, CancelHandle, Driver, ServerInfo, Session};
+use super::{CancelHandle, Driver, OpenedDriver, ServerInfo, Session};
 
 pub type SharedSession = Arc<AsyncMutex<Box<dyn Session>>>;
 
 struct ConnectionEntry {
-    driver: Box<dyn Driver>,
+    opened: OpenedDriver,
     sessions: AsyncMutex<HashMap<String, SharedSession>>,
+}
+
+impl ConnectionEntry {
+    fn driver(&self) -> &(dyn Driver + 'static) {
+        self.opened.driver.as_ref()
+    }
 }
 
 /// Borrow of an opened driver that keeps the connection entry alive.
@@ -27,7 +33,7 @@ impl Deref for DriverRef {
     type Target = dyn Driver;
 
     fn deref(&self) -> &Self::Target {
-        self.0.driver.as_ref()
+        self.0.driver()
     }
 }
 
@@ -52,8 +58,17 @@ impl ConnectionManager {
     }
 
     /// Tests a connection without keeping any state.
-    pub async fn test_connection(config: &StoredConnectionView, password: Option<String>) -> AppResult<ServerInfo> {
-        super::test_connection(config, password).await
+    pub async fn test_connection(config: &StoredConnectionView, credentials: Credentials) -> AppResult<ServerInfo> {
+        super::test_connection(config, credentials).await
+    }
+
+    /// `test_connection` with an explicit known-hosts file for the SSH tunnel (tests).
+    pub async fn test_connection_with(
+        config: &StoredConnectionView,
+        credentials: Credentials,
+        known_hosts: super::ssh::KnownHosts,
+    ) -> AppResult<ServerInfo> {
+        super::test_connection_with(config, credentials, known_hosts).await
     }
 
     /// Opens the driver for a connection (idempotent — a repeated call
@@ -62,26 +77,38 @@ impl ConnectionManager {
         &self,
         id: &str,
         config: &StoredConnectionView,
-        password: Option<String>,
+        credentials: Credentials,
     ) -> AppResult<ServerInfo> {
-        let driver = open_driver(config, password).await?;
-        let info = match driver.server_info().await {
+        self.connect_with(id, config, credentials, super::ssh::KnownHosts::Standard)
+            .await
+    }
+
+    /// `connect` with an explicit known-hosts file for the SSH tunnel (tests).
+    pub async fn connect_with(
+        &self,
+        id: &str,
+        config: &StoredConnectionView,
+        credentials: Credentials,
+        known_hosts: super::ssh::KnownHosts,
+    ) -> AppResult<ServerInfo> {
+        let opened = super::open_driver_with(config, credentials, known_hosts).await?;
+        let info = match opened.driver.server_info().await {
             Ok(info) => info,
             Err(e) => {
-                driver.close().await;
+                opened.close().await;
                 return Err(e);
             }
         };
 
         let entry = Arc::new(ConnectionEntry {
-            driver,
+            opened,
             sessions: AsyncMutex::new(HashMap::new()),
         });
 
         let previous = self.connections.lock().insert(id.to_string(), entry);
         if let Some(previous) = previous {
             previous.sessions.lock().await.clear();
-            previous.driver.close().await;
+            previous.opened.close().await;
         }
 
         Ok(info)
@@ -105,7 +132,7 @@ impl ConnectionManager {
         let entry = self.connections.lock().remove(connection_id);
         if let Some(entry) = entry {
             entry.sessions.lock().await.clear();
-            entry.driver.close().await;
+            entry.opened.close().await;
         }
         self.running_queries.lock().retain(|_, (cid, _)| cid != connection_id);
         Ok(())
@@ -136,7 +163,7 @@ impl ConnectionManager {
             sessions.remove(session_id);
         }
 
-        let session = entry.driver.open_session(database).await?;
+        let session = entry.driver().open_session(database).await?;
         let session = Arc::new(AsyncMutex::new(session));
         sessions.insert(session_id.to_string(), session.clone());
         Ok(session)

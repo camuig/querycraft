@@ -31,6 +31,7 @@ native-tls = "0.2"
 rusqlite = { version = "0.40", features = ["bundled", "column_decltype"] }
 reqwest = { version = "0.13", default-features = false, features = ["native-tls"] }
 async-trait = "0.1"
+russh = { version = "0.63", default-features = false, features = ["ring", "flate2", "rsa"] }
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "2"

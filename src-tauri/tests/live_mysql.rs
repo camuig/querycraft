@@ -2,7 +2,7 @@
 //! QUERYCRAFT_TEST_DSN="127.0.0.1:33070:root:secret" cargo test --test live_mysql
 //! Without the environment variable the tests are skipped.
 
-use query_craft_lib::connections::StoredConnectionView;
+use query_craft_lib::connections::{Credentials, StoredConnectionView};
 use query_craft_lib::db::execute::{self, ExecuteRequest};
 use query_craft_lib::db::{ConnectionManager, DbKind, ParamStatement, StatementResultKind, TableKind};
 use query_craft_lib::history::History;
@@ -21,7 +21,9 @@ fn dsn() -> Option<(StoredConnectionView, String)> {
             database: None,
             ssl: false,
             ssl_verify: true,
+            ssl_ca_path: None,
             path: None,
+            ssh: None,
         },
         parts[3].to_string(),
     ))
@@ -30,7 +32,10 @@ fn dsn() -> Option<(StoredConnectionView, String)> {
 async fn setup() -> Option<(ConnectionManager, History)> {
     let (view, pass) = dsn()?;
     let manager = ConnectionManager::new();
-    manager.connect("c1", &view, Some(pass)).await.expect("connect");
+    manager
+        .connect("c1", &view, Credentials::password(Some(pass)))
+        .await
+        .expect("connect");
     let history = History::at_path(std::env::temp_dir().join("querycraft-test-history.json"));
     Some((manager, history))
 }
