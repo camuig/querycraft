@@ -7,7 +7,7 @@ import { registerCommand } from "../../lib/commandBus";
 import { newId } from "../../lib/ids";
 import { type AppAction, actionsForEvent, actionTitle, detectPlatform } from "../../lib/keymap";
 import { buildSelect, type OrderBySpec, qualify, sqlLiteral } from "../../lib/sqlBuilder";
-import { useConnectionsStore } from "../../store/connectionsStore";
+import { selectConnectionKind, useConnectionsStore } from "../../store/connectionsStore";
 import { useExplorerStore } from "../../store/explorerStore";
 import { selectResolvedTheme, useSettingsStore } from "../../store/settingsStore";
 import type { TableDataTab as TableDataTabModel } from "../../store/tabsStore";
@@ -37,6 +37,7 @@ function countChanges(tracker: ChangeTracker, rowCount: number, colCount: number
 /** Table data: pagination, WHERE filter, sorting, editing with deferred commit. */
 export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: boolean }) {
   const connect = useConnectionsStore((s) => s.connect);
+  const kind = useConnectionsStore(selectConnectionKind(tab.connectionId));
   const loadColumns = useExplorerStore((s) => s.loadColumns);
   const pageSize = useSettingsStore((s) => s.maxRows);
   const editorFontSize = useSettingsStore((s) => s.editorFontSize);
@@ -474,6 +475,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
       {showSql && (
         <div className="table-sql-preview">
           <SqlEditor
+            kind={kind}
             value={sqlPreview}
             onChange={() => undefined}
             onExecute={() => undefined}

@@ -3,10 +3,9 @@
 //! Without the environment variable the tests are skipped.
 
 use query_craft_lib::connections::StoredConnectionView;
+use query_craft_lib::db::execute::{self, ExecuteRequest};
+use query_craft_lib::db::{ConnectionManager, DbKind, ParamStatement, StatementResultKind, TableKind};
 use query_craft_lib::history::History;
-use query_craft_lib::mysql::execute::{self, ExecuteRequest, ParamStatement, StatementResultKind};
-use query_craft_lib::mysql::schema;
-use query_craft_lib::mysql::ConnectionManager;
 use serde_json::{json, Value};
 
 fn dsn() -> Option<(StoredConnectionView, String)> {
@@ -15,12 +14,14 @@ fn dsn() -> Option<(StoredConnectionView, String)> {
     assert_eq!(parts.len(), 4, "DSN: host:port:user:password");
     Some((
         StoredConnectionView {
+            kind: DbKind::Mysql,
             host: parts[0].to_string(),
             port: parts[1].parse().unwrap(),
             user: parts[2].to_string(),
             database: None,
             ssl: false,
             ssl_verify: true,
+            path: None,
         },
         parts[3].to_string(),
     ))
@@ -240,30 +241,28 @@ async fn cancel_kills_running_query() {
 #[tokio::test]
 async fn schema_queries() {
     let Some((m, _h)) = setup().await else { return };
-    let mut conn = m.metadata_conn("c1").await.unwrap();
-    let dbs = schema::list_databases(&mut conn).await.unwrap();
+    let driver = m.driver("c1").unwrap();
+    let dbs = driver.list_databases().await.unwrap();
     assert!(dbs.contains(&"shop".to_string()));
-    let tables = schema::list_tables(&mut conn, "shop").await.unwrap();
+    let tables = driver.list_tables("shop").await.unwrap();
     let view = tables.iter().find(|t| t.name == "active_customers").unwrap();
-    assert!(matches!(view.kind, schema::TableKind::View));
+    assert!(matches!(view.kind, TableKind::View));
     let customers = tables.iter().find(|t| t.name == "customers").unwrap();
     assert_eq!(customers.comment, "Покупатели");
-    let cols = schema::list_columns(&mut conn, "shop", "customers").await.unwrap();
+    let cols = driver.list_columns("shop", "customers").await.unwrap();
     assert_eq!(cols[0].name, "id");
     assert_eq!(cols[0].key, "PRI");
     assert!(cols[0].extra.contains("auto_increment"));
     assert_eq!(cols[0].column_type, "int unsigned");
-    let idx = schema::list_indexes(&mut conn, "shop", "orders").await.unwrap();
+    let idx = driver.list_indexes("shop", "orders").await.unwrap();
     let composite = idx.iter().find(|i| i.name == "idx_orders_customer_status").unwrap();
     assert_eq!(composite.columns, vec!["customer_id", "status"]);
-    let fks = schema::list_foreign_keys(&mut conn, "shop", "orders").await.unwrap();
+    let fks = driver.list_foreign_keys("shop", "orders").await.unwrap();
     assert_eq!(fks[0].name, "fk_orders_customer");
     assert_eq!(fks[0].ref_table, "customers");
     assert_eq!(fks[0].on_delete, "CASCADE");
-    let ddl = schema::get_table_ddl(&mut conn, "shop", "customers").await.unwrap();
+    let ddl = driver.table_ddl("shop", "customers").await.unwrap();
     assert!(ddl.starts_with("CREATE TABLE `customers`"));
-    let vddl = schema::get_table_ddl(&mut conn, "shop", "active_customers")
-        .await
-        .unwrap();
+    let vddl = driver.table_ddl("shop", "active_customers").await.unwrap();
     assert!(vddl.contains("VIEW"), "{vddl}");
 }

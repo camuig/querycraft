@@ -2,18 +2,18 @@
 
 pub mod commands;
 pub mod connections;
+pub mod db;
 pub mod error;
 pub mod history;
 pub mod menu;
-pub mod mysql;
 pub mod sql_split;
 
 use tauri::Manager;
 
 use commands::AppState;
 use connections::ConnectionStore;
+use db::ConnectionManager;
 use history::History;
-use mysql::ConnectionManager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

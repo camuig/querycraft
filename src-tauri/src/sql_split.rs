@@ -3,7 +3,9 @@
 //! Accounts for string literals (', ", `) with backslash escaping and
 //! doubled quotes, comments (`--`, `#`, `/* */`), and the
 //! `DELIMITER` directive, which changes the statement delimiter (needed for procedures
-//! like `DELIMITER $$ ... END$$ DELIMITER ;`).
+//! like `DELIMITER $$ ... END$$ DELIMITER ;`). With `dollar_quoting` on,
+//! PostgreSQL dollar-quoted strings (`$$ ... $$`, `$tag$ ... $tag$`) are treated
+//! as literals too, so function bodies are not split at inner semicolons.
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Statement {
@@ -20,6 +22,9 @@ enum State {
     Backtick,
     LineComment,
     BlockComment,
+    /// Inside a PostgreSQL dollar-quoted string; the payload is the byte range
+    /// (start, length) of the opening tag (`$$`, `$fn$`) — the closing tag must match it.
+    DollarQuoted(usize, usize),
 }
 
 /// Checks whether the string at offset `pos` starts with the word `word`
@@ -50,7 +55,30 @@ fn is_line_start(bytes: &[u8], mut pos: usize) -> bool {
     pos == 0 || bytes[pos - 1] == b'\n'
 }
 
-pub fn split_statements(sql: &str) -> Vec<Statement> {
+/// Length of the dollar-quote tag starting at `pos` (`$$` -> 2, `$body$` -> 6), if any.
+/// Tags follow identifier rules: letters, digits and underscores, not starting with a digit.
+fn dollar_tag_len(bytes: &[u8], pos: usize) -> Option<usize> {
+    if bytes.get(pos) != Some(&b'$') {
+        return None;
+    }
+    let mut end = pos + 1;
+    while end < bytes.len() {
+        let b = bytes[end];
+        if b == b'$' {
+            return Some(end + 1 - pos);
+        }
+        let ident_char = b == b'_' || b.is_ascii_alphabetic() || (end > pos + 1 && b.is_ascii_digit());
+        if !ident_char {
+            return None;
+        }
+        end += 1;
+    }
+    None
+}
+
+/// Splits `sql` into statements. `dollar_quoting` enables PostgreSQL `$tag$ ... $tag$`
+/// string literals; keep it off for MySQL, where `$` is an ordinary identifier character.
+pub fn split_statements(sql: &str, dollar_quoting: bool) -> Vec<Statement> {
     let bytes = sql.as_bytes();
     let len = bytes.len();
     let mut result = Vec::new();
@@ -141,6 +169,11 @@ pub fn split_statements(sql: &str) -> Vec<Statement> {
                         state = State::BlockComment;
                         i += 2;
                     }
+                    b'$' if dollar_quoting && dollar_tag_len(bytes, i).is_some() => {
+                        let tag_len = dollar_tag_len(bytes, i).expect("checked above");
+                        state = State::DollarQuoted(i, tag_len);
+                        i += tag_len;
+                    }
                     _ => {
                         // Check for a match against the current delimiter.
                         if matches_delimiter(bytes, i, delimiter.as_bytes()) {
@@ -192,6 +225,15 @@ pub fn split_statements(sql: &str) -> Vec<Statement> {
                 if bytes[i] == b'*' && i + 1 < len && bytes[i + 1] == b'/' {
                     state = State::Normal;
                     i += 2;
+                } else {
+                    i += 1;
+                }
+            }
+            State::DollarQuoted(tag_start, tag_len) => {
+                let tag = &bytes[tag_start..tag_start + tag_len];
+                if bytes[i] == b'$' && bytes[i..].starts_with(tag) {
+                    state = State::Normal;
+                    i += tag_len;
                 } else {
                     i += 1;
                 }
@@ -271,7 +313,11 @@ mod tests {
     use super::*;
 
     fn sqls(input: &str) -> Vec<String> {
-        split_statements(input).into_iter().map(|s| s.sql).collect()
+        split_statements(input, false).into_iter().map(|s| s.sql).collect()
+    }
+
+    fn pg_sqls(input: &str) -> Vec<String> {
+        split_statements(input, true).into_iter().map(|s| s.sql).collect()
     }
 
     #[test]
@@ -408,7 +454,7 @@ mod tests {
     #[test]
     fn positions_are_byte_offsets_into_original_input() {
         let input = "SELECT 1; SELECT 2";
-        let stmts = split_statements(input);
+        let stmts = split_statements(input, false);
         assert_eq!(stmts.len(), 2);
         assert_eq!(&input[stmts[0].start..stmts[0].end], "SELECT 1");
         assert_eq!(&input[stmts[1].start..stmts[1].end], "SELECT 2");
@@ -417,7 +463,7 @@ mod tests {
     #[test]
     fn multibyte_utf8_content_is_handled() {
         let input = "SELECT 'привет'; SELECT 'мир'";
-        let stmts = split_statements(input);
+        let stmts = split_statements(input, false);
         assert_eq!(stmts.len(), 2);
         assert_eq!(stmts[0].sql, "SELECT 'привет'");
         assert_eq!(stmts[1].sql, "SELECT 'мир'");
@@ -431,5 +477,35 @@ mod tests {
         // "delimiter" doesn't appear at the start of a line — shouldn't break parsing.
         let input = "SELECT 'x delimiter y'; SELECT 1;";
         assert_eq!(sqls(input), vec!["SELECT 'x delimiter y'", "SELECT 1"]);
+    }
+
+    #[test]
+    fn dollar_quoted_body_is_not_split_for_postgres() {
+        let input = "CREATE FUNCTION f() RETURNS int AS $$ BEGIN RETURN 1; END; $$ LANGUAGE plpgsql; SELECT f();";
+        let stmts = pg_sqls(input);
+        assert_eq!(stmts.len(), 2);
+        assert!(stmts[0].starts_with("CREATE FUNCTION"));
+        assert!(stmts[0].ends_with("LANGUAGE plpgsql"));
+        assert_eq!(stmts[1], "SELECT f()");
+    }
+
+    #[test]
+    fn tagged_dollar_quotes_must_match_the_opening_tag() {
+        let input = "DO $body$ BEGIN PERFORM 1; SELECT '$$'; END $body$; SELECT 2";
+        let stmts = pg_sqls(input);
+        assert_eq!(stmts.len(), 2);
+        assert!(stmts[0].starts_with("DO $body$"));
+        assert_eq!(stmts[1], "SELECT 2");
+    }
+
+    #[test]
+    fn dollar_sign_in_identifier_is_not_a_quote() {
+        // `$1` positional parameters and `a$b` identifiers must not open a literal.
+        assert_eq!(pg_sqls("SELECT $1; SELECT a$b"), vec!["SELECT $1", "SELECT a$b"]);
+    }
+
+    #[test]
+    fn dollar_quoting_is_off_for_mysql() {
+        assert_eq!(sqls("SELECT $$; SELECT 1"), vec!["SELECT $$", "SELECT 1"]);
     }
 }

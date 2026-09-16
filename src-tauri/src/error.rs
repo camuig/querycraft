@@ -5,8 +5,9 @@ use serde::{Serialize, Serializer};
 
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
+    /// An error reported by a database engine or its driver.
     #[error("{0}")]
-    Mysql(String),
+    Database(String),
 
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
@@ -35,10 +36,41 @@ impl From<mysql_async::Error> for AppError {
                         server_error.code, server_error.state, server_error.message
                     );
                 }
-                AppError::Mysql(msg)
+                AppError::Database(msg)
             }
-            other => AppError::Mysql(other.to_string()),
+            other => AppError::Database(other.to_string()),
         }
+    }
+}
+
+impl From<tokio_postgres::Error> for AppError {
+    fn from(err: tokio_postgres::Error) -> Self {
+        match err.as_db_error() {
+            Some(db) => {
+                let mut msg = format!("[{}] {}", db.code().code(), db.message());
+                if let Some(detail) = db.detail() {
+                    msg = format!("{msg}\n{detail}");
+                }
+                if let Some(hint) = db.hint() {
+                    msg = format!("{msg}\nHint: {hint}");
+                }
+                AppError::Database(msg)
+            }
+            None => AppError::Database(err.to_string()),
+        }
+    }
+}
+
+impl From<rusqlite::Error> for AppError {
+    fn from(err: rusqlite::Error) -> Self {
+        AppError::Database(err.to_string())
+    }
+}
+
+impl From<reqwest::Error> for AppError {
+    fn from(err: reqwest::Error) -> Self {
+        // reqwest includes the full URL (with query text) in its Display output; keep the message short.
+        AppError::Database(err.without_url().to_string())
     }
 }
 

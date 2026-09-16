@@ -1,7 +1,7 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useEffect, useState } from "react";
 import * as api from "../../api/commands";
-import { useConnectionsStore } from "../../store/connectionsStore";
+import { selectConnectionKind, useConnectionsStore } from "../../store/connectionsStore";
 import { selectResolvedTheme, useSettingsStore } from "../../store/settingsStore";
 import type { DdlTab as DdlTabModel } from "../../store/tabsStore";
 import { toast } from "../../store/toastStore";
@@ -10,6 +10,7 @@ import { SqlEditor } from "../editor/SqlEditor";
 /** Table DDL (SHOW CREATE TABLE) — read-only, with a copy button. */
 export function TableDdlTab({ tab, active }: { tab: DdlTabModel; active: boolean }) {
   const connect = useConnectionsStore((s) => s.connect);
+  const kind = useConnectionsStore(selectConnectionKind(tab.connectionId));
   const theme = useSettingsStore(selectResolvedTheme);
   const fontSize = useSettingsStore((s) => s.editorFontSize);
   const [ddl, setDdl] = useState("");
@@ -55,6 +56,7 @@ export function TableDdlTab({ tab, active }: { tab: DdlTabModel; active: boolean
       </div>
       <div className="ddl-body">
         <SqlEditor
+          kind={kind}
           value={ddl}
           onChange={() => undefined}
           onExecute={() => undefined}

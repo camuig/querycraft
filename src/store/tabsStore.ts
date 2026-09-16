@@ -2,7 +2,7 @@ import { create } from "zustand";
 import * as api from "../api/commands";
 import { newId } from "../lib/ids";
 
-/** SQL console tab: its own MySQL session (connection). */
+/** SQL console tab: its own database session (connection). */
 export interface ConsoleTab {
   kind: "console";
   id: string;

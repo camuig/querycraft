@@ -7,7 +7,7 @@ import { registerCommand } from "../../lib/commandBus";
 import { newId } from "../../lib/ids";
 import { actionTitle } from "../../lib/keymap";
 import { statementAtCursor } from "../../lib/sqlSplit";
-import { useConnectionsStore } from "../../store/connectionsStore";
+import { selectConnectionKind, useConnectionsStore } from "../../store/connectionsStore";
 import { useExplorerStore } from "../../store/explorerStore";
 import { selectResolvedTheme, useSettingsStore } from "../../store/settingsStore";
 import { useStatusStore } from "../../store/statusStore";
@@ -21,6 +21,7 @@ import { SqlEditor } from "./SqlEditor";
 export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: boolean }) {
   const updateConsole = useTabsStore((s) => s.updateConsole);
   const connect = useConnectionsStore((s) => s.connect);
+  const kind = useConnectionsStore(selectConnectionKind(tab.connectionId));
   const runtimeStatus = useConnectionsStore((s) => s.runtime[tab.connectionId]?.status ?? "disconnected");
   const databases = useExplorerStore((s) => s.databases[tab.connectionId]);
   const loadDatabases = useExplorerStore((s) => s.loadDatabases);
@@ -248,6 +249,7 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
         <Group orientation="vertical" id="console-split">
           <Panel defaultSize="60%" minSize="15%">
             <SqlEditor
+              kind={kind}
               value={localSql}
               onChange={setLocalSql}
               onExecute={handleExecute}

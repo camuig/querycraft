@@ -2,67 +2,11 @@
 
 use mysql_async::prelude::Queryable;
 use mysql_async::{Conn, Row, Value};
-use serde::{Deserialize, Serialize};
 
+use crate::db::schema::{ColumnInfo, ForeignKeyInfo, IndexInfo, TableInfo, TableKind};
 use crate::error::{AppError, AppResult};
 
 use super::quote_ident;
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum TableKind {
-    Table,
-    View,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TableInfo {
-    pub name: String,
-    pub kind: TableKind,
-    pub engine: Option<String>,
-    /// Approximate row count from information_schema.
-    pub rows: Option<u64>,
-    pub comment: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ColumnInfo {
-    pub name: String,
-    /// E.g. "int", "varchar".
-    pub data_type: String,
-    /// Full type, e.g. "varchar(255)", "int unsigned".
-    pub column_type: String,
-    pub nullable: bool,
-    /// "PRI" | "UNI" | "MUL" | ""
-    pub key: String,
-    pub default_value: Option<String>,
-    pub extra: String,
-    pub comment: String,
-    pub ordinal: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct IndexInfo {
-    pub name: String,
-    pub unique: bool,
-    pub columns: Vec<String>,
-    pub index_type: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ForeignKeyInfo {
-    pub name: String,
-    pub columns: Vec<String>,
-    pub ref_database: String,
-    pub ref_table: String,
-    pub ref_columns: Vec<String>,
-    pub on_update: String,
-    pub on_delete: String,
-}
 
 pub async fn list_databases(conn: &mut Conn) -> AppResult<Vec<String>> {
     let mut databases: Vec<String> = conn.query("SHOW DATABASES").await?;
@@ -221,13 +165,13 @@ pub async fn get_table_ddl(conn: &mut Conn, database: &str, table: &str) -> AppR
 /// `SHOW CREATE TABLE`/`SHOW CREATE VIEW` — the DDL is always in the second column (index 1).
 async fn show_create_ddl(conn: &mut Conn, sql: &str) -> AppResult<String> {
     let row: Option<Row> = conn.query_first(sql).await?;
-    let row = row.ok_or_else(|| AppError::Mysql("SHOW CREATE returned an empty result".into()))?;
+    let row = row.ok_or_else(|| AppError::Database("SHOW CREATE returned an empty result".into()))?;
     let value = row
         .as_ref(1)
         .cloned()
-        .ok_or_else(|| AppError::Mysql("SHOW CREATE response has no DDL column".into()))?;
+        .ok_or_else(|| AppError::Database("SHOW CREATE response has no DDL column".into()))?;
     match value {
         Value::Bytes(bytes) => Ok(String::from_utf8_lossy(&bytes).into_owned()),
-        other => Err(AppError::Mysql(format!("Unexpected DDL value type: {other:?}"))),
+        other => Err(AppError::Database(format!("Unexpected DDL value type: {other:?}"))),
     }
 }

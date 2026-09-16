@@ -2,12 +2,14 @@
 
 use tauri::State;
 
-use crate::connections::{ConnectionConfig, ConnectionInput, ConnectionStore, StoredConnectionView};
+use crate::connections::{ConnectionConfig, ConnectionInput, ConnectionStore};
+use crate::db::execute::{self, ExecuteRequest};
+use crate::db::{
+    ApplyResult, ColumnInfo, ConnectionManager, ForeignKeyInfo, IndexInfo, ParamStatement, ServerInfo, StatementResult,
+    TableInfo,
+};
 use crate::error::AppResult;
 use crate::history::{History, QueryHistoryEntry};
-use crate::mysql::execute::{self, ApplyResult, ExecuteRequest, ParamStatement, StatementResult};
-use crate::mysql::schema::{self, ColumnInfo, ForeignKeyInfo, IndexInfo, TableInfo};
-use crate::mysql::{ConnectionManager, ServerInfo};
 
 pub struct AppState {
     pub connections: ConnectionStore,
@@ -35,18 +37,10 @@ pub async fn delete_connection(state: State<'_, AppState>, id: String) -> AppRes
 /// Tests a connection without saving it.
 #[tauri::command]
 pub async fn test_connection(input: ConnectionInput) -> AppResult<ServerInfo> {
-    let view = StoredConnectionView {
-        host: input.host,
-        port: input.port,
-        user: input.user,
-        database: input.database,
-        ssl: input.ssl,
-        ssl_verify: input.ssl_verify,
-    };
-    ConnectionManager::test_connection(&view, input.password).await
+    ConnectionManager::test_connection(&input.to_view(), input.password).await
 }
 
-/// Opens a connection pool for a connection (required before any queries).
+/// Opens the driver for a connection (required before any queries).
 #[tauri::command]
 pub async fn connect(state: State<'_, AppState>, connection_id: String) -> AppResult<ServerInfo> {
     let config = state.connections.get_stored(&connection_id)?;
@@ -54,7 +48,7 @@ pub async fn connect(state: State<'_, AppState>, connection_id: String) -> AppRe
     state.manager.connect(&connection_id, &config, password).await
 }
 
-/// Closes the pool and all sessions for a connection.
+/// Closes the driver and all sessions for a connection.
 #[tauri::command]
 pub async fn disconnect(state: State<'_, AppState>, connection_id: String) -> AppResult<()> {
     state.manager.disconnect(&connection_id).await
@@ -64,8 +58,7 @@ pub async fn disconnect(state: State<'_, AppState>, connection_id: String) -> Ap
 
 #[tauri::command]
 pub async fn list_databases(state: State<'_, AppState>, connection_id: String) -> AppResult<Vec<String>> {
-    let mut conn = state.manager.metadata_conn(&connection_id).await?;
-    schema::list_databases(&mut conn).await
+    state.manager.driver(&connection_id)?.list_databases().await
 }
 
 #[tauri::command]
@@ -74,8 +67,7 @@ pub async fn list_tables(
     connection_id: String,
     database: String,
 ) -> AppResult<Vec<TableInfo>> {
-    let mut conn = state.manager.metadata_conn(&connection_id).await?;
-    schema::list_tables(&mut conn, &database).await
+    state.manager.driver(&connection_id)?.list_tables(&database).await
 }
 
 #[tauri::command]
@@ -85,8 +77,11 @@ pub async fn list_columns(
     database: String,
     table: String,
 ) -> AppResult<Vec<ColumnInfo>> {
-    let mut conn = state.manager.metadata_conn(&connection_id).await?;
-    schema::list_columns(&mut conn, &database, &table).await
+    state
+        .manager
+        .driver(&connection_id)?
+        .list_columns(&database, &table)
+        .await
 }
 
 #[tauri::command]
@@ -96,8 +91,11 @@ pub async fn list_indexes(
     database: String,
     table: String,
 ) -> AppResult<Vec<IndexInfo>> {
-    let mut conn = state.manager.metadata_conn(&connection_id).await?;
-    schema::list_indexes(&mut conn, &database, &table).await
+    state
+        .manager
+        .driver(&connection_id)?
+        .list_indexes(&database, &table)
+        .await
 }
 
 #[tauri::command]
@@ -107,8 +105,11 @@ pub async fn list_foreign_keys(
     database: String,
     table: String,
 ) -> AppResult<Vec<ForeignKeyInfo>> {
-    let mut conn = state.manager.metadata_conn(&connection_id).await?;
-    schema::list_foreign_keys(&mut conn, &database, &table).await
+    state
+        .manager
+        .driver(&connection_id)?
+        .list_foreign_keys(&database, &table)
+        .await
 }
 
 #[tauri::command]
@@ -118,8 +119,7 @@ pub async fn get_table_ddl(
     database: String,
     table: String,
 ) -> AppResult<String> {
-    let mut conn = state.manager.metadata_conn(&connection_id).await?;
-    schema::get_table_ddl(&mut conn, &database, &table).await
+    state.manager.driver(&connection_id)?.table_ddl(&database, &table).await
 }
 
 // --- Execution ----------------------------------------------------------------
@@ -130,7 +130,7 @@ pub async fn execute_query(state: State<'_, AppState>, request: ExecuteRequest) 
     execute::execute(&state.manager, &state.history, request).await
 }
 
-/// KILL QUERY for the query started with this queryId.
+/// Cancels the statement started with this queryId (KILL QUERY, pg_cancel, ...).
 #[tauri::command]
 pub async fn cancel_query(state: State<'_, AppState>, connection_id: String, query_id: String) -> AppResult<()> {
     state.manager.cancel_query(&connection_id, &query_id).await

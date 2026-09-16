@@ -16,6 +16,7 @@ let connections: ConnectionConfig[] = [
   {
     id: "mock-1",
     name: "local (mock)",
+    kind: "mysql",
     host: "localhost",
     port: 3306,
     user: "root",
@@ -23,18 +24,21 @@ let connections: ConnectionConfig[] = [
     ssl: false,
     sslVerify: true,
     color: "#3574f0",
+    path: null,
     hasPassword: true,
   },
   {
     id: "mock-2",
     name: "prod (mock)",
+    kind: "postgres",
     host: "db.example.com",
-    port: 3306,
+    port: 5432,
     user: "app",
     database: null,
     ssl: true,
     sslVerify: true,
     color: "#e55765",
+    path: null,
     hasPassword: false,
   },
 ];
@@ -217,6 +221,7 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
       const saved: ConnectionConfig = {
         id: input.id ?? `mock-${Date.now()}`,
         name: input.name,
+        kind: input.kind,
         host: input.host,
         port: input.port,
         user: input.user,
@@ -224,6 +229,7 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
         ssl: input.ssl,
         sslVerify: input.sslVerify,
         color: input.color,
+        path: input.path,
         hasPassword: input.savePassword && !!input.password,
       };
       connections = connections.some((c) => c.id === saved.id)

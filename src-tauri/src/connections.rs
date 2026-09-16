@@ -10,6 +10,7 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::db::DbKind;
 use crate::error::{AppError, AppResult};
 
 const KEYRING_SERVICE: &str = "QueryCraft";
@@ -20,6 +21,9 @@ const CONNECTIONS_FILE: &str = "connections.json";
 struct StoredConnection {
     id: String,
     name: String,
+    /// Missing in configs written before multi-engine support: those are MySQL.
+    #[serde(default)]
+    kind: DbKind,
     host: String,
     port: u16,
     user: String,
@@ -33,6 +37,9 @@ struct StoredConnection {
     ssl_verify: bool,
     #[serde(default)]
     color: Option<String>,
+    /// Database file for file-based engines (SQLite); `host`/`port`/`user` are unused then.
+    #[serde(default)]
+    path: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -45,6 +52,7 @@ fn default_true() -> bool {
 pub struct ConnectionConfig {
     pub id: String,
     pub name: String,
+    pub kind: DbKind,
     pub host: String,
     pub port: u16,
     pub user: String,
@@ -52,6 +60,7 @@ pub struct ConnectionConfig {
     pub ssl: bool,
     pub ssl_verify: bool,
     pub color: Option<String>,
+    pub path: Option<String>,
     pub has_password: bool,
 }
 
@@ -61,6 +70,8 @@ pub struct ConnectionConfig {
 pub struct ConnectionInput {
     pub id: Option<String>,
     pub name: String,
+    #[serde(default)]
+    pub kind: DbKind,
     pub host: String,
     pub port: u16,
     pub user: String,
@@ -71,6 +82,24 @@ pub struct ConnectionInput {
     #[serde(default = "default_true")]
     pub ssl_verify: bool,
     pub color: Option<String>,
+    #[serde(default)]
+    pub path: Option<String>,
+}
+
+impl ConnectionInput {
+    /// The part of the input the drivers need (everything except the name, color and password policy).
+    pub fn to_view(&self) -> StoredConnectionView {
+        StoredConnectionView {
+            kind: self.kind,
+            host: self.host.clone(),
+            port: self.port,
+            user: self.user.clone(),
+            database: self.database.clone(),
+            ssl: self.ssl,
+            ssl_verify: self.ssl_verify,
+            path: self.path.clone(),
+        }
+    }
 }
 
 pub struct ConnectionStore {
@@ -146,6 +175,7 @@ impl ConnectionStore {
         ConnectionConfig {
             id: stored.id.clone(),
             name: stored.name.clone(),
+            kind: stored.kind,
             host: stored.host.clone(),
             port: stored.port,
             user: stored.user.clone(),
@@ -153,6 +183,7 @@ impl ConnectionStore {
             ssl: stored.ssl,
             ssl_verify: stored.ssl_verify,
             color: stored.color.clone(),
+            path: stored.path.clone(),
             has_password: Self::has_saved_password(&stored.id),
         }
     }
@@ -178,12 +209,14 @@ impl ConnectionStore {
             .iter()
             .find(|c| c.id == id)
             .map(|c| StoredConnectionView {
+                kind: c.kind,
                 host: c.host.clone(),
                 port: c.port,
                 user: c.user.clone(),
                 database: c.database.clone(),
                 ssl: c.ssl,
                 ssl_verify: c.ssl_verify,
+                path: c.path.clone(),
             })
             .ok_or_else(|| AppError::ConnectionNotFound(id.to_string()))
     }
@@ -194,6 +227,7 @@ impl ConnectionStore {
         let stored = StoredConnection {
             id: id.clone(),
             name: input.name,
+            kind: input.kind,
             host: input.host,
             port: input.port,
             user: input.user,
@@ -201,6 +235,7 @@ impl ConnectionStore {
             ssl: input.ssl,
             ssl_verify: input.ssl_verify,
             color: input.color,
+            path: input.path,
         };
 
         {
@@ -278,9 +313,10 @@ impl ConnectionStore {
 }
 
 /// Internal representation of a connection without the serializable `hasPassword` —
-/// used when building `OptsBuilder`.
+/// what the drivers get to open a connection.
 #[derive(Debug, Clone)]
 pub struct StoredConnectionView {
+    pub kind: DbKind,
     pub host: String,
     pub port: u16,
     pub user: String,
@@ -288,11 +324,30 @@ pub struct StoredConnectionView {
     pub ssl: bool,
     /// Verify the server certificate and host name (only matters when `ssl` is on).
     pub ssl_verify: bool,
+    /// Database file for file-based engines (SQLite).
+    pub path: Option<String>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::StoredConnection;
+    use crate::db::DbKind;
+
+    #[test]
+    fn stored_connection_without_kind_is_mysql() {
+        let json = r#"{"id":"a","name":"n","host":"h","port":3306,"user":"u"}"#;
+        let stored: StoredConnection = serde_json::from_str(json).unwrap();
+        assert_eq!(stored.kind, DbKind::Mysql);
+        assert!(stored.path.is_none());
+    }
+
+    #[test]
+    fn stored_connection_keeps_kind_and_path() {
+        let json = r#"{"id":"a","name":"n","kind":"sqlite","host":"","port":0,"user":"","path":"/tmp/x.db"}"#;
+        let stored: StoredConnection = serde_json::from_str(json).unwrap();
+        assert_eq!(stored.kind, DbKind::Sqlite);
+        assert_eq!(stored.path.as_deref(), Some("/tmp/x.db"));
+    }
 
     #[test]
     fn stored_connection_without_ssl_verify_defaults_to_verifying() {

@@ -8,7 +8,7 @@ import {
   moveLineDown,
   moveLineUp,
 } from "@codemirror/commands";
-import { MySQL, type SQLNamespace, sql } from "@codemirror/lang-sql";
+import { type SQLNamespace, sql } from "@codemirror/lang-sql";
 import {
   bracketMatching,
   HighlightStyle,
@@ -33,7 +33,9 @@ import {
 } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import { useEffect, useRef } from "react";
+import type { DbKind } from "../../api/types";
 import { duplicateLineOrSelection } from "./editorCommands";
+import { editorDialect } from "./sqlDialects";
 import "../../styles/editor.css";
 
 export type EditorTheme = "dark" | "light";
@@ -42,6 +44,8 @@ export interface SqlEditorProps {
   value: string;
   onChange: (v: string) => void;
   onExecute: (mode: "current" | "all") => void;
+  /** Engine of the connection — selects the SQL dialect for highlighting and completion. */
+  kind: DbKind;
   schema?: Record<string, string[]>;
   defaultTable?: string;
   fontSize: number;
@@ -101,11 +105,12 @@ function buildThemeExtension(theme: EditorTheme): Extension {
 }
 
 function buildLanguageExtension(
+  kind: DbKind,
   schema: Record<string, string[]> | undefined,
   defaultTable: string | undefined,
 ): LanguageSupport {
   return sql({
-    dialect: MySQL,
+    dialect: editorDialect(kind),
     schema: (schema ?? {}) as SQLNamespace,
     defaultTable,
     upperCaseKeywords: true,
@@ -182,7 +187,7 @@ export function SqlEditor(props: SqlEditorProps) {
         indentUnit.of("  "),
         autocompletion(),
         highlightSelectionMatches(),
-        langCompartment.of(buildLanguageExtension(props.schema, props.defaultTable)),
+        langCompartment.of(buildLanguageExtension(props.kind, props.schema, props.defaultTable)),
         themeCompartment.of(buildThemeExtension(props.theme)),
         fontSizeCompartment.of(buildFontSizeExtension(props.fontSize)),
         readOnlyCompartment.of(EditorState.readOnly.of(!!props.readOnly)),
@@ -229,9 +234,9 @@ export function SqlEditor(props: SqlEditorProps) {
 
   useEffect(() => {
     viewRef.current?.dispatch({
-      effects: langCompartment.reconfigure(buildLanguageExtension(props.schema, props.defaultTable)),
+      effects: langCompartment.reconfigure(buildLanguageExtension(props.kind, props.schema, props.defaultTable)),
     });
-  }, [props.schema, props.defaultTable, langCompartment]);
+  }, [props.kind, props.schema, props.defaultTable, langCompartment]);
 
   useEffect(() => {
     viewRef.current?.dispatch({ effects: fontSizeCompartment.reconfigure(buildFontSizeExtension(props.fontSize)) });

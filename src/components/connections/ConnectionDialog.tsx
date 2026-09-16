@@ -101,6 +101,7 @@ export function ConnectionDialog() {
       return {
         id: isNew ? null : (editingConfig?.id ?? null),
         name,
+        kind: editingConfig?.kind ?? "mysql",
         host,
         port,
         user,
@@ -110,6 +111,7 @@ export function ConnectionDialog() {
         ssl: form.ssl,
         sslVerify: form.sslVerify,
         color: form.color,
+        path: editingConfig?.path ?? null,
       };
     },
     [form, isNew, editingConfig],

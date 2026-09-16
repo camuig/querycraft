@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import * as api from "../api/commands";
-import type { ConnectionConfig, ConnectionInput, ServerInfo } from "../api/types";
+import type { ConnectionConfig, ConnectionInput, DbKind, ServerInfo } from "../api/types";
 
 export type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
 
@@ -86,4 +86,9 @@ export const useConnectionsStore = create<ConnectionsState>()((set, get) => ({
 
 export function connectionStatus(id: string): ConnectionRuntime {
   return useConnectionsStore.getState().runtime[id] ?? idle;
+}
+
+/** Engine of a saved connection; falls back to MySQL for an unknown id so callers always get a dialect. */
+export function selectConnectionKind(id: string) {
+  return (s: ConnectionsState): DbKind => s.configs.find((c) => c.id === id)?.kind ?? "mysql";
 }

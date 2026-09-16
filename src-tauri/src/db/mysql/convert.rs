@@ -5,28 +5,9 @@
 
 use mysql_async::consts::{ColumnFlags, ColumnType};
 use mysql_async::{Column, Value};
-use serde::{Deserialize, Serialize};
 
-/// A cell value in JSON: null | number | string | boolean (the `CellValue` contract).
-pub type CellValue = serde_json::Value;
-
-/// The largest integer that JS can represent exactly (2^53 - 1).
-const MAX_SAFE_INT: u64 = 9_007_199_254_740_991;
-/// Limit on the hex string size for binary values (in hex characters).
-const MAX_HEX_CHARS: usize = 64 * 1024;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ColumnMeta {
-    pub name: String,
-    pub table: Option<String>,
-    pub database: Option<String>,
-    pub type_name: String,
-    pub unsigned: bool,
-    pub nullable: bool,
-    pub primary_key: bool,
-    pub binary: bool,
-}
+use crate::db::json::{bytes_to_hex, float_to_json, int_to_json, text_to_float, text_to_number, uint_to_json};
+use crate::db::ColumnMeta;
 
 pub fn column_meta(col: &Column) -> ColumnMeta {
     let flags = col.flags();
@@ -149,8 +130,11 @@ fn bytes_value_to_json(bytes: &[u8], col: &Column) -> serde_json::Value {
     use ColumnType::*;
     match col.column_type() {
         MYSQL_TYPE_TINY | MYSQL_TYPE_SHORT | MYSQL_TYPE_LONG | MYSQL_TYPE_LONGLONG | MYSQL_TYPE_INT24
-        | MYSQL_TYPE_YEAR => bytes_to_number(bytes, col.flags().contains(ColumnFlags::UNSIGNED_FLAG)),
-        MYSQL_TYPE_FLOAT | MYSQL_TYPE_DOUBLE => bytes_to_float(bytes),
+        | MYSQL_TYPE_YEAR => text_to_number(
+            &String::from_utf8_lossy(bytes),
+            col.flags().contains(ColumnFlags::UNSIGNED_FLAG),
+        ),
+        MYSQL_TYPE_FLOAT | MYSQL_TYPE_DOUBLE => text_to_float(&String::from_utf8_lossy(bytes)),
         MYSQL_TYPE_DECIMAL | MYSQL_TYPE_NEWDECIMAL => {
             serde_json::Value::String(String::from_utf8_lossy(bytes).into_owned())
         }
@@ -174,44 +158,6 @@ fn bytes_value_to_json(bytes: &[u8], col: &Column) -> serde_json::Value {
     }
 }
 
-/// Parses the text representation of an integer and decides whether it fits
-/// within the JS-safe-integer range; if not, returns the original text as a string.
-pub(crate) fn bytes_to_number(bytes: &[u8], unsigned: bool) -> serde_json::Value {
-    let text = String::from_utf8_lossy(bytes).into_owned();
-    if unsigned {
-        if let Ok(n) = text.parse::<u64>() {
-            return uint_to_json(n);
-        }
-    } else if let Ok(n) = text.parse::<i64>() {
-        return int_to_json(n);
-    }
-    serde_json::Value::String(text)
-}
-
-pub(crate) fn bytes_to_float(bytes: &[u8]) -> serde_json::Value {
-    let text = String::from_utf8_lossy(bytes).into_owned();
-    match text.parse::<f64>() {
-        Ok(n) => float_to_json(n),
-        Err(_) => serde_json::Value::String(text),
-    }
-}
-
-/// A hex string like "0xAABBCC", truncated to `MAX_HEX_CHARS` hex characters
-/// (appends "…" when truncated).
-pub(crate) fn bytes_to_hex(bytes: &[u8]) -> String {
-    let truncated = bytes.len().saturating_mul(2) > MAX_HEX_CHARS;
-    let take = if truncated { MAX_HEX_CHARS / 2 } else { bytes.len() };
-    let mut out = String::with_capacity(2 + take * 2 + if truncated { 1 } else { 0 });
-    out.push_str("0x");
-    for b in &bytes[..take] {
-        out.push_str(&format!("{b:02X}"));
-    }
-    if truncated {
-        out.push('…');
-    }
-    out
-}
-
 fn bit_bytes_to_json(bytes: &[u8]) -> serde_json::Value {
     if bytes.len() <= 8 {
         let mut buf = [0u8; 8];
@@ -219,32 +165,6 @@ fn bit_bytes_to_json(bytes: &[u8]) -> serde_json::Value {
         uint_to_json(u64::from_be_bytes(buf))
     } else {
         serde_json::Value::String(bytes_to_hex(bytes))
-    }
-}
-
-fn int_to_json(n: i64) -> serde_json::Value {
-    if n.unsigned_abs() <= MAX_SAFE_INT {
-        serde_json::Value::Number(n.into())
-    } else {
-        serde_json::Value::String(n.to_string())
-    }
-}
-
-fn uint_to_json(n: u64) -> serde_json::Value {
-    if n <= MAX_SAFE_INT {
-        serde_json::Value::Number(n.into())
-    } else {
-        serde_json::Value::String(n.to_string())
-    }
-}
-
-fn float_to_json(n: f64) -> serde_json::Value {
-    if n.is_finite() {
-        serde_json::Number::from_f64(n)
-            .map(serde_json::Value::Number)
-            .unwrap_or_else(|| serde_json::Value::String(n.to_string()))
-    } else {
-        serde_json::Value::String(n.to_string())
     }
 }
 
@@ -299,63 +219,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bytes_to_number_small_signed() {
-        assert_eq!(bytes_to_number(b"-42", false), serde_json::json!(-42));
-    }
-
-    #[test]
-    fn bytes_to_number_small_unsigned() {
-        assert_eq!(bytes_to_number(b"42", true), serde_json::json!(42));
-    }
-
-    #[test]
-    fn bytes_to_number_beyond_safe_int_becomes_string() {
-        // 2^63 - 1, guaranteed not to fit as an exact f64/JS number in the u64 context,
-        // but check specifically for exceeding MAX_SAFE_INT.
-        let big = (MAX_SAFE_INT + 1).to_string();
-        assert_eq!(bytes_to_number(big.as_bytes(), true), serde_json::json!(big));
-    }
-
-    #[test]
-    fn bytes_to_number_negative_beyond_safe_int_becomes_string() {
-        let big = -(MAX_SAFE_INT as i64) - 1;
-        let text = big.to_string();
-        assert_eq!(bytes_to_number(text.as_bytes(), false), serde_json::json!(text));
-    }
-
-    #[test]
-    fn bytes_to_number_unparsable_falls_back_to_string() {
-        assert_eq!(
-            bytes_to_number(b"not-a-number", false),
-            serde_json::json!("not-a-number")
-        );
-    }
-
-    #[test]
-    fn bytes_to_float_basic() {
-        assert_eq!(bytes_to_float(b"3.5"), serde_json::json!(3.5));
-    }
-
-    #[test]
-    fn bytes_to_float_unparsable_falls_back_to_string() {
-        assert_eq!(bytes_to_float(b"abc"), serde_json::json!("abc"));
-    }
-
-    #[test]
-    fn bytes_to_hex_basic() {
-        assert_eq!(bytes_to_hex(&[0xDE, 0xAD, 0xBE, 0xEF]), "0xDEADBEEF");
-    }
-
-    #[test]
-    fn bytes_to_hex_truncates_large_input() {
-        let data = vec![0xABu8; MAX_HEX_CHARS / 2 + 10];
-        let hex = bytes_to_hex(&data);
-        assert!(hex.ends_with('…'));
-        // "0x" + MAX_HEX_CHARS hex chars + "…"
-        assert_eq!(hex.chars().count(), 2 + MAX_HEX_CHARS + 1);
-    }
-
-    #[test]
     fn format_date_date_only_type_with_zero_time() {
         assert_eq!(format_date(2024, 1, 2, 0, 0, 0, 0, true), "2024-01-02");
     }
@@ -379,21 +242,6 @@ mod tests {
     fn format_time_negative_with_days_and_fraction() {
         // 1 day 2 hours => 26 hours, negative time
         assert_eq!(format_time(true, 1, 2, 3, 4, 500_000), "-26:03:04.500000");
-    }
-
-    #[test]
-    fn int_to_json_within_safe_range() {
-        assert_eq!(int_to_json(123), serde_json::json!(123));
-    }
-
-    #[test]
-    fn float_to_json_nan_becomes_string() {
-        assert_eq!(float_to_json(f64::NAN), serde_json::json!("NaN"));
-    }
-
-    #[test]
-    fn float_to_json_infinity_becomes_string() {
-        assert_eq!(float_to_json(f64::INFINITY), serde_json::json!("inf"));
     }
 
     #[test]
