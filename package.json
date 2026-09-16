@@ -1,7 +1,7 @@
 {
   "name": "query-craft",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Fast cross-platform desktop client for MySQL, MariaDB, PostgreSQL, ClickHouse and SQLite in the spirit of DataGrip",
   "license": "Apache-2.0",
   "author": "camuig",
