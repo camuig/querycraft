@@ -66,3 +66,5 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.release-please.outputs.tag_name }}
+    # The signing key for the updater artifacts; called workflows do not see repository secrets otherwise.
+    secrets: inherit
