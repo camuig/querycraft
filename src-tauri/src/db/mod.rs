@@ -250,7 +250,7 @@ pub trait Driver: Send + Sync {
 pub async fn open_driver(config: &StoredConnectionView, password: Option<String>) -> AppResult<Box<dyn Driver>> {
     Ok(match config.kind {
         DbKind::Mysql | DbKind::Mariadb => Box::new(mysql::MysqlDriver::connect(config, password).await?),
-        DbKind::Postgres => return Err(AppError::Other("PostgreSQL support is not implemented yet".into())),
+        DbKind::Postgres => Box::new(postgres::PostgresDriver::connect(config, password).await?),
         DbKind::Clickhouse => return Err(AppError::Other("ClickHouse support is not implemented yet".into())),
         DbKind::Sqlite => return Err(AppError::Other("SQLite support is not implemented yet".into())),
     })
