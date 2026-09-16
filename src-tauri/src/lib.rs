@@ -57,6 +57,7 @@ pub fn run() {
             commands::get_table_ddl,
             commands::execute_query,
             commands::cancel_query,
+            commands::export_query,
             commands::apply_changes,
             commands::close_session,
             commands::list_history,

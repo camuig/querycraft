@@ -156,6 +156,24 @@ export interface StatementResult {
   durationMs: number;
 }
 
+export type ExportFormat = "csv" | "json";
+
+/** Re-runs one statement without the row limit and writes its result set to a file. */
+export interface ExportRequest {
+  connectionId: string;
+  sessionId: string;
+  queryId: string;
+  /** A single statement: the `sql` of the result being exported. */
+  sql: string;
+  database: string | null;
+  format: ExportFormat;
+  path: string;
+}
+
+export interface ExportSummary {
+  rows: number;
+}
+
 export interface ExecuteRequest {
   connectionId: string;
   /** Session (tab) identifier — its own database connection. Created lazily. */

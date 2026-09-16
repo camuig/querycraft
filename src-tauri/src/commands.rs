@@ -3,7 +3,7 @@
 use tauri::State;
 
 use crate::connections::{ConnectionConfig, ConnectionInput, ConnectionStore};
-use crate::db::execute::{self, ExecuteRequest};
+use crate::db::execute::{self, ExecuteRequest, ExportRequest, ExportSummary};
 use crate::db::{
     ApplyResult, ColumnInfo, ConnectionManager, ForeignKeyInfo, IndexInfo, ParamStatement, ServerInfo, StatementResult,
     TableInfo,
@@ -128,6 +128,12 @@ pub async fn get_table_ddl(
 #[tauri::command]
 pub async fn execute_query(state: State<'_, AppState>, request: ExecuteRequest) -> AppResult<Vec<StatementResult>> {
     execute::execute(&state.manager, &state.history, request).await
+}
+
+/// Re-runs a statement without the row limit and writes the whole result set to a file.
+#[tauri::command]
+pub async fn export_query(state: State<'_, AppState>, request: ExportRequest) -> AppResult<ExportSummary> {
+    execute::export(&state.manager, request).await
 }
 
 /// Cancels the statement started with this queryId (KILL QUERY, pg_cancel, ...).

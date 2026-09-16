@@ -1,18 +1,24 @@
 //! Engine-independent execution loop: splitting into statements, running them
-//! one by one on the tab's session, recording history, and applying
-//! parameterized changes in a single transaction.
+//! one by one on the tab's session, recording history, exporting a complete
+//! result to a file, and applying parameterized changes in a single transaction.
 
+use std::fs::File;
+use std::io::BufWriter;
 use std::time::Instant;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::history::History;
 use crate::sql_split::split_statements;
 
-use super::{ApplyResult, ConnectionManager, DbKind, ParamStatement, StatementResult};
+use super::export::{self, ExportFormat};
+use super::{ApplyResult, ConnectionManager, DbKind, ParamStatement, StatementResult, StatementResultKind};
 
 const DEFAULT_MAX_ROWS: usize = 500;
+/// Row limit for exports: effectively unlimited, yet finite so that engines
+/// which pass it on as a setting (ClickHouse `max_result_rows`) accept it.
+const EXPORT_MAX_ROWS: usize = u32::MAX as usize;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -103,6 +109,53 @@ pub async fn execute(
     }
 
     Ok(results)
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportRequest {
+    pub connection_id: String,
+    pub session_id: String,
+    pub query_id: String,
+    /// A single statement (the `sql` of the result being exported).
+    pub sql: String,
+    pub database: Option<String>,
+    pub format: ExportFormat,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportSummary {
+    pub rows: usize,
+}
+
+/// Re-runs one statement on the tab's session without the row limit and
+/// writes its first result set to `path`. The grid only ever holds the first
+/// `max_rows` rows, so an export of a truncated result goes through here.
+pub async fn export(manager: &ConnectionManager, request: ExportRequest) -> AppResult<ExportSummary> {
+    let session = manager
+        .get_session(&request.connection_id, &request.session_id, request.database.as_deref())
+        .await?;
+    let mut session = session.lock().await;
+    manager.register_query(&request.query_id, &request.connection_id, session.cancel_handle());
+    let _guard = RunningQueryGuard {
+        manager,
+        query_id: &request.query_id,
+    };
+    let results = session.run(&request.sql, EXPORT_MAX_ROWS).await?;
+    drop(session);
+
+    let result = results
+        .into_iter()
+        .find(|r| r.kind == StatementResultKind::Rows)
+        .ok_or_else(|| AppError::Other("The statement returned no rows to export".into()))?;
+    let mut out = BufWriter::new(File::create(&request.path)?);
+    export::write_rows(&mut out, request.format, &result.columns, &result.rows)?;
+    out.into_inner().map_err(|e| e.into_error())?;
+    Ok(ExportSummary {
+        rows: result.rows.len(),
+    })
 }
 
 /// Executes parameterized statements in a single transaction (data editing).

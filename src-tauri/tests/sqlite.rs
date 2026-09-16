@@ -5,7 +5,8 @@
 use std::path::PathBuf;
 
 use query_craft_lib::connections::{Credentials, StoredConnectionView};
-use query_craft_lib::db::execute::{self, ExecuteRequest};
+use query_craft_lib::db::execute::{self, ExecuteRequest, ExportRequest};
+use query_craft_lib::db::export::ExportFormat;
 use query_craft_lib::db::{ConnectionManager, DbKind, ParamStatement, StatementResultKind, TableKind};
 use query_craft_lib::history::History;
 use serde_json::{json, Value};
@@ -401,4 +402,70 @@ async fn expression_columns_fall_back_to_storage_class_and_memory_is_shared() {
     assert_eq!(r[0].columns[0].type_name, "TEXT"); // declared
     assert_eq!(r[0].columns[1].type_name, "INTEGER"); // expression: storage class of the value
     assert_eq!(r[0].columns[2].type_name, "NULL"); // expression that only produced NULL
+}
+
+#[tokio::test]
+async fn export_writes_every_row_regardless_of_the_grid_limit() {
+    let (m, h, path) = setup("export").await;
+    execute::execute(
+        &m,
+        &h,
+        req(
+            "CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT); \
+             WITH RECURSIVE seq(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM seq WHERE n < 1200) \
+             INSERT INTO t (id, name) SELECT n, 'row ' || n FROM seq",
+            "s1",
+            500,
+        ),
+    )
+    .await
+    .expect("setup");
+
+    let shown = execute::execute(&m, &h, req("SELECT id, name FROM t ORDER BY id", "s1", 500))
+        .await
+        .expect("select");
+    assert_eq!(shown[0].rows.len(), 500);
+    assert!(shown[0].truncated);
+
+    let out = std::env::temp_dir().join(format!("querycraft-test-export-{}.csv", uuid::Uuid::new_v4()));
+    let summary = execute::export(
+        &m,
+        ExportRequest {
+            connection_id: "c1".into(),
+            session_id: "s1".into(),
+            query_id: uuid::Uuid::new_v4().to_string(),
+            sql: shown[0].sql.clone(),
+            database: None,
+            format: ExportFormat::Csv,
+            path: out.to_string_lossy().into_owned(),
+        },
+    )
+    .await
+    .expect("export");
+    assert_eq!(summary.rows, 1200);
+
+    let text = std::fs::read_to_string(&out).expect("read export");
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(lines.len(), 1201);
+    assert_eq!(lines[0], "id,name");
+    assert_eq!(lines[1], "1,row 1");
+    assert_eq!(lines[1200], "1200,row 1200");
+
+    let no_rows = execute::export(
+        &m,
+        ExportRequest {
+            connection_id: "c1".into(),
+            session_id: "s1".into(),
+            query_id: uuid::Uuid::new_v4().to_string(),
+            sql: "DELETE FROM t WHERE id = 1".into(),
+            database: None,
+            format: ExportFormat::Json,
+            path: out.to_string_lossy().into_owned(),
+        },
+    )
+    .await;
+    assert!(no_rows.unwrap_err().to_string().contains("no rows"));
+
+    let _ = std::fs::remove_file(&out);
+    cleanup(&path);
 }

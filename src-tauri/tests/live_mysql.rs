@@ -3,7 +3,8 @@
 //! Without the environment variable the tests are skipped.
 
 use query_craft_lib::connections::{Credentials, StoredConnectionView};
-use query_craft_lib::db::execute::{self, ExecuteRequest};
+use query_craft_lib::db::execute::{self, ExecuteRequest, ExportRequest};
+use query_craft_lib::db::export::ExportFormat;
 use query_craft_lib::db::{ConnectionManager, DbKind, ParamStatement, StatementResultKind, TableKind};
 use query_craft_lib::history::History;
 use serde_json::{json, Value};
@@ -270,4 +271,41 @@ async fn schema_queries() {
     assert!(ddl.starts_with("CREATE TABLE `customers`"));
     let vddl = driver.table_ddl("shop", "active_customers").await.unwrap();
     assert!(vddl.contains("VIEW"), "{vddl}");
+}
+
+#[tokio::test]
+async fn export_ignores_the_grid_row_limit() {
+    let Some((m, _h)) = setup().await else { return };
+    // 4096 rows from a self-join of an 8-row derived table (2^12).
+    let sql = "SELECT a.n * 1000 + b.n * 100 + c.n * 10 + d.n AS id \
+               FROM (SELECT 0 n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 \
+                     UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7) a \
+               JOIN (SELECT 0 n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 \
+                     UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7) b \
+               JOIN (SELECT 0 n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 \
+                     UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7) c \
+               JOIN (SELECT 0 n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 \
+                     UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7) d \
+               ORDER BY id";
+    let out = std::env::temp_dir().join(format!("querycraft-test-export-{}.json", uuid::Uuid::new_v4()));
+    let summary = execute::export(
+        &m,
+        ExportRequest {
+            connection_id: "c1".into(),
+            session_id: "s-export".into(),
+            query_id: uuid::Uuid::new_v4().to_string(),
+            sql: sql.into(),
+            database: Some("shop".into()),
+            format: ExportFormat::Json,
+            path: out.to_string_lossy().into_owned(),
+        },
+    )
+    .await
+    .expect("export");
+    assert_eq!(summary.rows, 4096);
+    let parsed: Vec<serde_json::Map<String, Value>> =
+        serde_json::from_str(&std::fs::read_to_string(&out).unwrap()).unwrap();
+    assert_eq!(parsed.len(), 4096);
+    assert_eq!(parsed[4095]["id"], json!(7777));
+    let _ = std::fs::remove_file(&out);
 }

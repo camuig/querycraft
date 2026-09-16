@@ -7,6 +7,8 @@ import type {
   ConnectionConfig,
   ConnectionInput,
   ExecuteRequest,
+  ExportRequest,
+  ExportSummary,
   ForeignKeyInfo,
   IndexInfo,
   ParamStatement,
@@ -62,6 +64,9 @@ export const getTableDdl = (connectionId: string, database: string, table: strin
 
 /** Splits sql into statements and runs them sequentially in the session. */
 export const executeQuery = (request: ExecuteRequest) => invoke<StatementResult[]>("execute_query", { request });
+
+/** Writes the complete result of a statement (no row limit) to a file on the backend. */
+export const exportQuery = (request: ExportRequest) => invoke<ExportSummary>("export_query", { request });
 
 /** KILL QUERY for the query started with this queryId. */
 export const cancelQuery = (connectionId: string, queryId: string) =>

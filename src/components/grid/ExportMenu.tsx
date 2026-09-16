@@ -2,8 +2,10 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useEffect, useRef, useState } from "react";
-import type { CellValue, ColumnMeta, DbKind } from "../../api/types";
+import { exportQuery } from "../../api/commands";
+import type { CellValue, ColumnMeta, DbKind, ExportFormat } from "../../api/types";
 import { toCsv, toJson, toSqlInserts, toTsv } from "../../lib/format";
+import { newId } from "../../lib/ids";
 import { toast } from "../../store/toastStore";
 import { PopupMenu } from "../common/PopupMenu";
 
@@ -16,7 +18,24 @@ export interface ExportMenuProps {
   database?: string | null;
   /** Table name for SQL INSERT (if the result isn't a single table, an arbitrary name works). */
   table?: string;
+  /**
+   * Set when `rows` are only the first rows of the result (truncated by the row limit): file
+   * exports then re-run the statement on the backend without the limit and write every row.
+   */
+  fullResult?: FullResultSource;
 }
+
+export interface FullResultSource {
+  connectionId: string;
+  sessionId: string;
+  sql: string;
+  database: string | null;
+}
+
+const FILE_FORMATS: Record<ExportFormat, { name: string; extension: string }> = {
+  csv: { name: "CSV", extension: "csv" },
+  json: { name: "JSON", extension: "json" },
+};
 
 async function copyText(text: string): Promise<void> {
   try {
@@ -26,9 +45,13 @@ async function copyText(text: string): Promise<void> {
   }
 }
 
-/** "Export ▾" button with a menu: CSV/JSON to file, copy as TSV/SQL INSERT. */
+/**
+ * "Export ▾" button with a menu: CSV/JSON to file, copy as TSV/SQL INSERT. Clipboard copies
+ * take the rows as shown (sorted, limited); file exports contain the whole result.
+ */
 export function ExportMenu(props: ExportMenuProps) {
   const [pos, setPos] = useState<{ x: number; y: number; anchorHeight: number } | null>(null);
+  const [exporting, setExporting] = useState(false);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const open = pos !== null;
 
@@ -42,27 +65,25 @@ export function ExportMenu(props: ExportMenuProps) {
   const baseName = props.fileBaseName ?? "result";
   const tableName = props.table ?? "result";
 
-  async function handleCsv() {
+  async function handleFile(format: ExportFormat) {
     setPos(null);
-    const path = await save({ defaultPath: `${baseName}.csv`, filters: [{ name: "CSV", extensions: ["csv"] }] });
+    const { name, extension } = FILE_FORMATS[format];
+    const path = await save({ defaultPath: `${baseName}.${extension}`, filters: [{ name, extensions: [extension] }] });
     if (!path) return;
+    setExporting(true);
     try {
-      await writeTextFile(path, toCsv(props.columns, props.rows));
-      toast.success(`Exported to ${path}`);
+      if (props.fullResult) {
+        const { rows } = await exportQuery({ ...props.fullResult, queryId: newId(), format, path });
+        toast.success(`Exported ${rows} rows to ${path}`);
+      } else {
+        const text = format === "csv" ? toCsv(props.columns, props.rows) : toJson(props.columns, props.rows);
+        await writeTextFile(path, text);
+        toast.success(`Exported to ${path}`);
+      }
     } catch (e) {
       toast.error(e);
-    }
-  }
-
-  async function handleJson() {
-    setPos(null);
-    const path = await save({ defaultPath: `${baseName}.json`, filters: [{ name: "JSON", extensions: ["json"] }] });
-    if (!path) return;
-    try {
-      await writeTextFile(path, toJson(props.columns, props.rows));
-      toast.success(`Exported to ${path}`);
-    } catch (e) {
-      toast.error(e);
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -84,7 +105,7 @@ export function ExportMenu(props: ExportMenuProps) {
         type="button"
         ref={buttonRef}
         className="outline"
-        disabled={props.rows.length === 0}
+        disabled={props.rows.length === 0 || exporting}
         onClick={() => {
           const rect = buttonRef.current?.getBoundingClientRect();
           setPos(
@@ -94,14 +115,14 @@ export function ExportMenu(props: ExportMenuProps) {
           );
         }}
       >
-        Export ▾
+        {exporting ? "Exporting…" : "Export ▾"}
       </button>
       {open && pos && (
         <PopupMenu x={pos.x} y={pos.y} anchorHeight={pos.anchorHeight}>
-          <div className="item" onClick={handleCsv}>
+          <div className="item" onClick={() => handleFile("csv")}>
             CSV to file
           </div>
-          <div className="item" onClick={handleJson}>
+          <div className="item" onClick={() => handleFile("json")}>
             JSON to file
           </div>
           <div className="divider" />

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { CellValue, DbKind, StatementResult } from "../../api/types";
 import { DataGrid } from "./DataGrid";
-import { ExportMenu } from "./ExportMenu";
+import { ExportMenu, type FullResultSource } from "./ExportMenu";
 
 interface SortState {
   column: number;
@@ -13,6 +13,8 @@ export interface ResultsPanelProps {
   kind: DbKind;
   /** Called when clicking "More" on a truncated result — the caller re-runs with a higher limit. */
   onLoadMore?: (index: number) => void;
+  /** Session the results came from; lets file exports of truncated results fetch every row. */
+  session?: Omit<FullResultSource, "sql">;
 }
 
 /** null always first, numbers compared numerically, everything else via localeCompare. */
@@ -35,7 +37,7 @@ function titleFor(r: StatementResult, i: number): string {
 
 /** List of execution results (tabs, if there are several) with a grid, sorting, and export. */
 export function ResultsPanel(props: ResultsPanelProps) {
-  const { results, kind, onLoadMore } = props;
+  const { results, kind, onLoadMore, session } = props;
   const [activeIndex, setActiveIndex] = useState(0);
   const [sortByResult, setSortByResult] = useState<Record<number, SortState | null>>({});
 
@@ -120,6 +122,7 @@ export function ResultsPanel(props: ResultsPanelProps) {
               rows={sortedRows}
               kind={kind}
               fileBaseName={`result_${safeIndex + 1}`}
+              fullResult={active.truncated && session ? { ...session, sql: active.sql } : undefined}
             />
           </div>
         </>

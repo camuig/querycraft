@@ -257,6 +257,8 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
     case "cancel_query":
     case "clear_history":
       return undefined as T;
+    case "export_query":
+      throw new Error("Export to file is not available in the browser mock");
     case "list_databases":
       return ["information_schema", "shop"] as T;
     case "list_tables":

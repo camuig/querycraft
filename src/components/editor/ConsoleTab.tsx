@@ -261,7 +261,12 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
           </Panel>
           <Separator className="resize-handle horizontal" />
           <Panel minSize="15%">
-            <ResultsPanel results={results} kind={kind} onLoadMore={handleLoadMore} />
+            <ResultsPanel
+              results={results}
+              kind={kind}
+              onLoadMore={handleLoadMore}
+              session={{ connectionId: tab.connectionId, sessionId: tab.sessionId, database: tab.database }}
+            />
           </Panel>
         </Group>
       </div>
