@@ -1,7 +1,7 @@
 // Model of pending table grid changes (Submit/Revert, as in DataGrip).
 // Immutable class: every mutating method returns a NEW instance.
 
-import type { CellValue, ColumnMeta, ParamStatement } from "../api/types";
+import type { CellValue, ColumnMeta, DbKind, ParamStatement } from "../api/types";
 import { qualify, quoteIdent } from "./sqlBuilder";
 
 interface ClassifiedRows {
@@ -14,6 +14,7 @@ export class ChangeTracker {
   private readonly originalRows: CellValue[][];
   private readonly columns: ColumnMeta[];
   private readonly pkColumns: string[];
+  private readonly kind: DbKind;
   private readonly edited: ReadonlyMap<number, ReadonlyMap<number, CellValue>>;
   private readonly deletedRowIndices: ReadonlySet<number>;
   private readonly insertedRowIndices: ReadonlySet<number>;
@@ -22,6 +23,7 @@ export class ChangeTracker {
     originalRows: CellValue[][],
     columns: ColumnMeta[],
     pkColumns: string[],
+    kind: DbKind,
     edited?: ReadonlyMap<number, ReadonlyMap<number, CellValue>>,
     deletedRowIndices?: ReadonlySet<number>,
     insertedRowIndices?: ReadonlySet<number>,
@@ -29,6 +31,7 @@ export class ChangeTracker {
     this.originalRows = originalRows;
     this.columns = columns;
     this.pkColumns = pkColumns;
+    this.kind = kind;
     this.edited = edited ?? new Map();
     this.deletedRowIndices = deletedRowIndices ?? new Set();
     this.insertedRowIndices = insertedRowIndices ?? new Set();
@@ -43,6 +46,7 @@ export class ChangeTracker {
       this.originalRows,
       this.columns,
       this.pkColumns,
+      this.kind,
       overrides.edited ?? this.edited,
       overrides.deletedRowIndices ?? this.deletedRowIndices,
       overrides.insertedRowIndices ?? this.insertedRowIndices,
@@ -108,7 +112,7 @@ export class ChangeTracker {
   }
 
   revertAll(): ChangeTracker {
-    return new ChangeTracker(this.originalRows, this.columns, this.pkColumns);
+    return new ChangeTracker(this.originalRows, this.columns, this.pkColumns, this.kind);
   }
 
   revertCell(rowIndex: number, colIndex: number): ChangeTracker {
@@ -182,7 +186,7 @@ export class ChangeTracker {
   /** Builds parameterized SQL: DELETE -> UPDATE -> INSERT. */
   buildStatements(database: string | null, table: string): ParamStatement[] {
     const { deletes, updates, inserts } = this.classifyRows();
-    const target = qualify(database, table);
+    const target = qualify(database, table, this.kind);
 
     if ((deletes.length > 0 || updates.length > 0) && this.pkColumns.length === 0) {
       throw new Error("Cannot build UPDATE/DELETE: primary key columns are not set (pkColumns)");
@@ -202,7 +206,7 @@ export class ChangeTracker {
       for (let i = 0; i < this.pkColumns.length; i++) {
         const colIdx = pkColIndices[i];
         const origVal = this.originalRows[rowIndex]?.[colIdx] ?? null;
-        const ident = quoteIdent(this.pkColumns[i]);
+        const ident = quoteIdent(this.pkColumns[i], this.kind);
         if (origVal === null) {
           parts.push(`${ident}IS NULL`);
         } else {
@@ -225,7 +229,7 @@ export class ChangeTracker {
       const setParams: CellValue[] = [];
       for (let c = 0; c < this.columns.length; c++) {
         if (this.isModified(rowIndex, c)) {
-          setParts.push(`${quoteIdent(this.columns[c].name)}=?`);
+          setParts.push(`${quoteIdent(this.columns[c].name, this.kind)}=?`);
           setParams.push(this.getValue(rowIndex, c));
         }
       }
@@ -242,7 +246,7 @@ export class ChangeTracker {
       for (let c = 0; c < this.columns.length; c++) {
         const v = this.getValue(rowIndex, c);
         if (v !== null) {
-          colNames.push(quoteIdent(this.columns[c].name));
+          colNames.push(quoteIdent(this.columns[c].name, this.kind));
           values.push(v);
         }
       }

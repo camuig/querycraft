@@ -1,7 +1,7 @@
 import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
 import { memo, useEffect, useRef } from "react";
 import type { CellValue, ColumnMeta } from "../../api/types";
-import { formatCell } from "../../lib/format";
+import { formatCell, isNumericType } from "../../lib/format";
 import { NO_AUTOCORRECT } from "../../lib/inputProps";
 
 export interface GridCellProps {
@@ -22,20 +22,8 @@ export interface GridCellProps {
   onContextMenu: (e: MouseEvent) => void;
 }
 
-const numericTypes = new Set([
-  "INT",
-  "TINYINT",
-  "SMALLINT",
-  "MEDIUMINT",
-  "BIGINT",
-  "DECIMAL",
-  "FLOAT",
-  "DOUBLE",
-  "YEAR",
-]);
-
 function isNumeric(meta: ColumnMeta): boolean {
-  return numericTypes.has(meta.typeName?.toUpperCase());
+  return isNumericType(meta.typeName);
 }
 
 function GridCellImpl(props: GridCellProps) {

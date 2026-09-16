@@ -142,3 +142,35 @@ describe("statementAtCursor", () => {
     expect(s?.sql).toBe("SELECT 3");
   });
 });
+
+describe("dollar quoting", () => {
+  it("keeps a dollar-quoted function body in one statement for PostgreSQL", () => {
+    const sql = "CREATE FUNCTION f() RETURNS int AS $$ BEGIN RETURN 1; END; $$ LANGUAGE plpgsql; SELECT f();";
+    const stmts = splitStatements(sql, { dollarQuoting: true });
+    expect(stmts.map((s) => s.sql)).toEqual([
+      "CREATE FUNCTION f() RETURNS int AS $$ BEGIN RETURN 1; END; $$ LANGUAGE plpgsql",
+      "SELECT f()",
+    ]);
+  });
+
+  it("requires the closing tag to match the opening one", () => {
+    const sql = "DO $body$ BEGIN PERFORM 1; SELECT '$$'; END $body$; SELECT 2";
+    const stmts = splitStatements(sql, { dollarQuoting: true });
+    expect(stmts.map((s) => s.sql)).toEqual(["DO $body$ BEGIN PERFORM 1; SELECT '$$'; END $body$", "SELECT 2"]);
+  });
+
+  it("does not treat positional parameters or identifiers as quotes", () => {
+    const stmts = splitStatements("SELECT $1; SELECT a$b", { dollarQuoting: true });
+    expect(stmts.map((s) => s.sql)).toEqual(["SELECT $1", "SELECT a$b"]);
+  });
+
+  it("is off by default (MySQL)", () => {
+    const stmts = splitStatements("SELECT $$; SELECT 1");
+    expect(stmts.map((s) => s.sql)).toEqual(["SELECT $$", "SELECT 1"]);
+  });
+
+  it("statementAtCursor honours the option", () => {
+    const sql = "DO $$ BEGIN PERFORM 1; END $$; SELECT 2";
+    expect(statementAtCursor(sql, 20, { dollarQuoting: true })?.sql).toBe("DO $$ BEGIN PERFORM 1; END $$");
+  });
+});

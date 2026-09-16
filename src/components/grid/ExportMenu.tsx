@@ -2,7 +2,7 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useEffect, useRef, useState } from "react";
-import type { CellValue, ColumnMeta } from "../../api/types";
+import type { CellValue, ColumnMeta, DbKind } from "../../api/types";
 import { toCsv, toJson, toSqlInserts, toTsv } from "../../lib/format";
 import { toast } from "../../store/toastStore";
 import { PopupMenu } from "../common/PopupMenu";
@@ -10,6 +10,7 @@ import { PopupMenu } from "../common/PopupMenu";
 export interface ExportMenuProps {
   columns: ColumnMeta[];
   rows: CellValue[][];
+  kind: DbKind;
   /** File name without extension. */
   fileBaseName?: string;
   database?: string | null;
@@ -73,7 +74,7 @@ export function ExportMenu(props: ExportMenuProps) {
 
   async function handleCopySqlInsert() {
     setPos(null);
-    await copyText(toSqlInserts(props.database ?? null, tableName, props.columns, props.rows));
+    await copyText(toSqlInserts(props.database ?? null, tableName, props.columns, props.rows, props.kind));
     toast.success("Copied as SQL INSERT");
   }
 

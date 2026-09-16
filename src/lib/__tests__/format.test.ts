@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CellValue, ColumnMeta } from "../../api/types";
-import { formatCell, toCsv, toJson, toSqlInserts, toTsv } from "../format";
+import { formatCell, isNumericType, toCsv, toJson, toSqlInserts, toTsv } from "../format";
 
 function col(name: string): ColumnMeta {
   return {
@@ -103,13 +103,13 @@ describe("toJson", () => {
 describe("toSqlInserts", () => {
   it("escapes special characters and uses qualify with database", () => {
     const rows: CellValue[][] = [[1, "O'Brien"]];
-    const sql = toSqlInserts("mydb", "users", columns, rows);
+    const sql = toSqlInserts("mydb", "users", columns, rows, "mysql");
     expect(sql).toBe("INSERT INTO `mydb`.`users` (`id`, `name`) VALUES (1, 'O\\'Brien');");
   });
 
   it("qualify with database=null does not add a database prefix", () => {
     const rows: CellValue[][] = [[1, "Alice"]];
-    const sql = toSqlInserts(null, "users", columns, rows);
+    const sql = toSqlInserts(null, "users", columns, rows, "mysql");
     expect(sql).toBe("INSERT INTO `users` (`id`, `name`) VALUES (1, 'Alice');");
   });
 
@@ -118,10 +118,55 @@ describe("toSqlInserts", () => {
       [1, "Alice"],
       [2, null],
     ];
-    const sql = toSqlInserts("db", "t", columns, rows);
+    const sql = toSqlInserts("db", "t", columns, rows, "mysql");
     expect(sql.split("\n")).toEqual([
       "INSERT INTO `db`.`t` (`id`, `name`) VALUES (1, 'Alice');",
       "INSERT INTO `db`.`t` (`id`, `name`) VALUES (2, NULL);",
     ]);
+  });
+
+  it("uses double-quoted identifiers for sqlite", () => {
+    const rows: CellValue[][] = [[1, "it's"]];
+    const sql = toSqlInserts(null, "t", columns, rows, "sqlite");
+    expect(sql).toBe('INSERT INTO "t" ("id", "name") VALUES (1, \'it\'\'s\');');
+  });
+});
+
+describe("isNumericType", () => {
+  it("recognizes MySQL/MariaDB numeric types", () => {
+    for (const t of ["INT", "TINYINT", "SMALLINT", "MEDIUMINT", "BIGINT", "DECIMAL", "FLOAT", "DOUBLE", "YEAR"]) {
+      expect(isNumericType(t)).toBe(true);
+    }
+  });
+
+  it("recognizes PostgreSQL numeric types", () => {
+    for (const t of ["INT2", "INT4", "INT8", "FLOAT4", "FLOAT8", "NUMERIC", "OID", "SERIAL", "BIGSERIAL"]) {
+      expect(isNumericType(t)).toBe(true);
+    }
+  });
+
+  it("recognizes ClickHouse numeric types, case-insensitively", () => {
+    for (const t of ["UInt8", "UInt256", "Int8", "Int256", "Float32", "Float64", "Decimal32", "BFloat16"]) {
+      expect(isNumericType(t)).toBe(true);
+    }
+  });
+
+  it("recognizes SQLite numeric types", () => {
+    for (const t of ["INTEGER", "REAL", "NUMERIC"]) {
+      expect(isNumericType(t)).toBe(true);
+    }
+  });
+
+  it("strips a (...) suffix before matching", () => {
+    expect(isNumericType("DECIMAL(10,2)")).toBe(true);
+    expect(isNumericType("Decimal32(9)")).toBe(true);
+  });
+
+  it("returns false for non-numeric types and empty input", () => {
+    expect(isNumericType("VARCHAR")).toBe(false);
+    expect(isNumericType("TEXT")).toBe(false);
+    expect(isNumericType("DATETIME")).toBe(false);
+    expect(isNumericType(null)).toBe(false);
+    expect(isNumericType(undefined)).toBe(false);
   });
 });

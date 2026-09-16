@@ -1,26 +1,36 @@
 // Helpers for building SQL: escaping identifiers/literals and building SELECT.
 
-import type { CellValue } from "../api/types";
+import type { CellValue, DbKind } from "../api/types";
+import { dialectFor } from "./dialect";
 
-/** Wraps a name in backticks, doubling internal backticks. */
-export function quoteIdent(name: string): string {
-  return `\`${name.replace(/`/g, "``")}\``;
+/** Wraps a name in the engine's identifier quote character, doubling it inside the name. */
+export function quoteIdent(name: string, kind: DbKind): string {
+  const q = dialectFor(kind).identifierQuote;
+  return `${q}${name.replace(new RegExp(q, "g"), q + q)}${q}`;
 }
 
-/** "`db`.`table`", or just "`table`" if db === null. */
-export function qualify(db: string | null, table: string): string {
-  return db ? `${quoteIdent(db)}.${quoteIdent(table)}` : quoteIdent(table);
+/** "`db`.`table`" (or `"db"."table"` for double-quoting engines), or just the table when db === null. */
+export function qualify(db: string | null, table: string, kind: DbKind): string {
+  return db ? `${quoteIdent(db, kind)}.${quoteIdent(table, kind)}` : quoteIdent(table, kind);
 }
 
 /**
  * Converts a CellValue to a SQL literal.
- * null -> NULL; number -> as is; boolean -> 1/0;
- * string -> single-quoted, with special characters escaped using a backslash.
+ * null -> NULL; number -> as is; boolean -> TRUE/FALSE for PostgreSQL, 1/0 otherwise;
+ * string -> single-quoted. Engines with backslash escapes (MySQL, MariaDB, ClickHouse) escape
+ * special characters with a backslash; the rest (PostgreSQL, SQLite) only double single quotes.
  */
-export function sqlLiteral(v: CellValue): string {
+export function sqlLiteral(v: CellValue, kind: DbKind): string {
   if (v === null) return "NULL";
   if (typeof v === "number") return String(v);
-  if (typeof v === "boolean") return v ? "1" : "0";
+  if (typeof v === "boolean") {
+    if (kind === "postgres") return v ? "TRUE" : "FALSE";
+    return v ? "1" : "0";
+  }
+
+  if (!dialectFor(kind).backslashEscapes) {
+    return `'${v.replace(/'/g, "''")}'`;
+  }
 
   const escaped = v
     .replace(/\\/g, "\\\\")
@@ -42,6 +52,7 @@ export interface OrderBySpec {
 export interface BuildSelectOptions {
   database: string | null;
   table: string;
+  kind: DbKind;
   /** Arbitrary WHERE condition without the WHERE keyword; can be empty/null. */
   where?: string | null;
   orderBy?: OrderBySpec[];
@@ -51,7 +62,7 @@ export interface BuildSelectOptions {
 
 /** Builds SELECT * FROM ... [WHERE ...] [ORDER BY ...] [LIMIT ...] [OFFSET ...]. */
 export function buildSelect(opts: BuildSelectOptions): string {
-  let sql = `SELECT * FROM ${qualify(opts.database, opts.table)}`;
+  let sql = `SELECT * FROM ${qualify(opts.database, opts.table, opts.kind)}`;
 
   const where = opts.where?.trim();
   if (where) {
@@ -59,7 +70,7 @@ export function buildSelect(opts: BuildSelectOptions): string {
   }
 
   if (opts.orderBy && opts.orderBy.length > 0) {
-    const parts = opts.orderBy.map((o) => `${quoteIdent(o.column)} ${o.dir.toUpperCase()}`);
+    const parts = opts.orderBy.map((o) => `${quoteIdent(o.column, opts.kind)} ${o.dir.toUpperCase()}`);
     sql += ` ORDER BY ${parts.join(", ")}`;
   }
 

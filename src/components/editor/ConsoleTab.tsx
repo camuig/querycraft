@@ -149,12 +149,12 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
         sqlToRun = text;
       } else {
         const pos = sel ? sel.head : text.length;
-        const stmt = statementAtCursor(text, pos);
+        const stmt = statementAtCursor(text, pos, { dollarQuoting: kind === "postgres" });
         sqlToRun = stmt ? stmt.sql : text;
       }
       void runSql(sqlToRun, maxRows);
     },
-    [localSql, maxRows, runSql],
+    [localSql, maxRows, runSql, kind],
   );
 
   const handleCancel = useCallback(() => {
@@ -261,7 +261,7 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
           </Panel>
           <Separator className="resize-handle horizontal" />
           <Panel minSize="15%">
-            <ResultsPanel results={results} onLoadMore={handleLoadMore} />
+            <ResultsPanel results={results} kind={kind} onLoadMore={handleLoadMore} />
           </Panel>
         </Group>
       </div>

@@ -1,5 +1,6 @@
 // Splits SQL text into individual statements, accounting for string literals,
-// comments and the DELIMITER directive (like the mysql CLI / DataGrip).
+// comments, the DELIMITER directive (like the mysql CLI / DataGrip) and,
+// for PostgreSQL, dollar-quoted strings ($$ ... $$, $tag$ ... $tag$).
 
 export interface Statement {
   /** Statement text, trimmed at both ends. */
@@ -10,9 +11,16 @@ export interface Statement {
   to: number;
 }
 
-type ScanState = "normal" | "squote" | "dquote" | "backtick" | "linecomment" | "blockcomment";
+type ScanState = "normal" | "squote" | "dquote" | "backtick" | "linecomment" | "blockcomment" | "dollar";
+
+export interface SplitOptions {
+  /** Treat `$tag$ ... $tag$` as string literals (PostgreSQL). Off for MySQL, where `$` is an identifier character. */
+  dollarQuoting?: boolean;
+}
 
 const DELIMITER_RE = /^DELIMITER[ \t]+(\S+)/i;
+/** A dollar-quote tag at the current position: `$$` or `$identifier$`. */
+const DOLLAR_TAG_RE = /^\$([A-Za-z_][A-Za-z0-9_]*)?\$/;
 
 function isWhitespaceChar(c: string): boolean {
   return c === " " || c === "\t" || c === "\r";
@@ -22,7 +30,7 @@ function isWhitespaceChar(c: string): boolean {
  * Splits SQL text into individual statements.
  * Empty statements, and statements consisting only of comments/whitespace, are skipped.
  */
-export function splitStatements(sql: string): Statement[] {
+export function splitStatements(sql: string, options: SplitOptions = {}): Statement[] {
   const result: Statement[] = [];
   const n = sql.length;
 
@@ -32,6 +40,8 @@ export function splitStatements(sql: string): Statement[] {
   let hasContent = false;
   let lineStart = 0;
   let state: ScanState = "normal";
+  /** The opening tag of the current dollar-quoted string; the closing tag must be identical. */
+  let dollarTag = "";
 
   const flush = (endIndex: number): void => {
     if (!hasContent) return;
@@ -98,6 +108,16 @@ export function splitStatements(sql: string): Statement[] {
         i++;
         continue;
       }
+      if (c === "$" && options.dollarQuoting) {
+        const m = DOLLAR_TAG_RE.exec(sql.slice(i, i + 64));
+        if (m) {
+          state = "dollar";
+          dollarTag = m[0];
+          hasContent = true;
+          i += m[0].length;
+          continue;
+        }
+      }
 
       if (sql.startsWith(delim, i)) {
         flush(i);
@@ -147,6 +167,17 @@ export function splitStatements(sql: string): Statement[] {
       continue;
     }
 
+    if (state === "dollar") {
+      if (c === "$" && sql.startsWith(dollarTag, i)) {
+        state = "normal";
+        i += dollarTag.length;
+        continue;
+      }
+      if (c === "\n") lineStart = i + 1;
+      i++;
+      continue;
+    }
+
     if (state === "linecomment") {
       if (c === "\n") {
         state = "normal";
@@ -179,8 +210,8 @@ export function splitStatements(sql: string): Statement[] {
  * If pos is in the delimiter/whitespace right after a statement, returns the
  * nearest PRECEDING statement (the cursor is "still inside" it).
  */
-export function statementAtCursor(sql: string, pos: number): Statement | null {
-  const statements = splitStatements(sql);
+export function statementAtCursor(sql: string, pos: number, options: SplitOptions = {}): Statement | null {
+  const statements = splitStatements(sql, options);
 
   for (const s of statements) {
     if (pos >= s.from && pos < s.to) return s;

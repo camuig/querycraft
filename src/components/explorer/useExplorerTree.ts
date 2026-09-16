@@ -1,6 +1,7 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useCallback, useMemo, useRef, useState } from "react";
+import { qualify } from "../../lib/sqlBuilder";
 import { type ConnectionStatus, useConnectionsStore } from "../../store/connectionsStore";
 import { dbKey, tableKey, useExplorerStore } from "../../store/explorerStore";
 import { useTabsStore } from "../../store/tabsStore";
@@ -232,7 +233,8 @@ export function useExplorerTree() {
             { label: "Copy name", onClick: () => copyName(node.database!) },
           ];
         case "table":
-        case "view":
+        case "view": {
+          const nodeKind = connections.find((c) => c.id === node.connectionId)?.kind ?? "mysql";
           return [
             { label: "Open data", onClick: () => openTableData(node.connectionId, node.database!, node.table!) },
             { label: "DDL", onClick: () => openDdl(node.connectionId, node.database!, node.table!) },
@@ -242,18 +244,20 @@ export function useExplorerTree() {
                 openConsole(
                   node.connectionId,
                   node.database!,
-                  `SELECT * FROM \`${node.database}\`.\`${node.table}\` LIMIT 500;`,
+                  `SELECT * FROM ${qualify(node.database ?? null, node.table!, nodeKind)} LIMIT 500;`,
                 ),
             },
             "divider",
             { label: "Copy name", onClick: () => copyName(node.table!) },
             { label: "Refresh", onClick: () => handleRefreshNode(node) },
           ];
+        }
         default:
           return null;
       }
     },
     [
+      connections,
       runtimeStatus,
       handleDisconnect,
       handleConnect,

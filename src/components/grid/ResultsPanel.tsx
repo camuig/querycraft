@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { CellValue, StatementResult } from "../../api/types";
+import type { CellValue, DbKind, StatementResult } from "../../api/types";
 import { DataGrid } from "./DataGrid";
 import { ExportMenu } from "./ExportMenu";
 
@@ -10,6 +10,7 @@ interface SortState {
 
 export interface ResultsPanelProps {
   results: StatementResult[];
+  kind: DbKind;
   /** Called when clicking "More" on a truncated result — the caller re-runs with a higher limit. */
   onLoadMore?: (index: number) => void;
 }
@@ -34,7 +35,7 @@ function titleFor(r: StatementResult, i: number): string {
 
 /** List of execution results (tabs, if there are several) with a grid, sorting, and export. */
 export function ResultsPanel(props: ResultsPanelProps) {
-  const { results, onLoadMore } = props;
+  const { results, kind, onLoadMore } = props;
   const [activeIndex, setActiveIndex] = useState(0);
   const [sortByResult, setSortByResult] = useState<Record<number, SortState | null>>({});
 
@@ -114,7 +115,12 @@ export function ResultsPanel(props: ResultsPanelProps) {
                 More
               </button>
             )}
-            <ExportMenu columns={active.columns} rows={sortedRows} fileBaseName={`result_${safeIndex + 1}`} />
+            <ExportMenu
+              columns={active.columns}
+              rows={sortedRows}
+              kind={kind}
+              fileBaseName={`result_${safeIndex + 1}`}
+            />
           </div>
         </>
       )}

@@ -1,9 +1,20 @@
 // Cell formatting and grid result export to CSV/TSV/JSON/SQL.
 
-import type { CellValue, ColumnMeta } from "../api/types";
+import type { CellValue, ColumnMeta, DbKind } from "../api/types";
 import { qualify, quoteIdent, sqlLiteral } from "./sqlBuilder";
 
 const MAX_CELL_LENGTH = 1000;
+
+/** Type names recognized as numeric across MySQL/MariaDB, PostgreSQL, ClickHouse and SQLite, minus any `(...)` suffix. */
+const NUMERIC_TYPE_RE =
+  /^(u?int\d*|tinyint|smallint|mediumint|bigint|integer|serial|bigserial|smallserial|decimal\d*|numeric|float\d*|double|real|year|oid|bfloat16)$/i;
+
+/** Whether a column's engine type name (e.g. "INT", "Int32", "NUMERIC(10,2)") should be rendered/aligned as numeric. */
+export function isNumericType(typeName: string | null | undefined): boolean {
+  if (!typeName) return false;
+  const base = typeName.replace(/\(.*\)$/, "").trim();
+  return NUMERIC_TYPE_RE.test(base);
+}
 
 /**
  * Formats a cell value for display in the grid.
@@ -92,11 +103,12 @@ export function toSqlInserts(
   table: string,
   columns: ColumnMeta[],
   rows: CellValue[][],
+  kind: DbKind,
 ): string {
-  const target = qualify(database, table);
-  const colList = columns.map((c) => quoteIdent(c.name)).join(", ");
+  const target = qualify(database, table, kind);
+  const colList = columns.map((c) => quoteIdent(c.name, kind)).join(", ");
   const lines = rows.map((row) => {
-    const values = row.map((v) => sqlLiteral(v)).join(", ");
+    const values = row.map((v) => sqlLiteral(v, kind)).join(", ");
     return `INSERT INTO ${target} (${colList}) VALUES (${values});`;
   });
   return lines.join("\n");

@@ -4,6 +4,7 @@ import * as api from "../../api/commands";
 import type { CellValue, ColumnMeta } from "../../api/types";
 import { ChangeTracker } from "../../lib/changeTracker";
 import { registerCommand } from "../../lib/commandBus";
+import { dialectFor } from "../../lib/dialect";
 import { newId } from "../../lib/ids";
 import { type AppAction, actionsForEvent, actionTitle, detectPlatform } from "../../lib/keymap";
 import { buildSelect, type OrderBySpec, qualify, sqlLiteral } from "../../lib/sqlBuilder";
@@ -90,6 +91,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
         const sql = buildSelect({
           database: tab.database,
           table: tab.table,
+          kind,
           where: whereApplied,
           orderBy,
           limit: pageSize,
@@ -128,6 +130,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
     tab.sessionId,
     tab.database,
     tab.table,
+    kind,
     whereApplied,
     orderBy,
     page,
@@ -145,7 +148,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
       try {
         await ensureConnected();
         const whereSql = whereApplied.trim() ? ` WHERE (${whereApplied})` : "";
-        const sql = `SELECT COUNT(*) AS cnt FROM ${qualify(tab.database, tab.table)}${whereSql}`;
+        const sql = `SELECT COUNT(*) AS cnt FROM ${qualify(tab.database, tab.table, kind)}${whereSql}`;
         const res = await api.executeQuery({
           connectionId: tab.connectionId,
           sessionId: tab.sessionId,
@@ -167,15 +170,15 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
     return () => {
       cancelled = true;
     };
-  }, [tab.connectionId, tab.sessionId, tab.database, tab.table, whereApplied, reloadToken, ensureConnected]);
+  }, [tab.connectionId, tab.sessionId, tab.database, tab.table, kind, whereApplied, reloadToken, ensureConnected]);
 
   // Rebuild the change tracker on every new data load.
   useEffect(() => {
-    setTracker(new ChangeTracker(rows, resultColumns, pkColumns ?? []));
+    setTracker(new ChangeTracker(rows, resultColumns, pkColumns ?? [], kind));
     setSelectedCell(null);
-  }, [rows, resultColumns, pkColumns]);
+  }, [rows, resultColumns, pkColumns, kind]);
 
-  const editable = (pkColumns?.length ?? 0) > 0;
+  const editable = (pkColumns?.length ?? 0) > 0 && dialectFor(kind).supportsEditing;
   const changeCount = tracker ? countChanges(tracker, tracker.rows.length, resultColumns.length) : 0;
 
   const sort = useMemo(() => {
@@ -270,7 +273,11 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
   const handleSubmit = useCallback(async () => {
     if (!tracker?.hasChanges) return;
     if (!editable) {
-      toast.error("Table has no primary key — saving is disabled");
+      if (!dialectFor(kind).supportsEditing) {
+        toast.error(`Read-only: ${dialectFor(kind).label} does not support row editing`);
+      } else {
+        toast.error("Table has no primary key — saving is disabled");
+      }
       return;
     }
     try {
@@ -281,7 +288,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
     } catch (e) {
       toast.error(e);
     }
-  }, [tracker, editable, tab.database, tab.table, tab.connectionId, tab.sessionId]);
+  }, [tracker, editable, kind, tab.database, tab.table, tab.connectionId, tab.sessionId]);
 
   const rangeStart = page * pageSize + 1;
   const rangeEnd = page * pageSize + rows.length;
@@ -381,13 +388,13 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
         .buildStatements(tab.database, tab.table)
         .map((s) => {
           let i = 0;
-          return `${s.sql.replace(/\?/g, () => sqlLiteral(s.params[i++]))};`;
+          return `${s.sql.replace(/\?/g, () => sqlLiteral(s.params[i++], kind))};`;
         })
         .join("\n");
     } catch (e) {
       return `-- ${String(e)}`;
     }
-  }, [tracker, tab.database, tab.table]);
+  }, [tracker, tab.database, tab.table, kind]);
 
   return (
     <div className="table-data-tab" style={{ display: active ? "flex" : "none" }}>
@@ -414,7 +421,13 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
           </span>
         ))}
         <div className="spacer" />
-        {!editable && pkColumns !== null && <span className="muted">Table has no primary key — read only</span>}
+        {!editable && pkColumns !== null && (
+          <span className="muted">
+            {dialectFor(kind).supportsEditing
+              ? "Table has no primary key — read only"
+              : `Read-only: ${dialectFor(kind).label} does not support row editing`}
+          </span>
+        )}
         <span className="muted">changes: {changeCount}</span>
         <button type="button" className="outline" onClick={() => setShowSql((s) => !s)}>
           {showSql ? "Hide SQL" : "Show SQL"}
