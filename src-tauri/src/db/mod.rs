@@ -251,7 +251,7 @@ pub async fn open_driver(config: &StoredConnectionView, password: Option<String>
     Ok(match config.kind {
         DbKind::Mysql | DbKind::Mariadb => Box::new(mysql::MysqlDriver::connect(config, password).await?),
         DbKind::Postgres => Box::new(postgres::PostgresDriver::connect(config, password).await?),
-        DbKind::Clickhouse => return Err(AppError::Other("ClickHouse support is not implemented yet".into())),
+        DbKind::Clickhouse => Box::new(clickhouse::ClickhouseDriver::connect(config, password).await?),
         DbKind::Sqlite => return Err(AppError::Other("SQLite support is not implemented yet".into())),
     })
 }
