@@ -6,6 +6,7 @@ import type {
   ColumnInfo,
   ConnectionConfig,
   ConnectionInput,
+  CountRequest,
   ExecuteRequest,
   ExportRequest,
   ExportSummary,
@@ -71,6 +72,9 @@ export const exportQuery = (request: ExportRequest) => invoke<ExportSummary>("ex
 
 /** Writes the given rows (the grid contents) to a file on the backend. */
 export const exportRows = (request: RowsExportRequest) => invoke<ExportSummary>("export_rows", { request });
+
+/** Counts the rows a statement produces (SELECT COUNT(*) over it). */
+export const countQuery = (request: CountRequest) => invoke<number>("count_query", { request });
 
 /** KILL QUERY for the query started with this queryId. */
 export const cancelQuery = (connectionId: string, queryId: string) =>

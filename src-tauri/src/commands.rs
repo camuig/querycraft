@@ -3,7 +3,7 @@
 use tauri::State;
 
 use crate::connections::{ConnectionConfig, ConnectionInput, ConnectionStore};
-use crate::db::execute::{self, ExecuteRequest, ExportRequest};
+use crate::db::execute::{self, CountRequest, ExecuteRequest, ExportRequest};
 use crate::db::export::{self, ExportSummary, RowsExportRequest};
 use crate::db::{
     ApplyResult, ColumnInfo, ConnectionManager, ForeignKeyInfo, IndexInfo, ParamStatement, ServerInfo, StatementResult,
@@ -143,6 +143,12 @@ pub async fn export_rows(request: RowsExportRequest) -> AppResult<ExportSummary>
     tokio::task::spawn_blocking(move || export::export_rows(request))
         .await
         .map_err(|e| crate::error::AppError::Other(e.to_string()))?
+}
+
+/// SELECT COUNT(*) over a statement: the total for a result truncated by the row limit.
+#[tauri::command]
+pub async fn count_query(state: State<'_, AppState>, request: CountRequest) -> AppResult<u64> {
+    execute::count(&state.manager, request).await
 }
 
 /// Cancels the statement started with this queryId (KILL QUERY, pg_cancel, ...).

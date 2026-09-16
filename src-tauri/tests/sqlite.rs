@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 
 use query_craft_lib::connections::{Credentials, StoredConnectionView};
-use query_craft_lib::db::execute::{self, ExecuteRequest, ExportRequest};
+use query_craft_lib::db::execute::{self, CountRequest, ExecuteRequest, ExportRequest};
 use query_craft_lib::db::export::ExportFormat;
 use query_craft_lib::db::{ConnectionManager, DbKind, ParamStatement, StatementResultKind, TableKind};
 use query_craft_lib::history::History;
@@ -450,6 +450,20 @@ async fn export_writes_every_row_regardless_of_the_grid_limit() {
     assert_eq!(lines[0], "id,name");
     assert_eq!(lines[1], "1,row 1");
     assert_eq!(lines[1200], "1200,row 1200");
+
+    let total = execute::count(
+        &m,
+        CountRequest {
+            connection_id: "c1".into(),
+            session_id: "s1".into(),
+            query_id: uuid::Uuid::new_v4().to_string(),
+            sql: shown[0].sql.clone(),
+            database: None,
+        },
+    )
+    .await
+    .expect("count");
+    assert_eq!(total, 1200);
 
     let xlsx = std::env::temp_dir().join(format!("querycraft-test-export-{}.xlsx", uuid::Uuid::new_v4()));
     let summary = execute::export(

@@ -134,6 +134,18 @@ button.outline {
   border-color: var(--border-strong);
   padding: 4px 12px;
 }
+button.link {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  color: var(--accent);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+button.link:hover:not(:disabled) {
+  background: transparent;
+  text-decoration-style: solid;
+}
 button.icon {
   padding: 3px 5px;
   line-height: 1;

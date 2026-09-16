@@ -260,6 +260,9 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
     case "export_query":
     case "export_rows":
       throw new Error("Export to file is not available in the browser mock");
+    case "count_query":
+      await delay(400);
+      return 12345 as T;
     case "list_databases":
       return ["information_schema", "shop"] as T;
     case "list_tables":

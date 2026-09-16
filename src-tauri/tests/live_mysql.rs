@@ -3,7 +3,7 @@
 //! Without the environment variable the tests are skipped.
 
 use query_craft_lib::connections::{Credentials, StoredConnectionView};
-use query_craft_lib::db::execute::{self, ExecuteRequest, ExportRequest};
+use query_craft_lib::db::execute::{self, CountRequest, ExecuteRequest, ExportRequest};
 use query_craft_lib::db::export::ExportFormat;
 use query_craft_lib::db::{ConnectionManager, DbKind, ParamStatement, StatementResultKind, TableKind};
 use query_craft_lib::history::History;
@@ -308,4 +308,18 @@ async fn export_ignores_the_grid_row_limit() {
     assert_eq!(parsed.len(), 4096);
     assert_eq!(parsed[4095]["id"], json!(7777));
     let _ = std::fs::remove_file(&out);
+
+    let total = execute::count(
+        &m,
+        CountRequest {
+            connection_id: "c1".into(),
+            session_id: "s-export".into(),
+            query_id: uuid::Uuid::new_v4().to_string(),
+            sql: format!("{sql};"),
+            database: Some("shop".into()),
+        },
+    )
+    .await
+    .expect("count");
+    assert_eq!(total, 4096);
 }

@@ -11,7 +11,7 @@ use crate::history::History;
 use crate::sql_split::split_statements;
 
 use super::export::{self, ExportFormat, ExportSummary};
-use super::{ApplyResult, ConnectionManager, DbKind, ParamStatement, StatementResult, StatementResultKind};
+use super::{ApplyResult, CellValue, ConnectionManager, DbKind, ParamStatement, StatementResult, StatementResultKind};
 
 const DEFAULT_MAX_ROWS: usize = 500;
 /// Row limit for exports: effectively unlimited, yet finite so that engines
@@ -147,6 +147,50 @@ pub async fn export(manager: &ConnectionManager, request: ExportRequest) -> AppR
     })
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CountRequest {
+    pub connection_id: String,
+    pub session_id: String,
+    pub query_id: String,
+    /// A single statement (the `sql` of the result being counted).
+    pub sql: String,
+    pub database: Option<String>,
+}
+
+/// Wraps a statement so that the engine counts its rows instead of returning them.
+pub fn count_sql(sql: &str) -> String {
+    let inner = sql.trim().trim_end_matches(';').trim_end();
+    format!("SELECT COUNT(*) FROM ({inner}) AS querycraft_count")
+}
+
+/// Counts the rows a statement produces, as DataGrip does when the row count
+/// in the footer is clicked. Runs on the tab's session and is not recorded in
+/// the history.
+pub async fn count(manager: &ConnectionManager, request: CountRequest) -> AppResult<u64> {
+    let session = manager
+        .get_session(&request.connection_id, &request.session_id, request.database.as_deref())
+        .await?;
+    let sql = count_sql(&request.sql);
+    let results = run_registered(manager, &session, &request.query_id, &request.connection_id, &sql, 1).await?;
+    results
+        .iter()
+        .find(|r| r.kind == StatementResultKind::Rows)
+        .and_then(|r| r.rows.first())
+        .and_then(|row| row.first())
+        .and_then(cell_as_count)
+        .ok_or_else(|| AppError::Other("COUNT(*) returned no value".into()))
+}
+
+/// Engines return the count as an integer, a float or (ClickHouse UInt64) a string.
+fn cell_as_count(v: &CellValue) -> Option<u64> {
+    match v {
+        CellValue::Number(n) => n.as_u64().or_else(|| n.as_f64().map(|f| f as u64)),
+        CellValue::String(s) => s.parse().ok(),
+        _ => None,
+    }
+}
+
 /// Runs one statement on the session while it is registered as a running
 /// query, so that it can be cancelled like anything started from the console.
 async fn run_registered(
@@ -183,3 +227,29 @@ pub async fn apply_changes(
     })
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn count_sql_wraps_the_statement_without_its_terminator() {
+        assert_eq!(
+            count_sql("SELECT * FROM t WHERE a > 1 ORDER BY a;\n"),
+            "SELECT COUNT(*) FROM (SELECT * FROM t WHERE a > 1 ORDER BY a) AS querycraft_count"
+        );
+        assert_eq!(
+            count_sql("select 1"),
+            "SELECT COUNT(*) FROM (select 1) AS querycraft_count"
+        );
+    }
+
+    #[test]
+    fn count_cells_come_as_integers_floats_or_strings() {
+        assert_eq!(cell_as_count(&json!(42)), Some(42));
+        assert_eq!(cell_as_count(&json!(42.0)), Some(42));
+        assert_eq!(cell_as_count(&json!("18446744073709551615")), Some(u64::MAX));
+        assert_eq!(cell_as_count(&json!("many")), None);
+        assert_eq!(cell_as_count(&CellValue::Null), None);
+    }
+}

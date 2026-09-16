@@ -1,5 +1,8 @@
 import { useMemo, useState } from "react";
+import { countQuery } from "../../api/commands";
 import type { CellValue, DbKind, StatementResult } from "../../api/types";
+import { newId } from "../../lib/ids";
+import { toast } from "../../store/toastStore";
 import { DataGrid } from "./DataGrid";
 import { ExportMenu, type FullResultSource } from "./ExportMenu";
 
@@ -8,12 +11,24 @@ interface SortState {
   dir: "asc" | "desc";
 }
 
+/** Outcome of the on-demand COUNT(*) behind a truncated result. */
+type CountState = { kind: "counting" } | { kind: "done"; total: number };
+
+/** Counts keyed by result index; they belong to one `results` array and are dropped with it. */
+interface Counts {
+  results: StatementResult[];
+  byIndex: Record<number, CountState>;
+}
+
 export interface ResultsPanelProps {
   results: StatementResult[];
   kind: DbKind;
   /** Called when clicking "More" on a truncated result — the caller re-runs with a higher limit. */
   onLoadMore?: (index: number) => void;
-  /** Session the results came from; lets file exports of truncated results fetch every row. */
+  /**
+   * Session the results came from; lets file exports of truncated results fetch every row and
+   * makes the "N+ rows" count clickable (runs SELECT COUNT(*) over the statement, like DataGrip).
+   */
   session?: Omit<FullResultSource, "sql">;
 }
 
@@ -40,10 +55,34 @@ export function ResultsPanel(props: ResultsPanelProps) {
   const { results, kind, onLoadMore, session } = props;
   const [activeIndex, setActiveIndex] = useState(0);
   const [sortByResult, setSortByResult] = useState<Record<number, SortState | null>>({});
+  const [counts, setCounts] = useState<Counts>({ results, byIndex: {} });
 
   const safeIndex = activeIndex < results.length ? activeIndex : 0;
   const active = results[safeIndex] as StatementResult | undefined;
   const sortState = sortByResult[safeIndex] ?? null;
+  const count = counts.results === results ? counts.byIndex[safeIndex] : undefined;
+
+  function setCount(index: number, state: CountState | undefined) {
+    setCounts((prev) => {
+      const byIndex = prev.results === results ? { ...prev.byIndex } : {};
+      if (state) byIndex[index] = state;
+      else delete byIndex[index];
+      return { results, byIndex };
+    });
+  }
+
+  async function handleCount(index: number) {
+    const result = results[index];
+    if (!session || !result) return;
+    setCount(index, { kind: "counting" });
+    try {
+      const total = await countQuery({ ...session, sql: result.sql, queryId: newId() });
+      setCount(index, { kind: "done", total });
+    } catch (e) {
+      setCount(index, undefined);
+      toast.error(e);
+    }
+  }
 
   const order = useMemo(() => {
     if (active?.kind !== "rows" || !sortState) return null;
@@ -108,7 +147,24 @@ export function ResultsPanel(props: ResultsPanelProps) {
           </div>
           <div className="results-footer">
             <span>
-              {active.rows.length} rows{active.truncated ? " (truncated by limit)" : ""}
+              {!active.truncated ? (
+                `${active.rows.length} rows`
+              ) : count?.kind === "done" ? (
+                `${count.total} rows (${active.rows.length} shown)`
+              ) : count?.kind === "counting" ? (
+                `${active.rows.length}+ rows (counting…)`
+              ) : session ? (
+                <button
+                  type="button"
+                  className="link"
+                  title="Truncated by the row limit — click to count all rows matching the statement"
+                  onClick={() => void handleCount(safeIndex)}
+                >
+                  {active.rows.length}+ rows
+                </button>
+              ) : (
+                `${active.rows.length}+ rows (truncated by limit)`
+              )}
             </span>
             <span className="muted">{active.durationMs} ms</span>
             <div className="spacer" />

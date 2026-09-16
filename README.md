@@ -35,7 +35,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 - **Results grid** — row and column virtualization, sorting, resizable columns, DataGrip-style selection
   (drag, Shift+click, Shift+arrows, row and column selection, select all), copy as TSV/CSV with or without
   headers, export to CSV / JSON / Excel files or copy as TSV / SQL `INSERT`. The row limit only applies to the
-  grid: a file export of a truncated result re-runs the statement without the limit and writes every row.
+  grid: a file export of a truncated result re-runs the statement without the limit and writes every row, and
+  clicking the `500+ rows` count in the footer runs `SELECT COUNT(*)` over the statement to show the total.
 - **Table data editing** — `WHERE` filter with column and keyword suggestions, sorting, pagination, inline
   cell editing, add and delete rows, deferred Submit / Revert applied in a single transaction, SQL preview.
 - **Clipboard paste** into the grid: each line becomes a row, missing rows are added, tab / `;` / `,` / `|`

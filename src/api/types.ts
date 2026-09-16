@@ -166,6 +166,15 @@ export interface RowsExportRequest {
   path: string;
 }
 
+/** SELECT COUNT(*) over one statement: the total behind a result truncated by the row limit. */
+export interface CountRequest {
+  connectionId: string;
+  sessionId: string;
+  queryId: string;
+  sql: string;
+  database: string | null;
+}
+
 /** Re-runs one statement without the row limit and writes its result set to a file. */
 export interface ExportRequest {
   connectionId: string;
