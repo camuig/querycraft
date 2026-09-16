@@ -227,32 +227,67 @@ async fn authenticate(session: &mut Handle<TunnelHandler>, config: &SshConfig, s
             }
         }
         SshAuth::Agent => {
-            let mut agent = AgentClient::connect_env()
-                .await
-                .map_err(|e| AppError::Other(format!("Cannot reach the SSH agent (SSH_AUTH_SOCK): {e}")))?;
-            let identities = agent
-                .request_identities()
-                .await
-                .map_err(|e| AppError::Other(format!("The SSH agent returned no identities: {e}")))?;
-            let hash_alg = session.best_supported_rsa_hash().await.map_err(ssh_err)?.flatten();
-            let mut tried = 0;
-            for identity in identities {
-                let keys::agent::AgentIdentity::PublicKey { key, .. } = identity else {
-                    continue;
-                };
-                tried += 1;
-                let result = session
-                    .authenticate_publickey_with(config.user.clone(), key, hash_alg, &mut agent)
-                    .await
-                    .map_err(|e| AppError::Other(format!("SSH agent authentication error: {e}")))?;
-                if result.success() {
-                    return Ok(());
-                }
-            }
-            return Err(failed(&format!("none of the {tried} agent keys was accepted")));
+            let agent = connect_agent().await?;
+            return authenticate_with_agent(session, config, agent).await;
         }
     }
     Ok(())
+}
+
+/// The OpenSSH agent at `SSH_AUTH_SOCK` (a Unix socket).
+#[cfg(unix)]
+async fn connect_agent() -> AppResult<AgentClient<tokio::net::UnixStream>> {
+    AgentClient::connect_env()
+        .await
+        .map_err(|e| AppError::Other(format!("Cannot reach the SSH agent (SSH_AUTH_SOCK): {e}")))
+}
+
+/// The Windows OpenSSH agent listens on a named pipe rather than a socket;
+/// `SSH_AUTH_SOCK` may still name a different pipe.
+#[cfg(windows)]
+async fn connect_agent() -> AppResult<AgentClient<tokio::net::windows::named_pipe::NamedPipeClient>> {
+    let pipe = std::env::var("SSH_AUTH_SOCK").unwrap_or_else(|_| r"\\.\pipe\openssh-ssh-agent".to_string());
+    AgentClient::connect_named_pipe(&pipe)
+        .await
+        .map_err(|e| AppError::Other(format!("Cannot reach the SSH agent at {pipe}: {e}")))
+}
+
+/// Tries every identity the agent holds until the server accepts one.
+async fn authenticate_with_agent<S>(
+    session: &mut Handle<TunnelHandler>,
+    config: &SshConfig,
+    mut agent: AgentClient<S>,
+) -> AppResult<()>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send,
+{
+    let identities = agent
+        .request_identities()
+        .await
+        .map_err(|e| AppError::Other(format!("The SSH agent returned no identities: {e}")))?;
+    let hash_alg = session
+        .best_supported_rsa_hash()
+        .await
+        .map_err(|e| AppError::Other(format!("SSH authentication error: {e}")))?
+        .flatten();
+    let mut tried = 0;
+    for identity in identities {
+        let keys::agent::AgentIdentity::PublicKey { key, .. } = identity else {
+            continue;
+        };
+        tried += 1;
+        let result = session
+            .authenticate_publickey_with(config.user.clone(), key, hash_alg, &mut agent)
+            .await
+            .map_err(|e| AppError::Other(format!("SSH agent authentication error: {e}")))?;
+        if result.success() {
+            return Ok(());
+        }
+    }
+    Err(AppError::Other(format!(
+        "SSH authentication failed for {}@{}: none of the {tried} agent keys was accepted",
+        config.user, config.host
+    )))
 }
 
 /// Reads an OpenSSH / PKCS#8 / PEM private key, decrypting it with the passphrase when it has one.
