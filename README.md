@@ -143,6 +143,14 @@ MariaDB 33073; password `secret`, database `shop`) are defined in `docker-compos
 docker compose up -d            # or: docker compose up -d postgres
 ```
 
+The TLS suite expects servers with a self-signed certificate (`scripts/tls-servers.sh` starts them,
+ClickHouse HTTPS on 33074) and checks that connections are encrypted and that certificate verification
+rejects the untrusted certificate:
+
+```bash
+scripts/tls-servers.sh && cd src-tauri && QUERYCRAFT_TEST_TLS=1 cargo test --test live_tls
+```
+
 Application icons are generated from `src/assets/logo-icon.svg` with `pnpm icons` (requires `rsvg-convert`).
 
 ## Project layout
