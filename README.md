@@ -10,6 +10,11 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 
 > QueryCraft is under active development. Expect rough edges and please [report them](https://github.com/camuig/querycraft/issues).
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/console-dark.png">
+  <img src="docs/screenshots/console-light.png" alt="QueryCraft: database explorer, SQL console and results grid" width="100%">
+</picture>
+
 ## Features
 
 - **Five engines** — MySQL, MariaDB, PostgreSQL, ClickHouse and SQLite, each with its own icon in the
@@ -200,7 +205,7 @@ apps built with the old public key cannot verify updates signed with a new one).
 ```
 src-tauri/   Rust backend: Tauri commands, native menu, engine drivers, SQL execution, schema metadata
 src/         React frontend: api (IPC contract), store (zustand), lib (pure functions + tests), components
-docs/        Architecture notes
+docs/        Architecture notes and README screenshots
 ```
 
 ## Contributing
