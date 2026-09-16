@@ -21,7 +21,7 @@ A DataGrip-style desktop client for MySQL, MariaDB, PostgreSQL, ClickHouse and S
 
 ## Feature scope
 
-1. **Connections**: create / edit / delete / test a connection to one of the supported engines (host, port, user, password, default database, SSL with optional certificate verification; a file path for SQLite). Configs are stored as JSON in the app's data directory; passwords go into the system keyring.
+1. **Connections**: create / edit / delete / test a connection to one of the supported engines (host, port, user, password, default database; a file path for SQLite). The SSH/SSL tab adds TLS with optional certificate verification and a CA certificate file, and an SSH tunnel (password, key file with passphrase, or the OpenSSH agent). Configs are stored as JSON in the app's data directory; the database password and the SSH secret go into the system keyring.
 2. **Database explorer** (left panel): connection → databases (PostgreSQL: schemas of the connected database) → tables / views → columns, indexes, foreign keys. Lazy node loading, name filter, context menus for common actions (refresh, copy name, open data/DDL, and similar operations per node kind).
 3. **SQL console**: tabs, syntax highlighting, schema-aware autocomplete, running the current statement / selection / whole script (Ctrl/Cmd+Enter, Ctrl/Cmd+Shift+Enter), query cancellation, multiple result sets for multi-statement scripts, execution time, query history. Each console tab keeps its own connection session.
 4. **Results grid**: virtualized rows and columns, click-to-sort, DataGrip-style selection — drag, Shift+click and Shift+arrows for ranges, row-number click selects a row, header click selects a column, Ctrl/Cmd+A selects all; arrow/Home/End/PageUp/PageDown/Tab navigation. Copying the selection: Ctrl/Cmd+C copies TSV, a context menu offers CSV and header variants. NULL is rendered with a distinct style.
@@ -44,6 +44,12 @@ Notable mappings:
 - PostgreSQL: a connection is bound to one database, so the explorer's "database" level lists **schemas**; sessions run `SET search_path`. Results are read with the simple query protocol (text values typed by the prepared statement's row description); `?` placeholders in generated DML are rewritten to `$n` and parameters are sent as text. The statement splitter understands dollar quoting.
 - ClickHouse: every statement is an HTTP POST with `session_id` (keeps `USE`/`SET` per tab) and `query_id` (for `KILL QUERY`); results come as `JSONCompactEachRowWithNamesAndTypes`, truncation uses `max_result_rows` + `result_overflow_mode=break`. No transactions or row-level updates — data tabs are read-only.
 - SQLite: one `rusqlite::Connection` per session behind `spawn_blocking`; the explorer lists `PRAGMA database_list`.
+
+## TLS and SSH tunnels
+
+`open_driver` decides where the driver connects (`Endpoint`): the configured host and port, or the local end of an `SshTunnel` (`db/ssh.rs`, built on `russh`). The tunnel binds `127.0.0.1:0` and forwards every accepted connection through a `direct-tcpip` channel of one SSH session, so each tab's session is its own forwarded connection. Host keys are checked against `~/.ssh/known_hosts` (`accept-new` semantics); tests point the check at a temporary file.
+
+TLS always verifies the *configured* host name even through a tunnel: MySQL uses `tls_hostname_override`, PostgreSQL keeps `host` and sets `hostaddr`, ClickHouse keeps the name in the URL and adds a DNS override for it. A CA certificate file is added to the trust store of each connector (`with_root_certs`, `native_tls::Certificate`, `reqwest::Certificate`).
 
 ## Session model
 
@@ -69,6 +75,7 @@ src-tauri/src/
     execute.rs        — statement loop: split, run, record history; apply_changes
     json.rs           — engine-independent value -> JSON helpers (safe integers, hex)
     schema.rs         — TableInfo / ColumnInfo / IndexInfo / ForeignKeyInfo
+    ssh.rs            — SSH tunnel (russh): local listener, direct-tcpip forwarding, known_hosts
     mysql/            — mysql_async: pool + sessions, Value -> JSON by column type, information_schema
     postgres/         — tokio-postgres: simple-query results, catalog queries, synthesized DDL
     clickhouse/       — HTTP interface: JSONCompact parsing, system.* catalog
@@ -100,5 +107,5 @@ All commands return `Result<T, String>`; the error string is shown to the user. 
 
 ## Tests
 
-- Rust: `cargo test` — SQL splitting, value conversion, connection store, per-engine parsing helpers, and an end-to-end SQLite suite (`tests/sqlite.rs`). Live suites for MySQL, PostgreSQL and ClickHouse run when the matching `QUERYCRAFT_TEST_*_DSN` variable is set (servers in `docker-compose.yml`).
+- Rust: `cargo test` — SQL splitting, value conversion, connection store, per-engine parsing helpers, and an end-to-end SQLite suite (`tests/sqlite.rs`). Live suites for MySQL, PostgreSQL and ClickHouse run when the matching `QUERYCRAFT_TEST_*_DSN` variable is set (servers in `docker-compose.yml`); `live_tls` and `live_ssh` need the servers from `scripts/tls-servers.sh` and `scripts/ssh-server.sh`.
 - TS: `vitest` — sqlSplit (cursor position), sqlBuilder (quoting per dialect, UPDATE/INSERT/DELETE generation), changeTracker, dialect table, pasteParser (delimiter detection, quoted fields), whereSuggest, format/export, keymap, commandBus, editor commands, explorer tree model.

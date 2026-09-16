@@ -16,9 +16,15 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
   explorer, SQL dialect in the editor and identifier quoting in generated SQL. See
   [Engine notes](#engine-notes) for what differs.
 - **Connections** — create, test and edit connections; passwords are stored in the system keyring
-  (Keychain, Credential Manager, Secret Service), never in plain-text files. SSL/TLS connections verify the
-  server certificate by default, with an opt-out for self-signed certificates. SQLite connections point at
+  (Keychain, Credential Manager, Secret Service), never in plain-text files. SQLite connections point at
   a file (or `:memory:`).
+- **SSL/TLS** — the server certificate is verified against the system trust store by default; an extra
+  CA certificate file (PEM) can be added for private CAs, and verification can be switched off for
+  self-signed certificates on a trusted network.
+- **SSH tunnel** — as in DataGrip's SSH/SSL tab: reach the database through an SSH host with a password,
+  a private key (optionally with a passphrase) or the running OpenSSH agent. Host keys are checked against
+  `~/.ssh/known_hosts` like `StrictHostKeyChecking=accept-new`: a new host is recorded, a changed key is
+  refused. The SSH password or passphrase follows the "Save password" setting.
 - **Database explorer** — databases (schemas for PostgreSQL) → tables and views → columns, indexes,
   foreign keys. Lazy loading, filtering, context menus, keyboard navigation.
 - **SQL console** — syntax highlighting and schema-aware autocomplete in the engine's dialect; run the
@@ -77,6 +83,7 @@ The keymap lives in [`src/lib/keymap.ts`](src/lib/keymap.ts).
 | Explorer level under the connection | databases | schemas of the connected database | databases | `main` and attached databases |
 | Session per tab | dedicated connection, `USE db` | dedicated connection, `search_path` | HTTP `session_id` + `database` | dedicated connection |
 | Cancel | `KILL QUERY` | cancel request | `KILL QUERY WHERE query_id = …` | `sqlite3_interrupt` |
+| SSH tunnel | yes | yes | yes | no (local file) |
 | Grid editing | by primary key | by primary key | read-only | by primary key |
 | DDL | `SHOW CREATE TABLE` | synthesized from the catalog | `SHOW CREATE TABLE` | `sqlite_master.sql` |
 
@@ -144,11 +151,19 @@ docker compose up -d            # or: docker compose up -d postgres
 ```
 
 The TLS suite expects servers with a self-signed certificate (`scripts/tls-servers.sh` starts them,
-ClickHouse HTTPS on 33074) and checks that connections are encrypted and that certificate verification
-rejects the untrusted certificate:
+ClickHouse HTTPS on 33074) and checks that connections are encrypted, that certificate verification
+rejects the untrusted certificate and that the generated CA file makes it pass. The SSH suite needs the
+OpenSSH container from `scripts/ssh-server.sh` (port 33075, joined with the database containers on a
+docker network) and covers password, key, passphrase and agent authentication, changed host keys and
+TLS verification through the tunnel:
 
 ```bash
-scripts/tls-servers.sh && cd src-tauri && QUERYCRAFT_TEST_TLS=1 cargo test --test live_tls
+scripts/tls-servers.sh && scripts/ssh-server.sh
+cd src-tauri
+QUERYCRAFT_TEST_TLS=1 cargo test --test live_tls
+QUERYCRAFT_TEST_SSH=1 cargo test --test live_ssh
+# agent authentication: load the test key into an agent first
+ssh-add "${TMPDIR:-/tmp}/querycraft-ssh/id_ed25519" && QUERYCRAFT_TEST_SSH=1 QUERYCRAFT_TEST_SSH_AGENT=1 cargo test --test live_ssh
 ```
 
 Application icons are generated from `src/assets/logo-icon.svg` with `pnpm icons` (requires `rsvg-convert`).
