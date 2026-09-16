@@ -13,6 +13,7 @@ import type {
   IndexInfo,
   ParamStatement,
   QueryHistoryEntry,
+  RowsExportRequest,
   ServerInfo,
   StatementResult,
   TableInfo,
@@ -67,6 +68,9 @@ export const executeQuery = (request: ExecuteRequest) => invoke<StatementResult[
 
 /** Writes the complete result of a statement (no row limit) to a file on the backend. */
 export const exportQuery = (request: ExportRequest) => invoke<ExportSummary>("export_query", { request });
+
+/** Writes the given rows (the grid contents) to a file on the backend. */
+export const exportRows = (request: RowsExportRequest) => invoke<ExportSummary>("export_rows", { request });
 
 /** KILL QUERY for the query started with this queryId. */
 export const cancelQuery = (connectionId: string, queryId: string) =>

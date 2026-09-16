@@ -1,4 +1,4 @@
-// Cell formatting and grid result export to CSV/TSV/JSON/SQL.
+// Cell formatting and clipboard text for grid results (TSV, CSV ranges, SQL INSERT).
 
 import type { CellValue, ColumnMeta, DbKind } from "../api/types";
 import { qualify, quoteIdent, sqlLiteral } from "./sqlBuilder";
@@ -41,17 +41,6 @@ function csvField(v: CellValue): string {
   return s;
 }
 
-/**
- * CSV: the first row is column headers, delimiter `,`, values are quoted
- * when they contain `,`/`"`/newlines (inner quotes are doubled), null -> "",
- * rows are separated by `\n`.
- */
-export function toCsv(columns: ColumnMeta[], rows: CellValue[][]): string {
-  const header = columns.map((c) => csvField(c.name)).join(",");
-  const lines = rows.map((row) => row.map((v) => csvField(v)).join(","));
-  return [header, ...lines].join("\n");
-}
-
 /** Escapes a value for a TSV field: tabs and newlines are replaced with a space; null -> "". */
 function tsvField(v: CellValue): string {
   if (v === null) return "";
@@ -83,18 +72,6 @@ export function rowsToClipboardText(
   const lines = rows.map((row) => row.map((v) => field(v)).join(sep));
   if (withHeaders) lines.unshift(columns.map((c) => field(c.name)).join(sep));
   return lines.join("\n");
-}
-
-/** JSON.stringify of an array of {colName: value} objects, indented with 2 spaces. */
-export function toJson(columns: ColumnMeta[], rows: CellValue[][]): string {
-  const arr = rows.map((row) => {
-    const obj: Record<string, CellValue> = {};
-    columns.forEach((c, i) => {
-      obj[c.name] = row[i] ?? null;
-    });
-    return obj;
-  });
-  return JSON.stringify(arr, null, 2);
 }
 
 /** Multi-line dump: one INSERT INTO ... VALUES (...); per line. */

@@ -451,6 +451,25 @@ async fn export_writes_every_row_regardless_of_the_grid_limit() {
     assert_eq!(lines[1], "1,row 1");
     assert_eq!(lines[1200], "1200,row 1200");
 
+    let xlsx = std::env::temp_dir().join(format!("querycraft-test-export-{}.xlsx", uuid::Uuid::new_v4()));
+    let summary = execute::export(
+        &m,
+        ExportRequest {
+            connection_id: "c1".into(),
+            session_id: "s1".into(),
+            query_id: uuid::Uuid::new_v4().to_string(),
+            sql: shown[0].sql.clone(),
+            database: None,
+            format: ExportFormat::Xlsx,
+            path: xlsx.to_string_lossy().into_owned(),
+        },
+    )
+    .await
+    .expect("export xlsx");
+    assert_eq!(summary.rows, 1200);
+    assert_eq!(&std::fs::read(&xlsx).unwrap()[..2], b"PK");
+    let _ = std::fs::remove_file(&xlsx);
+
     let no_rows = execute::export(
         &m,
         ExportRequest {

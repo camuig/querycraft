@@ -1,10 +1,9 @@
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { save } from "@tauri-apps/plugin-dialog";
-import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useEffect, useRef, useState } from "react";
-import { exportQuery } from "../../api/commands";
+import { exportQuery, exportRows } from "../../api/commands";
 import type { CellValue, ColumnMeta, DbKind, ExportFormat } from "../../api/types";
-import { toCsv, toJson, toSqlInserts, toTsv } from "../../lib/format";
+import { toSqlInserts, toTsv } from "../../lib/format";
 import { newId } from "../../lib/ids";
 import { toast } from "../../store/toastStore";
 import { PopupMenu } from "../common/PopupMenu";
@@ -35,6 +34,7 @@ export interface FullResultSource {
 const FILE_FORMATS: Record<ExportFormat, { name: string; extension: string }> = {
   csv: { name: "CSV", extension: "csv" },
   json: { name: "JSON", extension: "json" },
+  xlsx: { name: "Excel workbook", extension: "xlsx" },
 };
 
 async function copyText(text: string): Promise<void> {
@@ -46,7 +46,7 @@ async function copyText(text: string): Promise<void> {
 }
 
 /**
- * "Export ▾" button with a menu: CSV/JSON to file, copy as TSV/SQL INSERT. Clipboard copies
+ * "Export ▾" button with a menu: CSV/JSON/Excel to file, copy as TSV/SQL INSERT. Clipboard copies
  * take the rows as shown (sorted, limited); file exports contain the whole result.
  */
 export function ExportMenu(props: ExportMenuProps) {
@@ -72,14 +72,10 @@ export function ExportMenu(props: ExportMenuProps) {
     if (!path) return;
     setExporting(true);
     try {
-      if (props.fullResult) {
-        const { rows } = await exportQuery({ ...props.fullResult, queryId: newId(), format, path });
-        toast.success(`Exported ${rows} rows to ${path}`);
-      } else {
-        const text = format === "csv" ? toCsv(props.columns, props.rows) : toJson(props.columns, props.rows);
-        await writeTextFile(path, text);
-        toast.success(`Exported to ${path}`);
-      }
+      const { rows } = props.fullResult
+        ? await exportQuery({ ...props.fullResult, queryId: newId(), format, path })
+        : await exportRows({ columns: props.columns, rows: props.rows, format, path });
+      toast.success(`Exported ${rows} rows to ${path}`);
     } catch (e) {
       toast.error(e);
     } finally {
@@ -124,6 +120,9 @@ export function ExportMenu(props: ExportMenuProps) {
           </div>
           <div className="item" onClick={() => handleFile("json")}>
             JSON to file
+          </div>
+          <div className="item" onClick={() => handleFile("xlsx")}>
+            Excel to file
           </div>
           <div className="divider" />
           <div className="item" onClick={handleCopyTsv}>

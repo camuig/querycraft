@@ -3,7 +3,8 @@
 use tauri::State;
 
 use crate::connections::{ConnectionConfig, ConnectionInput, ConnectionStore};
-use crate::db::execute::{self, ExecuteRequest, ExportRequest, ExportSummary};
+use crate::db::execute::{self, ExecuteRequest, ExportRequest};
+use crate::db::export::{self, ExportSummary, RowsExportRequest};
 use crate::db::{
     ApplyResult, ColumnInfo, ConnectionManager, ForeignKeyInfo, IndexInfo, ParamStatement, ServerInfo, StatementResult,
     TableInfo,
@@ -134,6 +135,14 @@ pub async fn execute_query(state: State<'_, AppState>, request: ExecuteRequest) 
 #[tauri::command]
 pub async fn export_query(state: State<'_, AppState>, request: ExportRequest) -> AppResult<ExportSummary> {
     execute::export(&state.manager, request).await
+}
+
+/// Writes rows the frontend already holds (the grid contents) to a file.
+#[tauri::command]
+pub async fn export_rows(request: RowsExportRequest) -> AppResult<ExportSummary> {
+    tokio::task::spawn_blocking(move || export::export_rows(request))
+        .await
+        .map_err(|e| crate::error::AppError::Other(e.to_string()))?
 }
 
 /// Cancels the statement started with this queryId (KILL QUERY, pg_cancel, ...).

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CellValue, ColumnMeta } from "../../api/types";
-import { formatCell, isNumericType, toCsv, toJson, toSqlInserts, toTsv } from "../format";
+import { formatCell, isNumericType, rowsToClipboardText, toSqlInserts, toTsv } from "../format";
 
 function col(name: string): ColumnMeta {
   return {
@@ -50,24 +50,17 @@ describe("formatCell", () => {
   });
 });
 
-describe("toCsv", () => {
-  it("escapes fields with commas, quotes and newlines", () => {
+describe("rowsToClipboardText", () => {
+  it("quotes CSV fields with commas, quotes and newlines and leaves null empty", () => {
     const rows: CellValue[][] = [
       ["a,b", 'say "hi"'],
       ["line1\nline2", null],
     ];
-    const csv = toCsv(columns, rows);
-    expect(csv).toBe('id,name\n"a,b","say ""hi"""\n"line1\nline2",');
+    expect(rowsToClipboardText(columns, rows, "csv", true)).toBe('id,name\n"a,b","say ""hi"""\n"line1\nline2",');
   });
 
-  it("null -> empty field", () => {
-    const csv = toCsv(columns, [[null, null]]);
-    expect(csv).toBe("id,name\n,");
-  });
-
-  it("plain values without special characters are not quoted", () => {
-    const csv = toCsv(columns, [[1, "Alice"]]);
-    expect(csv).toBe("id,name\n1,Alice");
+  it("plain values are not quoted and headers are optional", () => {
+    expect(rowsToClipboardText(columns, [[1, "Alice"]], "csv", false)).toBe("1,Alice");
   });
 });
 
@@ -81,22 +74,6 @@ describe("toTsv", () => {
   it("null -> empty string", () => {
     const tsv = toTsv(columns, [[null, "x"]]);
     expect(tsv).toBe("id\tname\n\tx");
-  });
-});
-
-describe("toJson", () => {
-  it("builds an array of {colName: value} objects", () => {
-    const rows: CellValue[][] = [
-      [1, "Alice"],
-      [2, null],
-    ];
-    const json = toJson(columns, rows);
-    expect(JSON.parse(json)).toEqual([
-      { id: 1, name: "Alice" },
-      { id: 2, name: null },
-    ]);
-    // 2-space indent
-    expect(json).toContain('\n  {\n    "id": 1');
   });
 });
 

@@ -2,17 +2,15 @@
 //! one by one on the tab's session, recording history, exporting a complete
 //! result to a file, and applying parameterized changes in a single transaction.
 
-use std::fs::File;
-use std::io::BufWriter;
 use std::time::Instant;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::error::{AppError, AppResult};
 use crate::history::History;
 use crate::sql_split::split_statements;
 
-use super::export::{self, ExportFormat};
+use super::export::{self, ExportFormat, ExportSummary};
 use super::{ApplyResult, ConnectionManager, DbKind, ParamStatement, StatementResult, StatementResultKind};
 
 const DEFAULT_MAX_ROWS: usize = 500;
@@ -124,12 +122,6 @@ pub struct ExportRequest {
     pub path: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ExportSummary {
-    pub rows: usize,
-}
-
 /// Re-runs one statement on the tab's session without the row limit and
 /// writes its first result set to `path`. The grid only ever holds the first
 /// `max_rows` rows, so an export of a truncated result goes through here.
@@ -137,25 +129,38 @@ pub async fn export(manager: &ConnectionManager, request: ExportRequest) -> AppR
     let session = manager
         .get_session(&request.connection_id, &request.session_id, request.database.as_deref())
         .await?;
-    let mut session = session.lock().await;
-    manager.register_query(&request.query_id, &request.connection_id, session.cancel_handle());
-    let _guard = RunningQueryGuard {
+    let result = run_registered(
         manager,
-        query_id: &request.query_id,
-    };
-    let results = session.run(&request.sql, EXPORT_MAX_ROWS).await?;
-    drop(session);
-
-    let result = results
-        .into_iter()
-        .find(|r| r.kind == StatementResultKind::Rows)
-        .ok_or_else(|| AppError::Other("The statement returned no rows to export".into()))?;
-    let mut out = BufWriter::new(File::create(&request.path)?);
-    export::write_rows(&mut out, request.format, &result.columns, &result.rows)?;
-    out.into_inner().map_err(|e| e.into_error())?;
+        &session,
+        &request.query_id,
+        &request.connection_id,
+        &request.sql,
+        EXPORT_MAX_ROWS,
+    )
+    .await?
+    .into_iter()
+    .find(|r| r.kind == StatementResultKind::Rows)
+    .ok_or_else(|| AppError::Other("The statement returned no rows to export".into()))?;
+    export::write_file(&request.path, request.format, &result.columns, &result.rows)?;
     Ok(ExportSummary {
         rows: result.rows.len(),
     })
+}
+
+/// Runs one statement on the session while it is registered as a running
+/// query, so that it can be cancelled like anything started from the console.
+async fn run_registered(
+    manager: &ConnectionManager,
+    session: &super::manager::SharedSession,
+    query_id: &str,
+    connection_id: &str,
+    sql: &str,
+    max_rows: usize,
+) -> AppResult<Vec<StatementResult>> {
+    let mut session = session.lock().await;
+    manager.register_query(query_id, connection_id, session.cancel_handle());
+    let _guard = RunningQueryGuard { manager, query_id };
+    session.run(sql, max_rows).await
 }
 
 /// Executes parameterized statements in a single transaction (data editing).
@@ -177,3 +182,4 @@ pub async fn apply_changes(
         duration_ms: start.elapsed().as_millis() as u64,
     })
 }
+

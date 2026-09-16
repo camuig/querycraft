@@ -156,7 +156,15 @@ export interface StatementResult {
   durationMs: number;
 }
 
-export type ExportFormat = "csv" | "json";
+export type ExportFormat = "csv" | "json" | "xlsx";
+
+/** Writes rows the frontend already holds (the grid contents) to a file. */
+export interface RowsExportRequest {
+  columns: ColumnMeta[];
+  rows: CellValue[][];
+  format: ExportFormat;
+  path: string;
+}
 
 /** Re-runs one statement without the row limit and writes its result set to a file. */
 export interface ExportRequest {
