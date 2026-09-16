@@ -28,7 +28,7 @@ mysql_async = { version = "0.37", default-features = false, features = ["minimal
 tokio-postgres = { version = "0.7", default-features = false, features = ["runtime"] }
 postgres-native-tls = "0.5"
 native-tls = "0.2"
-rusqlite = { version = "0.40", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled", "column_decltype"] }
 reqwest = { version = "0.13", default-features = false, features = ["native-tls"] }
 async-trait = "0.1"
 keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }

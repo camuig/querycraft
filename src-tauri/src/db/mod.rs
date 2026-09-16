@@ -19,7 +19,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::connections::StoredConnectionView;
-use crate::error::{AppError, AppResult};
+use crate::error::AppResult;
 
 pub use manager::ConnectionManager;
 pub use schema::{ColumnInfo, ForeignKeyInfo, IndexInfo, TableInfo, TableKind};
@@ -252,7 +252,7 @@ pub async fn open_driver(config: &StoredConnectionView, password: Option<String>
         DbKind::Mysql | DbKind::Mariadb => Box::new(mysql::MysqlDriver::connect(config, password).await?),
         DbKind::Postgres => Box::new(postgres::PostgresDriver::connect(config, password).await?),
         DbKind::Clickhouse => Box::new(clickhouse::ClickhouseDriver::connect(config, password).await?),
-        DbKind::Sqlite => return Err(AppError::Other("SQLite support is not implemented yet".into())),
+        DbKind::Sqlite => Box::new(sqlite::SqliteDriver::connect(config).await?),
     })
 }
 
