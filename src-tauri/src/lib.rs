@@ -6,6 +6,7 @@ pub mod db;
 pub mod error;
 pub mod history;
 pub mod menu;
+pub mod secrets;
 pub mod sql_split;
 pub mod updates;
 

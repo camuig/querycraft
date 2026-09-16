@@ -1,20 +1,19 @@
 //! Storage for connection configurations: `connections.json` in the app's config directory
-//! plus secrets in the system keyring (service "QueryCraft"; the database password is
-//! stored under the connection id, the SSH password or key passphrase under `<id>/ssh`).
+//! plus secrets in the [`SecretStore`] (the database password is stored under the connection
+//! id, the SSH password or key passphrase under `<id>/ssh`).
 
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
-use keyring::Entry;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::db::DbKind;
 use crate::error::{AppError, AppResult};
+use crate::secrets::SecretStore;
 
-const KEYRING_SERVICE: &str = "QueryCraft";
 const CONNECTIONS_FILE: &str = "connections.json";
 
 /// Which secret of a connection is meant: the keyring account name is derived from it.
@@ -191,9 +190,10 @@ impl ConnectionInput {
 pub struct ConnectionStore {
     file_path: PathBuf,
     connections: Mutex<Vec<StoredConnection>>,
-    /// Secrets entered in this session but not saved to the keyring
-    /// (savePassword = false), keyed by keyring account. Lets connect/test
-    /// use them until the app is closed.
+    secrets: SecretStore,
+    /// Secrets entered in this session but not saved to the secret store
+    /// (savePassword = false), keyed by account. Lets connect/test use them
+    /// until the app is closed.
     session_passwords: Mutex<HashMap<String, String>>,
 }
 
@@ -221,9 +221,15 @@ impl ConnectionStore {
             Vec::new()
         };
 
+        let secrets = SecretStore::for_build(&config_dir);
+        if secrets.is_file() {
+            log::info!("development build: connection secrets are kept in a plain file, not the keyring");
+        }
+
         Ok(Self {
             file_path,
             connections: Mutex::new(connections),
+            secrets,
             session_passwords: Mutex::new(HashMap::new()),
         })
     }
@@ -234,47 +240,16 @@ impl ConnectionStore {
         Ok(())
     }
 
-    fn keyring_entry(account: &str) -> AppResult<Entry> {
-        Ok(Entry::new(KEYRING_SERVICE, account)?)
-    }
-
-    /// The secret saved in the keyring, if any. Read errors (keyring unavailable
-    /// in CI/headless environments) are treated as "no secret" with a warning logged.
-    fn saved_secret(account: &str) -> Option<String> {
-        match Self::keyring_entry(account) {
-            Ok(entry) => match entry.get_password() {
-                Ok(secret) => Some(secret),
-                Err(keyring::Error::NoEntry) => None,
-                Err(e) => {
-                    log::warn!("Failed to read the secret from the keyring for {account}: {e}");
-                    None
-                }
-            },
-            Err(e) => {
-                log::warn!("Failed to open the keyring for {account}: {e}");
-                None
-            }
-        }
-    }
-
-    fn delete_saved_secret(account: &str) -> AppResult<()> {
-        let entry = Self::keyring_entry(account)?;
-        match entry.delete_credential() {
-            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-            Err(e) => Err(e.into()),
-        }
-    }
-
-    /// Applies the password policy to one secret: save it to the keyring, drop it
-    /// from the keyring, or keep it for this session only.
+    /// Applies the password policy to one secret: save it to the secret store, drop it
+    /// from the store, or keep it for this session only.
     fn store_secret(&self, account: &str, secret: Option<String>, save: bool) -> AppResult<()> {
         if save {
             if let Some(secret) = secret {
-                Self::keyring_entry(account)?.set_password(&secret)?;
+                self.secrets.set(account, &secret)?;
                 self.session_passwords.lock().remove(account);
             }
         } else {
-            Self::delete_saved_secret(account)?;
+            self.secrets.delete(account)?;
             if let Some(secret) = secret {
                 self.session_passwords.lock().insert(account.to_string(), secret);
             }
@@ -282,7 +257,7 @@ impl ConnectionStore {
         Ok(())
     }
 
-    fn to_config(stored: &StoredConnection) -> ConnectionConfig {
+    fn to_config(&self, stored: &StoredConnection) -> ConnectionConfig {
         ConnectionConfig {
             id: stored.id.clone(),
             name: stored.name.clone(),
@@ -297,14 +272,14 @@ impl ConnectionStore {
             color: stored.color.clone(),
             path: stored.path.clone(),
             ssh: stored.ssh.clone(),
-            has_password: Self::saved_secret(&Secret::Password.account(&stored.id)).is_some(),
-            has_ssh_secret: stored.ssh.is_some() && Self::saved_secret(&Secret::Ssh.account(&stored.id)).is_some(),
+            has_password: self.secrets.get(&Secret::Password.account(&stored.id)).is_some(),
+            has_ssh_secret: stored.ssh.is_some() && self.secrets.get(&Secret::Ssh.account(&stored.id)).is_some(),
         }
     }
 
     pub fn list(&self) -> AppResult<Vec<ConnectionConfig>> {
         let connections = self.connections.lock();
-        Ok(connections.iter().map(Self::to_config).collect())
+        Ok(connections.iter().map(|c| self.to_config(c)).collect())
     }
 
     pub fn get(&self, id: &str) -> AppResult<ConnectionConfig> {
@@ -312,7 +287,7 @@ impl ConnectionStore {
         connections
             .iter()
             .find(|c| c.id == id)
-            .map(Self::to_config)
+            .map(|c| self.to_config(c))
             .ok_or_else(|| AppError::ConnectionNotFound(id.to_string()))
     }
 
@@ -372,7 +347,7 @@ impl ConnectionStore {
             self.store_secret(&ssh_account, input.ssh_secret, input.save_password)?;
         } else {
             // The tunnel was switched off: its secret is no longer needed anywhere.
-            Self::delete_saved_secret(&ssh_account)?;
+            self.secrets.delete(&ssh_account)?;
             self.session_passwords.lock().remove(&ssh_account);
         }
 
@@ -388,16 +363,17 @@ impl ConnectionStore {
         for secret in [Secret::Password, Secret::Ssh] {
             let account = secret.account(id);
             self.session_passwords.lock().remove(&account);
-            Self::delete_saved_secret(&account)?;
+            self.secrets.delete(&account)?;
         }
         Ok(())
     }
 
-    /// A secret of the connection: keyring first, then the session cache.
-    /// Keyring read errors are not fatal — it just means nothing is saved.
+    /// A secret of the connection: the secret store first, then the session cache.
     pub fn get_secret(&self, id: &str, secret: Secret) -> Option<String> {
         let account = secret.account(id);
-        Self::saved_secret(&account).or_else(|| self.session_passwords.lock().get(&account).cloned())
+        self.secrets
+            .get(&account)
+            .or_else(|| self.session_passwords.lock().get(&account).cloned())
     }
 
     /// Both secrets of the connection, for opening it.

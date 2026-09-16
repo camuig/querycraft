@@ -147,6 +147,11 @@ cd src-tauri && cargo test   # backend unit tests
 The UI can be developed in a regular browser without Tauri: run `pnpm dev` and open http://localhost:1420 —
 IPC commands are served by a mock (`src/api/mock.ts`) with sample connections and data.
 
+Development builds keep connection passwords in `secrets.dev.json` next to `connections.json` in the app's
+config directory instead of the system keyring: the keyring grants access per code signature, and every
+rebuild would ask for the keychain password again. Set `QUERYCRAFT_KEYRING=1` to use the keyring in a
+development build; release builds always do.
+
 Backend integration tests against live servers are skipped unless the DSN is provided
 (`host:port:user:password`); the SQLite suite needs nothing and always runs:
 
