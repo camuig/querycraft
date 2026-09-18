@@ -11,6 +11,7 @@ pub mod execute;
 pub mod export;
 pub mod json;
 pub mod manager;
+pub mod mssql;
 pub mod mysql;
 pub mod postgres;
 pub mod redis;
@@ -40,6 +41,7 @@ pub enum DbKind {
     Sqlite,
     Redis,
     Valkey,
+    Mssql,
 }
 
 /// What a console sends to the engine: SQL statements or key-value commands
@@ -70,6 +72,7 @@ impl DbKind {
             DbKind::Sqlite => "SQLite",
             DbKind::Redis => "Redis",
             DbKind::Valkey => "Valkey",
+            DbKind::Mssql => "SQL Server",
         }
     }
 }
@@ -227,6 +230,8 @@ pub enum CancelHandle {
     Sqlite(std::sync::Arc<rusqlite::InterruptHandle>),
     /// `CLIENT KILL ID <client id>` on the driver's connection.
     RedisClient(i64),
+    /// `KILL <session id>` on a utility connection (SQL Server SPID).
+    MssqlSession(i32),
 }
 
 /// A dedicated connection owned by one console / data tab. Statements on a
@@ -383,6 +388,7 @@ pub async fn open_driver_with(
             DbKind::Clickhouse => Box::new(clickhouse::ClickhouseDriver::connect(config, &endpoint, password).await?),
             DbKind::Sqlite => Box::new(sqlite::SqliteDriver::connect(config).await?),
             DbKind::Redis | DbKind::Valkey => Box::new(redis::RedisDriver::connect(config, &endpoint, password).await?),
+            DbKind::Mssql => Box::new(mssql::MssqlDriver::connect(config, &endpoint, password).await?),
         })
     }
     .await;

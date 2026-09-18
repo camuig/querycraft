@@ -39,3 +39,14 @@ services:
     image: valkey/valkey:8
     ports: ["33077:6379"]
     command: ["valkey-server", "--requirepass", "secret"]
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    # amd64-only image; runs under emulation on Apple Silicon hosts and is
+    # slow to become healthy (roughly 30-60s).
+    platform: linux/amd64
+    ports: ["33078:1433"]
+    environment:
+      ACCEPT_EULA: "Y"
+      # SQL Server rejects weak sa passwords: upper+lower+digit+symbol, 8+ chars.
+      MSSQL_SA_PASSWORD: "Secret_123"

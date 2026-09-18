@@ -75,6 +75,17 @@ impl From<redis::RedisError> for AppError {
     }
 }
 
+impl From<tiberius::error::Error> for AppError {
+    fn from(err: tiberius::error::Error) -> Self {
+        match &err {
+            tiberius::error::Error::Server(token) => {
+                AppError::Database(format!("[{}] {}", token.code(), token.message()))
+            }
+            other => AppError::Database(error_chain(other)),
+        }
+    }
+}
+
 impl From<reqwest::Error> for AppError {
     fn from(err: reqwest::Error) -> Self {
         // reqwest includes the full URL (with query text) in its Display output, and the
