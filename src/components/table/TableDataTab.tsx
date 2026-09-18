@@ -2,7 +2,7 @@ import type { KeyboardEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import * as api from "../../api/commands";
 import type { CellValue, ColumnMeta } from "../../api/types";
-import { ChangeTracker } from "../../lib/changeTracker";
+import { ChangeTracker, countChanges } from "../../lib/changeTracker";
 import { registerCommand } from "../../lib/commandBus";
 import { dialectFor } from "../../lib/dialect";
 import { newId } from "../../lib/ids";
@@ -17,23 +17,6 @@ import { SqlEditor } from "../editor/SqlEditor";
 import { DataGrid } from "../grid/DataGrid";
 import type { GridCellPos } from "../grid/useGridSelection";
 import { WhereInput } from "./WhereInput";
-
-function countChanges(tracker: ChangeTracker, rowCount: number, colCount: number): number {
-  let n = 0;
-  for (let r = 0; r < rowCount; r++) {
-    if (tracker.isDeleted(r) || tracker.isInserted(r)) {
-      n++;
-      continue;
-    }
-    for (let c = 0; c < colCount; c++) {
-      if (tracker.isModified(r, c)) {
-        n++;
-        break;
-      }
-    }
-  }
-  return n;
-}
 
 /** Table data: pagination, WHERE filter, sorting, editing with deferred commit. */
 export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: boolean }) {

@@ -2,6 +2,7 @@ import { shortcutLabel } from "../../lib/keymap";
 import { useTabsStore } from "../../store/tabsStore";
 import { Logo } from "../common/Logo";
 import { ConsoleTab } from "../editor/ConsoleTab";
+import { KeyDataTab } from "../key/KeyDataTab";
 import { TableDataTab } from "../table/TableDataTab";
 import { TableDdlTab } from "../table/TableDdlTab";
 
@@ -32,6 +33,7 @@ export function TabContent() {
             {tab.kind === "console" && <ConsoleTab tab={tab} active={active} />}
             {tab.kind === "table" && <TableDataTab tab={tab} active={active} />}
             {tab.kind === "ddl" && <TableDdlTab tab={tab} active={active} />}
+            {tab.kind === "key" && <KeyDataTab tab={tab} active={active} />}
           </div>
         );
       })}

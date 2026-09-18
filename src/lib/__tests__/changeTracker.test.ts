@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CellValue, ColumnMeta } from "../../api/types";
-import { ChangeTracker } from "../changeTracker";
+import { ChangeTracker, countChanges } from "../changeTracker";
 
 function col(name: string, opts: Partial<ColumnMeta> = {}): ColumnMeta {
   return {
@@ -219,6 +219,24 @@ describe("missing pkColumns", () => {
     const { tracker: t1 } = t0.insertRow();
     const t2 = t1.setCell(2, 1, "Carol");
     expect(() => t2.buildStatements("db", "t")).not.toThrow();
+  });
+});
+
+describe("countChanges", () => {
+  it("counts each changed row once, regardless of how many cells changed", () => {
+    const t = new ChangeTracker(rows, columns, pk, "mysql").setCell(0, 1, "Alicia").setCell(0, 2, "a@b.c");
+    expect(countChanges(t, t.rows.length, columns.length)).toBe(1);
+  });
+
+  it("counts deleted and inserted rows too", () => {
+    const t0 = new ChangeTracker(rows, columns, pk, "mysql").deleteRow(1);
+    const { tracker: t1 } = t0.insertRow();
+    expect(countChanges(t1, t1.rows.length, columns.length)).toBe(2);
+  });
+
+  it("is zero when nothing changed", () => {
+    const t = new ChangeTracker(rows, columns, pk, "mysql");
+    expect(countChanges(t, t.rows.length, columns.length)).toBe(0);
   });
 });
 

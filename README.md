@@ -1,9 +1,9 @@
 # QueryCraft
 
-Fast, lightweight desktop client for MySQL, MariaDB, PostgreSQL, ClickHouse and SQLite in the spirit of
-DataGrip. macOS, Windows and Linux.
+Fast, lightweight desktop client for MySQL, MariaDB, PostgreSQL, ClickHouse, SQLite, Redis and Valkey in
+the spirit of DataGrip. macOS, Windows and Linux.
 
-Built with Tauri 2 (Rust: `mysql_async`, `tokio-postgres`, `rusqlite`, the ClickHouse HTTP interface) and
+Built with Tauri 2 (Rust: `mysql_async`, `tokio-postgres`, `rusqlite`, the ClickHouse HTTP interface, `redis`) and
 React 19 / TypeScript, CodeMirror 6 and a virtualized grid.
 The binary is small, it starts in well under a second, and it uses a fraction of the memory of Electron-based tools.
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
@@ -17,9 +17,10 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 
 ## Features
 
-- **Five engines** — MySQL, MariaDB, PostgreSQL, ClickHouse and SQLite, each with its own icon in the
-  explorer, SQL dialect in the editor and identifier quoting in generated SQL. See
-  [Engine notes](#engine-notes) for what differs.
+- **Seven engines** — MySQL, MariaDB, PostgreSQL, ClickHouse, SQLite, Redis and Valkey, each with its own
+  icon in the explorer. The SQL engines share a schema-aware SQL editor with per-dialect identifier
+  quoting; Redis and Valkey get their own key-value console instead (see
+  [The Redis/Valkey console](#the-redisvalkey-console)). See [Engine notes](#engine-notes) for what differs.
 - **Connections** — create, test and edit connections; passwords are stored in the system keyring
   (Keychain, Credential Manager, Secret Service), never in plain-text files. SQLite connections point at
   a file (or `:memory:`).
@@ -31,10 +32,12 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
   `~/.ssh/known_hosts` like `StrictHostKeyChecking=accept-new`: a new host is recorded, a changed key is
   refused. The SSH password or passphrase follows the "Save password" setting.
 - **Database explorer** — databases (schemas for PostgreSQL) → tables and views → columns, indexes,
-  foreign keys. Lazy loading, filtering, context menus, keyboard navigation.
+  foreign keys; for Redis/Valkey, databases 0–15 → keys, loaded with `SCAN` and filterable by pattern.
+  Lazy loading, filtering, context menus, keyboard navigation.
 - **SQL console** — syntax highlighting and schema-aware autocomplete in the engine's dialect; run the
   statement under the cursor, the selection or the whole script; cancel running queries; multiple result
-  sets with timings.
+  sets with timings. Redis/Valkey connections get a dedicated command console instead — see
+  [The Redis/Valkey console](#the-redisvalkey-console).
 - **Session per tab** — every console and data tab owns its own connection, so `USE`, transactions and
   temporary tables stay scoped to the tab, exactly like DataGrip.
 - **Results grid** — row and column virtualization, sorting, resizable columns, DataGrip-style selection
@@ -87,19 +90,46 @@ The keymap lives in [`src/lib/keymap.ts`](src/lib/keymap.ts).
 
 ## Engine notes
 
-| | MySQL / MariaDB | PostgreSQL | ClickHouse | SQLite |
-|---|---|---|---|---|
-| Transport | `mysql_async` (native protocol, TLS) | `tokio-postgres` (TLS) | HTTP interface (`reqwest`), port 8123 | `rusqlite` (bundled SQLite) |
-| Explorer level under the connection | databases | schemas of the connected database | databases | `main` and attached databases |
-| Session per tab | dedicated connection, `USE db` | dedicated connection, `search_path` | HTTP `session_id` + `database` | dedicated connection |
-| Cancel | `KILL QUERY` | cancel request | `KILL QUERY WHERE query_id = …` | `sqlite3_interrupt` |
-| SSH tunnel | yes | yes | yes | no (local file) |
-| Grid editing | by primary key | by primary key | read-only | by primary key |
-| DDL | `SHOW CREATE TABLE` | synthesized from the catalog | `SHOW CREATE TABLE` | `sqlite_master.sql` |
+| | MySQL / MariaDB | PostgreSQL | ClickHouse | SQLite | Redis / Valkey |
+|---|---|---|---|---|---|
+| Transport | `mysql_async` (native protocol, TLS) | `tokio-postgres` (TLS) | HTTP interface (`reqwest`), port 8123 | `rusqlite` (bundled SQLite) | `redis` crate (RESP, TLS) |
+| Explorer level under the connection | databases | schemas of the connected database | databases | `main` and attached databases | databases 0–15 (keys) |
+| Session per tab | dedicated connection, `USE db` | dedicated connection, `search_path` | HTTP `session_id` + `database` | dedicated connection | dedicated connection, `SELECT db` |
+| Cancel | `KILL QUERY` | cancel request | `KILL QUERY WHERE query_id = …` | `sqlite3_interrupt` | `CLIENT KILL ID` |
+| SSH tunnel | yes | yes | yes | no (local file) | yes |
+| Grid editing | by primary key | by primary key | read-only | by primary key | key values (by type) |
+| DDL | `SHOW CREATE TABLE` | synthesized from the catalog | `SHOW CREATE TABLE` | `sqlite_master.sql` | n/a |
 
 PostgreSQL results are fetched with the simple query protocol (every value arrives as text and is typed by
 the prepared statement's description), so a console `SELECT` without `LIMIT` is buffered before the row
 limit is applied. ClickHouse has no row-level `UPDATE`/`DELETE`, so its data tabs are read-only.
+
+## The Redis/Valkey console
+
+Redis and Valkey connections speak commands, not SQL: the console runs one command per line in
+redis-cli syntax (`SET "my key" "a value"`, `"…"` with backslash escapes or `'…'`, `#` lines are
+comments). Cmd/Ctrl+Enter runs the command on the cursor's line; Cmd/Ctrl+Shift+Enter runs every line
+in the console top to bottom. Results are shown as an ordinary grid: `HGETALL` returns `field`/`value`
+rows, `ZRANGE … WITHSCORES` returns `member`/`score`, `SCAN` returns the next cursor and the matching
+keys. The editor highlights the ~120 built-in commands and completes them, plus key names for the
+current database. `SUBSCRIBE`/`PSUBSCRIBE` and `MONITOR` are refused in the console — they never
+return, which does not fit a request/response query tab.
+
+The explorer lists databases 0–15 under a Redis/Valkey connection; expanding one loads its keys with
+`SCAN` (first 1,000, marked `1,000+` when there are more). The filter box becomes a server-side `MATCH`
+pattern instead of filtering the already-loaded list, so it works for a database with far more keys than
+fit in the tree. Double-clicking a key opens its own tab with the full value in a grid shaped by the
+key's type: a string is one `value` cell, a hash is `field`/`value` rows, a list is `index`/`element`
+rows (the index is read-only), a set is `member` rows, a sorted set is `member`/`score` rows, and a
+stream is its `id`/entry rows shown read-only. Cells can be edited, rows added or deleted (not for
+strings or streams); Submit sends every pending change as one batch of commands that runs atomically
+(Redis `MULTI`/`EXEC`), Revert discards them. The tab also has its own TTL control (set an expiry in
+seconds, or clear it with Persist) and a two-click "Delete key". The context menu's "Open in console"
+runs the same type-based preview command as a plain query instead, for a quick read-only look.
+
+TLS connections to Redis/Valkey verify the server certificate against the system trust store only: the
+`redis` crate's native-TLS backend cannot load an extra CA certificate file, so for a private CA either
+add it to the system trust store or turn certificate verification off for that connection.
 
 ## Installation
 

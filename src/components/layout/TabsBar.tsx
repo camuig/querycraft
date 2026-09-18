@@ -1,7 +1,7 @@
 import { useConnectionsStore } from "../../store/connectionsStore";
 import { useTabsStore } from "../../store/tabsStore";
 
-const icons: Record<string, string> = { console: "▤", table: "▦", ddl: "{ }" };
+const icons: Record<string, string> = { console: "▤", table: "▦", ddl: "{ }", key: "⏵" };
 
 export function TabsBar() {
   const tabs = useTabsStore((s) => s.tabs);

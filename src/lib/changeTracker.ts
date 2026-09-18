@@ -260,3 +260,21 @@ export class ChangeTracker {
     return statements;
   }
 }
+
+/** Number of rows a tracker has pending changes for (deleted, inserted, or with any modified cell). */
+export function countChanges(tracker: ChangeTracker, rowCount: number, colCount: number): number {
+  let n = 0;
+  for (let r = 0; r < rowCount; r++) {
+    if (tracker.isDeleted(r) || tracker.isInserted(r)) {
+      n++;
+      continue;
+    }
+    for (let c = 0; c < colCount; c++) {
+      if (tracker.isModified(r, c)) {
+        n++;
+        break;
+      }
+    }
+  }
+  return n;
+}
