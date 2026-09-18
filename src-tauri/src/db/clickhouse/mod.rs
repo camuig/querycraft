@@ -19,6 +19,14 @@ use super::{
 };
 use transport::request;
 
+/// How long to wait for the TCP/TLS connection to be established. Bounds a
+/// connection attempt to an unreachable or wrong host/port, which would
+/// otherwise leave the UI stuck on "connecting" with no error.
+const CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+/// How long a metadata request (server version, schema) may take in total.
+/// Console statements are not bounded by this (see `transport::request`).
+const METADATA_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
 pub struct ClickhouseDriver {
     client: Client,
     base_url: String,
@@ -36,7 +44,7 @@ impl ClickhouseDriver {
         endpoint: &Endpoint,
         password: Option<String>,
     ) -> AppResult<Self> {
-        let mut builder = Client::builder();
+        let mut builder = Client::builder().connect_timeout(CONNECT_TIMEOUT);
         if config.ssl {
             if let Some(pem) = read_ca_certificate(config)? {
                 let certificate = reqwest::Certificate::from_pem(&pem)
@@ -68,11 +76,17 @@ impl ClickhouseDriver {
     /// A plain request without session or row-limiting parameters, for
     /// driver-level queries (server info, schema, `KILL QUERY`).
     async fn query(&self, sql: &str, params: &[(&str, String)]) -> AppResult<String> {
-        Ok(
-            request(&self.client, &self.base_url, &self.user, &self.password, sql, params)
-                .await?
-                .body,
+        Ok(request(
+            &self.client,
+            &self.base_url,
+            &self.user,
+            &self.password,
+            sql,
+            params,
+            Some(METADATA_TIMEOUT),
         )
+        .await?
+        .body)
     }
 }
 
@@ -202,7 +216,17 @@ impl Session for ClickhouseSession {
     async fn run(&mut self, sql: &str, max_rows: usize) -> AppResult<Vec<StatementResult>> {
         let query_id = self.next_query_id.clone();
         let params = self.params(&query_id, max_rows);
-        let outcome = request(&self.client, &self.base_url, &self.user, &self.password, sql, &params).await;
+        // No response timeout: a console statement may legitimately run for a long time.
+        let outcome = request(
+            &self.client,
+            &self.base_url,
+            &self.user,
+            &self.password,
+            sql,
+            &params,
+            None,
+        )
+        .await;
         // A fresh id for the next statement, whether this one succeeded or not.
         self.next_query_id = Uuid::new_v4().to_string();
         let response = outcome?;

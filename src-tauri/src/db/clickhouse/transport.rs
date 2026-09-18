@@ -2,6 +2,8 @@
 //! URL, sends the SQL as the request body, and turns a non-200 response into
 //! an `AppError::Database` (ClickHouse puts `Code: NN. DB::Exception: ...` in the body).
 
+use std::time::Duration;
+
 use reqwest::{Client, Response, Url};
 
 use crate::error::{AppError, AppResult};
@@ -16,6 +18,13 @@ pub(crate) struct HttpResult {
 
 /// Sends `sql` as the body of a `POST /` request, with `params` added to the
 /// query string alongside the output-format settings every request needs.
+///
+/// `response_timeout` bounds how long to wait for the whole response. It is set
+/// for the driver's metadata requests (server version, schema) so a
+/// misconfigured endpoint — one that accepts a TCP connection but never speaks
+/// HTTP, e.g. the native-protocol port 9000 given instead of the HTTP port 8123
+/// — fails with an error instead of hanging the connection forever. It is left
+/// `None` for a console statement, whose runtime is unbounded by design.
 pub(crate) async fn request(
     client: &Client,
     base_url: &str,
@@ -23,15 +32,18 @@ pub(crate) async fn request(
     password: &str,
     sql: &str,
     params: &[(&str, String)],
+    response_timeout: Option<Duration>,
 ) -> AppResult<HttpResult> {
     let url = build_url(base_url, params)?;
-    let response = client
+    let mut builder = client
         .post(url)
         .header("X-ClickHouse-User", user)
         .header("X-ClickHouse-Key", password)
-        .body(sql.to_string())
-        .send()
-        .await?;
+        .body(sql.to_string());
+    if let Some(timeout) = response_timeout {
+        builder = builder.timeout(timeout);
+    }
+    let response = builder.send().await?;
 
     let status = response.status();
     let written_rows = response
