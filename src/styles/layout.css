@@ -269,6 +269,75 @@
   border-color: var(--accent);
 }
 
+/* Engine picker (connection dialog "Type" field) */
+.engine-select {
+  position: relative;
+}
+.engine-select-trigger {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 4px 8px;
+  text-align: left;
+}
+.engine-select-trigger:hover:not(:disabled) {
+  background: var(--bg-input);
+  border-color: var(--accent);
+}
+.engine-select-trigger[aria-expanded="true"] {
+  border-color: var(--accent);
+}
+.engine-select-label {
+  flex: 1;
+}
+.engine-select-caret {
+  color: var(--fg-muted);
+  font-size: 10px;
+}
+.engine-select-popover {
+  position: absolute;
+  z-index: 200;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow: auto;
+  padding: 4px;
+  background: var(--bg-tooltip);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+}
+.engine-select-popover:focus {
+  outline: none;
+}
+.engine-select-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.engine-select-option.highlighted {
+  background: var(--bg-hover);
+}
+.engine-select-option.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+.engine-select-check {
+  margin-left: auto;
+  color: var(--accent);
+}
+
 /* Context menu */
 .context-menu {
   position: fixed;

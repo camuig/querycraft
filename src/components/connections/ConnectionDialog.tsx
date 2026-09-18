@@ -10,12 +10,12 @@ import {
   type FormState,
   formFromConfig,
 } from "../../lib/connectionForm";
-import { DB_KINDS, dialectFor } from "../../lib/dialect";
+import { dialectFor } from "../../lib/dialect";
 import { NO_AUTOCORRECT } from "../../lib/inputProps";
 import { useConnectionsStore } from "../../store/connectionsStore";
 import { useTabsStore } from "../../store/tabsStore";
 import { toast } from "../../store/toastStore";
-import { DbIcon } from "../common/DbIcon";
+import { EngineSelect } from "./EngineSelect";
 
 const COLORS = ["#e55765", "#e6a23c", "#5fad65", "#4a9ede", "#3574f0", "#b384f0"];
 
@@ -196,19 +196,7 @@ export function ConnectionDialog() {
             {tab === "general" ? (
               <div className="form-grid">
                 <span className="form-label">Type</span>
-                <div className="form-row segmented">
-                  {DB_KINDS.map((k) => (
-                    <button
-                      key={k}
-                      type="button"
-                      className={form.kind === k ? "active" : ""}
-                      onClick={() => handleKindChange(k)}
-                    >
-                      <DbIcon kind={k} size={14} />
-                      {dialectFor(k).label}
-                    </button>
-                  ))}
-                </div>
+                <EngineSelect value={form.kind} onChange={handleKindChange} />
 
                 <label htmlFor="conn-name">Name</label>
                 <input
