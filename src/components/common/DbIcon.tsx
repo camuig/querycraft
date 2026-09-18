@@ -13,6 +13,7 @@ const BADGE: Partial<Record<DbKind, BadgeSpec>> = {
   sqlite: { color: "#0F80CC", monogram: "SL" },
   redis: { color: "#DC382D", monogram: "Rd" },
   valkey: { color: "#6B4FBB", monogram: "Vk" },
+  mssql: { color: "#CC2927", monogram: "MS" },
 };
 
 interface DbIconProps {

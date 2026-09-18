@@ -218,6 +218,27 @@ describe("buildInput", () => {
     expect(result).toEqual({ ok: false, error: "Database index must be a number", tab: "general" });
   });
 
+  it("switching to mssql sets port 1433 and user sa", () => {
+    const next = applyKindChange(EMPTY_FORM, "mssql");
+    expect(next.port).toBe("1433");
+    expect(next.user).toBe("sa");
+  });
+
+  it("mssql requires name, host and user like the other network engines", () => {
+    const noUser = buildInput({ ...EMPTY_FORM, kind: "mssql", name: "n", host: "localhost", user: "" }, null);
+    expect(noUser).toEqual({ ok: false, error: "Fill in name, host and user", tab: "general" });
+
+    const result = buildInput(
+      { ...EMPTY_FORM, kind: "mssql", name: "n", host: "localhost", port: "1433", user: "sa" },
+      null,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.input.kind).toBe("mssql");
+    expect(result.input.port).toBe(1433);
+    expect(result.input.user).toBe("sa");
+  });
+
   it("accepts a numeric Redis database index", () => {
     const result = buildInput({ ...EMPTY_FORM, kind: "redis", name: "n", host: "localhost", database: "3" }, null);
     expect(result.ok).toBe(true);

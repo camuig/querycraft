@@ -3,7 +3,7 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { dialectFor } from "../../lib/dialect";
 import { keyMatchPattern, keyPreviewCommand } from "../../lib/redisCommands";
-import { qualify } from "../../lib/sqlBuilder";
+import { buildSelect } from "../../lib/sqlBuilder";
 import { type ConnectionStatus, useConnectionsStore } from "../../store/connectionsStore";
 import { dbKey, tableKey, useExplorerStore } from "../../store/explorerStore";
 import { useTabsStore } from "../../store/tabsStore";
@@ -322,7 +322,8 @@ export function useExplorerTree() {
                 openConsole(
                   node.connectionId,
                   node.database!,
-                  `SELECT * FROM ${qualify(node.database ?? null, node.table!, nodeKind)} LIMIT 500;`,
+                  // buildSelect picks the right row-limit syntax per dialect (LIMIT vs OFFSET/FETCH).
+                  `${buildSelect({ database: node.database ?? null, table: node.table!, kind: nodeKind, limit: 500 })};`,
                 ),
             },
             "divider",

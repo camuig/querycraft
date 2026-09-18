@@ -3,10 +3,24 @@
 import type { CellValue, DbKind } from "../api/types";
 import { dialectFor } from "./dialect";
 
-/** Wraps a name in the engine's identifier quote character, doubling it inside the name. */
+/**
+ * Wraps a name in the engine's identifier quote character, doubling it inside the name.
+ * Engines with `dottedIdentifier` (SQL Server) split the name on the LAST dot and quote each
+ * part separately, so `dbo.Orders` becomes `"dbo"."Orders"` — the documented assumption is that
+ * a table name itself never contains a dot, only the schema.table separator does. A name
+ * without a dot quotes as a single identifier either way.
+ */
 export function quoteIdent(name: string, kind: DbKind): string {
   const q = dialectFor(kind).identifierQuote;
-  return `${q}${name.replace(new RegExp(q, "g"), q + q)}${q}`;
+  const quotePart = (part: string) => `${q}${part.replace(new RegExp(q, "g"), q + q)}${q}`;
+
+  if (dialectFor(kind).dottedIdentifier) {
+    const dotIdx = name.lastIndexOf(".");
+    if (dotIdx >= 0) {
+      return `${quotePart(name.slice(0, dotIdx))}.${quotePart(name.slice(dotIdx + 1))}`;
+    }
+  }
+  return quotePart(name);
 }
 
 /** "`db`.`table`" (or `"db"."table"` for double-quoting engines), or just the table when db === null. */
@@ -60,7 +74,12 @@ export interface BuildSelectOptions {
   offset?: number;
 }
 
-/** Builds SELECT * FROM ... [WHERE ...] [ORDER BY ...] [LIMIT ...] [OFFSET ...]. */
+/**
+ * Builds SELECT * FROM ... [WHERE ...] [ORDER BY ...] and a dialect-aware row limit:
+ * a trailing `LIMIT n [OFFSET m]` for most engines, or SQL Server's
+ * `OFFSET m ROWS FETCH NEXT n ROWS ONLY` (which requires an ORDER BY — when none was
+ * requested but a row limit was, falls back to `ORDER BY (SELECT NULL)`).
+ */
 export function buildSelect(opts: BuildSelectOptions): string {
   let sql = `SELECT * FROM ${qualify(opts.database, opts.table, opts.kind)}`;
 
@@ -69,17 +88,28 @@ export function buildSelect(opts: BuildSelectOptions): string {
     sql += ` WHERE (${where})`;
   }
 
+  let orderByClause = "";
   if (opts.orderBy && opts.orderBy.length > 0) {
     const parts = opts.orderBy.map((o) => `${quoteIdent(o.column, opts.kind)} ${o.dir.toUpperCase()}`);
-    sql += ` ORDER BY ${parts.join(", ")}`;
+    orderByClause = ` ORDER BY ${parts.join(", ")}`;
   }
 
-  if (opts.limit !== undefined && opts.limit > 0) {
-    sql += ` LIMIT ${opts.limit}`;
+  const hasLimit = opts.limit !== undefined && opts.limit > 0;
+
+  if (dialectFor(opts.kind).rowLimit === "fetch") {
+    const offset = opts.offset ?? 0;
+    const needsPaging = hasLimit || offset > 0;
+    sql += needsPaging && !orderByClause ? " ORDER BY (SELECT NULL)" : orderByClause;
+    if (needsPaging) {
+      sql += ` OFFSET ${offset} ROWS`;
+      if (hasLimit) sql += ` FETCH NEXT ${opts.limit} ROWS ONLY`;
+    }
+    return sql;
   }
-  if (opts.offset !== undefined && opts.offset > 0) {
-    sql += ` OFFSET ${opts.offset}`;
-  }
+
+  sql += orderByClause;
+  if (hasLimit) sql += ` LIMIT ${opts.limit}`;
+  if (opts.offset !== undefined && opts.offset > 0) sql += ` OFFSET ${opts.offset}`;
 
   return sql;
 }

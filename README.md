@@ -1,10 +1,10 @@
 # QueryCraft
 
-Fast, lightweight desktop client for MySQL, MariaDB, PostgreSQL, ClickHouse, SQLite, Redis and Valkey in
-the spirit of DataGrip. macOS, Windows and Linux.
+Fast, lightweight desktop client for MySQL, MariaDB, PostgreSQL, SQL Server, ClickHouse, SQLite, Redis and
+Valkey in the spirit of DataGrip. macOS, Windows and Linux.
 
-Built with Tauri 2 (Rust: `mysql_async`, `tokio-postgres`, `rusqlite`, the ClickHouse HTTP interface, `redis`) and
-React 19 / TypeScript, CodeMirror 6 and a virtualized grid.
+Built with Tauri 2 (Rust: `mysql_async`, `tokio-postgres`, `tiberius`, `rusqlite`, the ClickHouse HTTP interface,
+`redis`) and React 19 / TypeScript, CodeMirror 6 and a virtualized grid.
 The binary is small, it starts in well under a second, and it uses a fraction of the memory of Electron-based tools.
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 
@@ -17,9 +17,9 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
 
 ## Features
 
-- **Seven engines** — MySQL, MariaDB, PostgreSQL, ClickHouse, SQLite, Redis and Valkey, each with its own
-  icon in the explorer. The SQL engines share a schema-aware SQL editor with per-dialect identifier
-  quoting; Redis and Valkey get their own key-value console instead (see
+- **Eight engines** — MySQL, MariaDB, PostgreSQL, SQL Server, ClickHouse, SQLite, Redis and Valkey, each
+  with its own icon in the explorer. The SQL engines share a schema-aware SQL editor with per-dialect
+  identifier quoting; Redis and Valkey get their own key-value console instead (see
   [The Redis/Valkey console](#the-redisvalkey-console)). See [Engine notes](#engine-notes) for what differs.
 - **Connections** — create, test and edit connections; passwords are stored in the system keyring
   (Keychain, Credential Manager, Secret Service), never in plain-text files. SQLite connections point at
@@ -33,7 +33,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
   refused. The SSH password or passphrase follows the "Save password" setting.
 - **Database explorer** — databases (schemas for PostgreSQL) → tables and views → columns, indexes,
   foreign keys; for Redis/Valkey, databases 0–15 → keys, loaded with `SCAN` and filterable by pattern.
-  Lazy loading, filtering, context menus, keyboard navigation.
+  SQL Server tables carry their schema in the name (`schema.table`, e.g. `dbo.Orders`) and are qualified
+  as `"db"."schema"."table"` in generated SQL. Lazy loading, filtering, context menus, keyboard navigation.
 - **SQL console** — syntax highlighting and schema-aware autocomplete in the engine's dialect; run the
   statement under the cursor, the selection or the whole script; cancel running queries; multiple result
   sets with timings. Redis/Valkey connections get a dedicated command console instead — see
@@ -90,19 +91,23 @@ The keymap lives in [`src/lib/keymap.ts`](src/lib/keymap.ts).
 
 ## Engine notes
 
-| | MySQL / MariaDB | PostgreSQL | ClickHouse | SQLite | Redis / Valkey |
-|---|---|---|---|---|---|
-| Transport | `mysql_async` (native protocol, TLS) | `tokio-postgres` (TLS) | HTTP interface (`reqwest`), port 8123 | `rusqlite` (bundled SQLite) | `redis` crate (RESP, TLS) |
-| Explorer level under the connection | databases | schemas of the connected database | databases | `main` and attached databases | databases 0–15 (keys) |
-| Session per tab | dedicated connection, `USE db` | dedicated connection, `search_path` | HTTP `session_id` + `database` | dedicated connection | dedicated connection, `SELECT db` |
-| Cancel | `KILL QUERY` | cancel request | `KILL QUERY WHERE query_id = …` | `sqlite3_interrupt` | `CLIENT KILL ID` |
-| SSH tunnel | yes | yes | yes | no (local file) | yes |
-| Grid editing | by primary key | by primary key | read-only | by primary key | key values (by type) |
-| DDL | `SHOW CREATE TABLE` | synthesized from the catalog | `SHOW CREATE TABLE` | `sqlite_master.sql` | n/a |
+| | MySQL / MariaDB | PostgreSQL | SQL Server | ClickHouse | SQLite | Redis / Valkey |
+|---|---|---|---|---|---|---|
+| Transport | `mysql_async` (native protocol, TLS) | `tokio-postgres` (TLS) | `tiberius` (TDS, TLS via rustls) | HTTP interface (`reqwest`), port 8123 | `rusqlite` (bundled SQLite) | `redis` crate (RESP, TLS) |
+| Explorer level under the connection | databases | schemas of the connected database | databases | databases | `main` and attached databases | databases 0–15 (keys) |
+| Session per tab | dedicated connection, `USE db` | dedicated connection, `search_path` | dedicated connection, `USE db` | HTTP `session_id` + `database` | dedicated connection | dedicated connection, `SELECT db` |
+| Cancel | `KILL QUERY` | cancel request | `KILL <spid>` | `KILL QUERY WHERE query_id = …` | `sqlite3_interrupt` | `CLIENT KILL ID` |
+| SSH tunnel | yes | yes | yes | yes | no (local file) | yes |
+| Grid editing | by primary key | by primary key | by primary key | read-only | by primary key | key values (by type) |
+| DDL | `SHOW CREATE TABLE` | synthesized from the catalog | synthesized from the catalog | `SHOW CREATE TABLE` | `sqlite_master.sql` | n/a |
 
 PostgreSQL results are fetched with the simple query protocol (every value arrives as text and is typed by
 the prepared statement's description), so a console `SELECT` without `LIMIT` is buffered before the row
-limit is applied. ClickHouse has no row-level `UPDATE`/`DELETE`, so its data tabs are read-only.
+limit is applied. ClickHouse has no row-level `UPDATE`/`DELETE`, so its data tabs are read-only. SQL Server
+has no `LIMIT`/`OFFSET`; table data paging uses `OFFSET … ROWS FETCH NEXT … ROWS ONLY`, which requires an
+`ORDER BY` (a page without an explicit sort falls back to `ORDER BY (SELECT NULL)`). SQL Server is the one
+backend on `rustls` rather than `native-tls`: SQL Server always TLS-wraps its login packet, and on macOS
+`native-tls` (the system Security framework) cannot complete that handshake at all.
 
 ## The Redis/Valkey console
 

@@ -1,6 +1,6 @@
 # QueryCraft — architecture
 
-A DataGrip-style desktop client for MySQL, MariaDB, PostgreSQL, ClickHouse, SQLite, Redis and Valkey. Cross-platform (macOS, Windows, Linux), fast.
+A DataGrip-style desktop client for MySQL, MariaDB, PostgreSQL, SQL Server, ClickHouse, SQLite, Redis and Valkey. Cross-platform (macOS, Windows, Linux), fast.
 
 ## Stack
 
@@ -10,6 +10,7 @@ A DataGrip-style desktop client for MySQL, MariaDB, PostgreSQL, ClickHouse, SQLi
 | Backend | Rust, tokio | One `Driver`/`Session` trait pair, engine modules behind it |
 | MySQL / MariaDB | `mysql_async` | Async native protocol, streaming result reads, `KILL QUERY` |
 | PostgreSQL | `tokio-postgres` + `postgres-native-tls` | Simple-query protocol for text results, cancel tokens |
+| SQL Server | `tiberius` (TDS, TLS via rustls — see below) | Schema-qualified tables (`schema.table`), `OFFSET/FETCH` paging, `KILL <spid>` |
 | ClickHouse | `reqwest` (HTTP interface) | `JSONCompactEachRowWithNamesAndTypes`, `session_id`, `KILL QUERY` |
 | SQLite | `rusqlite` (bundled) | Embedded engine, `sqlite3_interrupt` for cancellation |
 | Redis / Valkey | `redis` (RESP, TLS) | Key-value console (one command per line) instead of SQL, `SCAN`-based explorer |
@@ -39,11 +40,12 @@ Out of scope: ER diagrams, migrations, schema refactoring, schema comparison, SS
 
 `src-tauri/src/db/mod.rs` defines two traits. A `Driver` is one opened connection config: it answers schema queries from a metadata connection (or pool), opens per-tab `Session`s and cancels their statements. A `Session` runs one statement at a time (`run` returns one `StatementResult` per result set, truncated at the row limit) and applies parameterized changes in a transaction (`apply`). `ConnectionManager` (`db/manager.rs`) and the execution loop (`db/execute.rs`) only talk to these traits; `open_driver` picks the module by `DbKind`.
 
-Everything engine-specific lives under `db/<engine>/`: connecting and TLS, value → JSON conversion, catalog queries mapped onto the shared `TableInfo` / `ColumnInfo` / `IndexInfo` / `ForeignKeyInfo` shapes (the frontend relies on `key == "PRI"` to find primary keys), DDL retrieval and the cancel mechanism (`CancelHandle`). The frontend mirrors this with `src/lib/dialect.ts`: identifier quoting, literal escaping, defaults for the connection form and feature flags such as `supportsEditing`, a `queryLanguage` ("sql" or "redis") that switches the console/editor/explorer between the SQL and key-value UIs, plus a CodeMirror dialect per SQL engine (`src/components/editor/sqlDialects.ts`) or the Redis command language (`src/components/editor/redisLanguage.ts`).
+Everything engine-specific lives under `db/<engine>/`: connecting and TLS, value → JSON conversion, catalog queries mapped onto the shared `TableInfo` / `ColumnInfo` / `IndexInfo` / `ForeignKeyInfo` shapes (the frontend relies on `key == "PRI"` to find primary keys), DDL retrieval and the cancel mechanism (`CancelHandle`). The frontend mirrors this with `src/lib/dialect.ts`: identifier quoting, literal escaping, defaults for the connection form and feature flags such as `supportsEditing`, a `queryLanguage` ("sql" or "redis") that switches the console/editor/explorer between the SQL and key-value UIs, a `rowLimit` ("limit" for a trailing `LIMIT`/`OFFSET`, "fetch" for SQL Server's `OFFSET/FETCH`) that `src/lib/sqlBuilder.ts#buildSelect` uses to generate the right pagination clause, and a `dottedIdentifier` flag (SQL Server only) that makes `quoteIdent`/`qualify` split a `schema.table` name on its last dot and quote each part, plus a CodeMirror dialect per SQL engine (`src/components/editor/sqlDialects.ts`) or the Redis command language (`src/components/editor/redisLanguage.ts`).
 
 Notable mappings:
 
 - PostgreSQL: a connection is bound to one database, so the explorer's "database" level lists **schemas**; sessions run `SET search_path`. Results are read with the simple query protocol (text values typed by the prepared statement's row description); `?` placeholders in generated DML are rewritten to `$n` and parameters are sent as text. The statement splitter understands dollar quoting.
+- SQL Server: tables are listed schema-qualified (`schema.table`, e.g. `dbo.Orders`) and quoted as a 3-part identifier (`"db"."schema"."table"`); the catalog splits on the last dot the same way the frontend does. `SELECT` paging has no `LIMIT`, so it uses `OFFSET m ROWS FETCH NEXT n ROWS ONLY`, which requires an `ORDER BY` — pages without an explicit sort fall back to `ORDER BY (SELECT NULL)`. Cancellation kills the session's SPID (`KILL <spid>`). Unlike every other backend, `tiberius` is built with its `rustls` feature rather than `native-tls`: SQL Server always TLS-wraps the login packet regardless of the connection's TLS setting, and on macOS `native-tls` (the system Security framework) cannot complete that handshake at all — connections fail outright, independent of certificate trust settings.
 - ClickHouse: every statement is an HTTP POST with `session_id` (keeps `USE`/`SET` per tab) and `query_id` (for `KILL QUERY`); results come as `JSONCompactEachRowWithNamesAndTypes`, truncation uses `max_result_rows` + `result_overflow_mode=break`. No transactions or row-level updates — data tabs are read-only.
 - SQLite: one `rusqlite::Connection` per session behind `spawn_blocking`; the explorer lists `PRAGMA database_list`.
 - Redis / Valkey: not a SQL engine, so `queryLanguage: "redis"` routes the frontend onto a different set of components instead of the SQL ones — a `StreamLanguage` editor (`redisLanguage.ts`) instead of `@codemirror/lang-sql`, `splitCommands`/`commandAtCursor` (`src/lib/commandSplit.ts`) instead of `sqlSplit.ts`, and a `KeyInfo`/`KeyListing` key catalog (`list_keys`, `SCAN`-based) instead of `TableInfo`. `listTables` returns `[]` and `listDatabases` returns `"0"`..`"15"`; grid editing, DDL and foreign keys do not apply.
@@ -99,7 +101,7 @@ src/
   components/
     layout/           — AppShell, Toolbar, StatusBar, TabsBar, TabContent, useAppCommands (global shortcuts + menu)
     explorer/         — database tree: panel, tree model, row, context menu, keyboard nav
-    connections/      — connection dialog
+    connections/      — connection dialog, EngineSelect (icon + label dropdown/listbox for the Type field)
     editor/           — SqlEditor (CodeMirror), per-engine dialects, redisLanguage (Redis/Valkey), ConsoleTab, editor commands
     grid/             — DataGrid (virtualized), ResultsPanel, GridCell, selection hook, ExportMenu
     table/            — TableDataTab (view + edit), TableDdlTab, WhereInput
@@ -116,4 +118,4 @@ All commands return `Result<T, String>`; the error string is shown to the user. 
 ## Tests
 
 - Rust: `cargo test` — SQL splitting, value conversion, connection store, per-engine parsing helpers, and an end-to-end SQLite suite (`tests/sqlite.rs`). Live suites for MySQL, PostgreSQL and ClickHouse run when the matching `QUERYCRAFT_TEST_*_DSN` variable is set (servers in `docker-compose.yml`); `live_tls` and `live_ssh` need the servers from `scripts/tls-servers.sh` and `scripts/ssh-server.sh`.
-- TS: `vitest` — sqlSplit (cursor position), sqlBuilder (quoting per dialect, UPDATE/INSERT/DELETE generation), changeTracker (including `countChanges`), dialect table, pasteParser (delimiter detection, quoted fields), whereSuggest, format/export, keymap, commandBus, editor commands, explorer tree model, commandSplit and redisCommands (Redis/Valkey console), redisLanguage (tokenizer and autocomplete), redisKeyEditor (load command per `TYPE`, edit capabilities, statement generation and validation per key type).
+- TS: `vitest` — sqlSplit (cursor position), sqlBuilder (quoting per dialect including SQL Server's dotted `schema.table` identifiers, UPDATE/INSERT/DELETE generation, `LIMIT`/`OFFSET` vs `OFFSET/FETCH` paging), changeTracker (including `countChanges`), dialect table, connectionForm (per-engine defaults and validation), pasteParser (delimiter detection, quoted fields), whereSuggest, format/export, keymap, commandBus, editor commands, explorer tree model, commandSplit and redisCommands (Redis/Valkey console), redisLanguage (tokenizer and autocomplete), redisKeyEditor (load command per `TYPE`, edit capabilities, statement generation and validation per key type).

@@ -1,5 +1,5 @@
 // Maps a connection's engine to the CodeMirror SQL dialect used for highlighting and completion.
-import { MariaSQL, MySQL, PostgreSQL, SQLDialect, SQLite } from "@codemirror/lang-sql";
+import { MariaSQL, MSSQL, MySQL, PostgreSQL, SQLDialect, SQLite } from "@codemirror/lang-sql";
 import type { DbKind } from "../../api/types";
 
 const CLICKHOUSE_KEYWORDS =
@@ -44,6 +44,7 @@ const DIALECT_BY_KIND: Partial<Record<DbKind, SQLDialect>> = {
   postgres: PostgreSQL,
   clickhouse: ClickHouse,
   sqlite: SQLite,
+  mssql: MSSQL,
 };
 
 /** Falls back to MySQL for non-SQL kinds — callers pick the language extension by `queryLanguage` first. */

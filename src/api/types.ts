@@ -2,7 +2,7 @@
 // All fields are camelCase (serde rename_all = "camelCase" on the Rust side).
 
 /** Supported database engines (serialized in lowercase, see `DbKind` in src-tauri/src/db/mod.rs). */
-export type DbKind = "mysql" | "mariadb" | "postgres" | "clickhouse" | "sqlite" | "redis" | "valkey";
+export type DbKind = "mysql" | "mariadb" | "postgres" | "clickhouse" | "sqlite" | "redis" | "valkey" | "mssql";
 
 /** What a console sends to the engine: SQL statements or key-value commands (one per line, redis-cli syntax). */
 export type QueryLanguage = "sql" | "redis";

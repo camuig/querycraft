@@ -66,6 +66,23 @@ let connections: ConnectionConfig[] = [
     hasPassword: false,
     hasSshSecret: false,
   },
+  {
+    id: "mock-4",
+    name: "reporting (mock)",
+    kind: "mssql",
+    host: "localhost",
+    port: 1433,
+    user: "sa",
+    database: null,
+    ssl: false,
+    sslVerify: true,
+    sslCaPath: null,
+    color: "#4a9ede",
+    path: null,
+    ssh: null,
+    hasPassword: true,
+    hasSshSecret: false,
+  },
 ];
 
 const tables: Record<string, TableInfo[]> = {
@@ -77,6 +94,11 @@ const tables: Record<string, TableInfo[]> = {
     { name: "active_customers", kind: "view", engine: null, rows: null, comment: "" },
   ],
   information_schema: [{ name: "TABLES", kind: "view", engine: null, rows: null, comment: "" }],
+  // SQL Server: tables are listed schema-qualified (see docs/ARCHITECTURE.md).
+  AdventureWorks: [
+    { name: "dbo.customers", kind: "table", engine: null, rows: 3, comment: "" },
+    { name: "sales.invoice", kind: "table", engine: null, rows: 3, comment: "" },
+  ],
 };
 
 const col = (
@@ -126,6 +148,16 @@ const columns: Record<string, ColumnInfo[]> = {
   active_customers: [
     col("id", "int", "int unsigned", "", false, 1),
     col("email", "varchar", "varchar(255)", "", false, 2),
+  ],
+  "dbo.customers": [
+    col("id", "int", "int", "PRI", false, 1),
+    col("email", "nvarchar", "nvarchar(255)", "", false, 2),
+    col("name", "nvarchar", "nvarchar(100)", "", false, 3),
+  ],
+  "sales.invoice": [
+    col("id", "bigint", "bigint", "PRI", false, 1),
+    col("customer_id", "int", "int", "MUL", false, 2),
+    col("total", "decimal", "decimal(12,2)", "", false, 3),
   ],
 };
 
@@ -286,6 +318,9 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
       const conn = connections.find((c) => c.id === a.connectionId);
       if (conn?.kind === "redis" || conn?.kind === "valkey") {
         return Array.from({ length: 16 }, (_, i) => String(i)) as T;
+      }
+      if (conn?.kind === "mssql") {
+        return ["master", "AdventureWorks"] as T;
       }
       return ["information_schema", "shop"] as T;
     }

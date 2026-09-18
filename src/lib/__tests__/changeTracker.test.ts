@@ -251,3 +251,24 @@ describe("buildStatements — postgres", () => {
     });
   });
 });
+
+describe("buildStatements — mssql (dotted schema.table)", () => {
+  it("qualifies a schema.table name as a 3-part identifier in UPDATE", () => {
+    const t = new ChangeTracker(rows, columns, pk, "mssql").setCell(0, 1, "Alicia");
+    const stmts = t.buildStatements("qc_test", "sales.Invoice");
+    expect(stmts).toHaveLength(1);
+    expect(stmts[0]).toEqual({
+      sql: 'UPDATE "qc_test"."sales"."Invoice" SET "name"=? WHERE "id"=?',
+      params: ["Alicia", 1],
+    });
+  });
+
+  it("qualifies a schema.table name as a 3-part identifier in DELETE and INSERT", () => {
+    const t = new ChangeTracker(rows, columns, pk, "mssql").deleteRow(1);
+    const stmts = t.buildStatements("qc_test", "dbo.Orders");
+    expect(stmts[0]).toEqual({
+      sql: 'DELETE FROM "qc_test"."dbo"."Orders" WHERE "id"=?',
+      params: [2],
+    });
+  });
+});
