@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { KEY_TYPE_GLYPH } from "../../lib/redisCommands";
 import { DbIcon } from "../common/DbIcon";
 import type { TreeNode } from "./treeModel";
 
@@ -13,6 +14,7 @@ const KIND_ICON: Partial<Record<TreeNode["kind"], string>> = {
   "group-fks": "📁",
   index: "◆",
   fk: "⛓",
+  "group-keys": "📁",
 };
 
 interface TreeRowProps {
@@ -76,6 +78,11 @@ export function TreeRow({
       )}
 
       {KIND_ICON[node.kind] && <span className="tree-icon">{KIND_ICON[node.kind]}</span>}
+      {node.kind === "key" && (
+        <span className="tree-icon tree-icon-type muted" title={node.keyType}>
+          {KEY_TYPE_GLYPH[node.keyType ?? ""] ?? "?"}
+        </span>
+      )}
       {node.keyGlyph && (
         <span className="tree-icon" title={node.keyGlyph === "🔑" ? "primary key" : "index"}>
           {node.keyGlyph}

@@ -1,11 +1,13 @@
 // Mock IPC for UI development in a plain browser (without Tauri): `pnpm dev` and open http://localhost:1420.
 // Activated only when window.__TAURI_INTERNALS__ is absent. Not used in the application build.
+import { applyRedisMockChanges, mockRedisKeys, runRedisMockQuery } from "./mockRedis";
 import type {
   ColumnInfo,
   ColumnMeta,
   ConnectionConfig,
   ConnectionInput,
   ExecuteRequest,
+  ParamStatement,
   StatementResult,
   TableInfo,
 } from "./types";
@@ -46,6 +48,23 @@ let connections: ConnectionConfig[] = [
     ssh: { host: "bastion.example.com", port: 22, user: "deploy", auth: "key", keyPath: "~/.ssh/id_ed25519" },
     hasPassword: false,
     hasSshSecret: true,
+  },
+  {
+    id: "mock-3",
+    name: "cache (mock)",
+    kind: "redis",
+    host: "localhost",
+    port: 6379,
+    user: "",
+    database: "0",
+    ssl: false,
+    sslVerify: true,
+    sslCaPath: null,
+    color: "#5fad65",
+    path: null,
+    ssh: null,
+    hasPassword: false,
+    hasSshSecret: false,
   },
 ];
 
@@ -263,10 +282,17 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
     case "count_query":
       await delay(400);
       return 12345 as T;
-    case "list_databases":
+    case "list_databases": {
+      const conn = connections.find((c) => c.id === a.connectionId);
+      if (conn?.kind === "redis" || conn?.kind === "valkey") {
+        return Array.from({ length: 16 }, (_, i) => String(i)) as T;
+      }
       return ["information_schema", "shop"] as T;
+    }
     case "list_tables":
       return (tables[a.database] ?? []) as T;
+    case "list_keys":
+      return mockRedisKeys(a.database, String(args.pattern ?? "*"), Number(args.limit ?? 1000)) as T;
     case "list_columns":
       return (columns[a.table] ?? []) as T;
     case "list_indexes":
@@ -298,6 +324,10 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
       return `CREATE TABLE \`${a.table}\` (\n  \`id\` int NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (\`id\`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4` as T;
     case "execute_query": {
       const req = args.request as ExecuteRequest;
+      const execConn = connections.find((c) => c.id === req.connectionId)?.kind;
+      if (execConn === "redis" || execConn === "valkey") {
+        return runRedisMockQuery(req.sql, req.database ?? "0") as T;
+      }
       if (req.sql.toLowerCase().includes("sleep")) await delay(5000);
       const parts = req.sql
         .split(";")
@@ -311,8 +341,14 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
       }
       return out as T;
     }
-    case "apply_changes":
+    case "apply_changes": {
+      const applyConn = connections.find((c) => c.id === a.connectionId)?.kind;
+      if (applyConn === "redis" || applyConn === "valkey") {
+        const affectedRows = applyRedisMockChanges(args.statements as ParamStatement[]);
+        return { affectedRows, durationMs: 12 } as T;
+      }
       return { affectedRows: (args.statements as unknown[]).length, durationMs: 12 } as T;
+    }
     case "list_history":
       return [] as T;
     default:

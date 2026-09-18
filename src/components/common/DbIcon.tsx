@@ -11,6 +11,8 @@ const BADGE: Partial<Record<DbKind, BadgeSpec>> = {
   mariadb: { color: "#C0765A", monogram: "Ma" },
   postgres: { color: "#336791", monogram: "Pg" },
   sqlite: { color: "#0F80CC", monogram: "SL" },
+  redis: { color: "#DC382D", monogram: "Rd" },
+  valkey: { color: "#6B4FBB", monogram: "Vk" },
 };
 
 interface DbIconProps {

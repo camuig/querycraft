@@ -37,7 +37,8 @@ export const ClickHouse = SQLDialect.define({
   caseInsensitiveIdentifiers: false,
 });
 
-const DIALECT_BY_KIND: Record<DbKind, SQLDialect> = {
+/** Only SQL engines have a CodeMirror SQL dialect; Redis/Valkey use `redisLanguage` instead. */
+const DIALECT_BY_KIND: Partial<Record<DbKind, SQLDialect>> = {
   mysql: MySQL,
   mariadb: MariaSQL,
   postgres: PostgreSQL,
@@ -45,6 +46,7 @@ const DIALECT_BY_KIND: Record<DbKind, SQLDialect> = {
   sqlite: SQLite,
 };
 
+/** Falls back to MySQL for non-SQL kinds — callers pick the language extension by `queryLanguage` first. */
 export function editorDialect(kind: DbKind): SQLDialect {
-  return DIALECT_BY_KIND[kind];
+  return DIALECT_BY_KIND[kind] ?? MySQL;
 }

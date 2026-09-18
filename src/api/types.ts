@@ -2,7 +2,10 @@
 // All fields are camelCase (serde rename_all = "camelCase" on the Rust side).
 
 /** Supported database engines (serialized in lowercase, see `DbKind` in src-tauri/src/db/mod.rs). */
-export type DbKind = "mysql" | "mariadb" | "postgres" | "clickhouse" | "sqlite";
+export type DbKind = "mysql" | "mariadb" | "postgres" | "clickhouse" | "sqlite" | "redis" | "valkey";
+
+/** What a console sends to the engine: SQL statements or key-value commands (one per line, redis-cli syntax). */
+export type QueryLanguage = "sql" | "redis";
 
 /** How the SSH tunnel authenticates: a password, a private key file (optionally with a passphrase) or the running OpenSSH agent. */
 export type SshAuth = "password" | "key" | "agent";
@@ -97,6 +100,23 @@ export interface ColumnInfo {
   comment: string;
   /** Ordinal position, starting at 1. */
   ordinal: number;
+}
+
+/** One key of a key-value engine (Redis, Valkey) — the explorer's counterpart of `TableInfo`. */
+export interface KeyInfo {
+  name: string;
+  /** Redis `TYPE` reply: "string" | "hash" | "list" | "set" | "zset" | "stream" | ... */
+  keyType: string;
+  /** Number of elements (hash fields, list items, set members, stream entries) or the string length. */
+  length: number | null;
+  /** Seconds until expiry; null when the key does not expire. */
+  ttl: number | null;
+}
+
+export interface KeyListing {
+  keys: KeyInfo[];
+  /** More keys match the pattern than the requested limit. */
+  truncated: boolean;
 }
 
 export interface IndexInfo {

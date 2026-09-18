@@ -62,6 +62,10 @@
   justify-content: center;
   width: 14px;
 }
+.tree-icon-type {
+  font-size: 9px;
+  font-weight: 700;
+}
 
 .tree-label {
   overflow: hidden;

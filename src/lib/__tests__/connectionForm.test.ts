@@ -74,6 +74,13 @@ describe("applyKindChange", () => {
     // The rest of the SSH fields are left alone so re-enabling it does not lose them.
     expect(next.sshHost).toBe("bastion");
   });
+
+  it("switches port, user and database to Redis defaults", () => {
+    const next = applyKindChange(EMPTY_FORM, "redis");
+    expect(next.port).toBe("6379");
+    expect(next.user).toBe("");
+    expect(next.database).toBe("0");
+  });
 });
 
 describe("buildInput", () => {
@@ -189,5 +196,32 @@ describe("buildInput", () => {
   it("requires a name and file path for file-based engines", () => {
     const result = buildInput({ ...EMPTY_FORM, kind: "sqlite", name: "", path: "" }, null);
     expect(result).toEqual({ ok: false, error: "Fill in name and file path", tab: "general" });
+  });
+
+  it("does not require a user for Redis/Valkey (empty means the default user)", () => {
+    const result = buildInput({ ...EMPTY_FORM, kind: "redis", name: "n", host: "localhost", user: "" }, null);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.input.user).toBe("");
+  });
+
+  it("still requires a user for SQL engines", () => {
+    const result = buildInput({ ...EMPTY_FORM, kind: "mysql", name: "n", host: "localhost", user: "" }, null);
+    expect(result).toEqual({ ok: false, error: "Fill in name, host and user", tab: "general" });
+  });
+
+  it("rejects a non-numeric Redis database index", () => {
+    const result = buildInput(
+      { ...EMPTY_FORM, kind: "redis", name: "n", host: "localhost", database: "notanum" },
+      null,
+    );
+    expect(result).toEqual({ ok: false, error: "Database index must be a number", tab: "general" });
+  });
+
+  it("accepts a numeric Redis database index", () => {
+    const result = buildInput({ ...EMPTY_FORM, kind: "redis", name: "n", host: "localhost", database: "3" }, null);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.input.database).toBe("3");
   });
 });

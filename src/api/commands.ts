@@ -12,6 +12,7 @@ import type {
   ExportSummary,
   ForeignKeyInfo,
   IndexInfo,
+  KeyListing,
   ParamStatement,
   QueryHistoryEntry,
   RowsExportRequest,
@@ -49,6 +50,10 @@ export const listDatabases = (connectionId: string) => invoke<string[]>("list_da
 
 export const listTables = (connectionId: string, database: string) =>
   invoke<TableInfo[]>("list_tables", { connectionId, database });
+
+/** Keys of a key-value engine matching a glob pattern (`*` for all), at most `limit` of them. */
+export const listKeys = (connectionId: string, database: string, pattern: string, limit: number) =>
+  invoke<KeyListing>("list_keys", { connectionId, database, pattern, limit });
 
 export const listColumns = (connectionId: string, database: string, table: string) =>
   invoke<ColumnInfo[]>("list_columns", { connectionId, database, table });

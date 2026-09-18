@@ -1,8 +1,18 @@
 // Pure explorer tree model: builds a flat list of visible nodes
 // from store state (no side effects — data loading is triggered by ExplorerPanel).
-import type { ColumnInfo, ConnectionConfig, DbKind, ForeignKeyInfo, IndexInfo, TableInfo } from "../../api/types";
+import type {
+  ColumnInfo,
+  ConnectionConfig,
+  DbKind,
+  ForeignKeyInfo,
+  IndexInfo,
+  KeyListing,
+  TableInfo,
+} from "../../api/types";
+import { dialectFor } from "../../lib/dialect";
+import { keyMatchPattern } from "../../lib/redisCommands";
 import type { ConnectionStatus } from "../../store/connectionsStore";
-import { dbKey, tableKey } from "../../store/explorerStore";
+import { dbKey, keysKey, tableKey } from "../../store/explorerStore";
 
 export type NodeKind =
   | "connection"
@@ -17,6 +27,8 @@ export type NodeKind =
   | "index"
   | "group-fks"
   | "fk"
+  | "group-keys"
+  | "key"
   | "loading"
   | "error"
   | "empty";
@@ -38,6 +50,8 @@ export interface TreeNode {
   keyGlyph?: string;
   /** Engine of the connection node, used to pick its icon. */
   dbKind?: DbKind;
+  /** Redis `TYPE` of a `key` node ("string", "hash", ...). */
+  keyType?: string;
 }
 
 export interface TreeModelInput {
@@ -48,6 +62,8 @@ export interface TreeModelInput {
   columns: Record<string, ColumnInfo[]>;
   indexes: Record<string, IndexInfo[]>;
   foreignKeys: Record<string, ForeignKeyInfo[]>;
+  /** Redis/Valkey: keys per database, keyed by `keysKey(connectionId, db, pattern)`. */
+  keys: Record<string, KeyListing>;
   loading: Record<string, boolean>;
   errors: Record<string, string>;
   expanded: Record<string, boolean>;
@@ -90,7 +106,8 @@ function statusChildren(
 }
 
 export function buildTree(input: TreeModelInput): TreeNode[] {
-  const filter = input.filter.trim().toLowerCase();
+  const rawFilter = input.filter.trim();
+  const filter = rawFilter.toLowerCase();
   const result: TreeNode[] = [];
 
   for (const conn of input.connections) {
@@ -130,11 +147,15 @@ export function buildTree(input: TreeModelInput): TreeNode[] {
     const dbs = input.databases[cKey];
     if (!dbs) continue;
 
+    const isRedis = dialectFor(conn.kind).queryLanguage === "redis";
+
     for (const db of dbs) {
       const dKey = dbKey(conn.id, db);
       const dbTables = input.tables[dKey];
       const dbMatches = matches(db, filter);
-      const hasMatchingTable = filter !== "" && dbTables?.some((t) => matches(t.name, filter));
+      // Redis keys are filtered server-side (MATCH pattern), never locally — only the database
+      // name itself is matched against the text filter.
+      const hasMatchingTable = !isRedis && filter !== "" && dbTables?.some((t) => matches(t.name, filter));
       if (filter !== "" && !dbMatches && !hasMatchingTable) continue;
 
       result.push({
@@ -149,6 +170,21 @@ export function buildTree(input: TreeModelInput): TreeNode[] {
       });
 
       if (!input.expanded[dKey]) continue;
+
+      if (isRedis) {
+        const pattern = keyMatchPattern(rawFilter);
+        const kKey = keysKey(conn.id, db, pattern);
+        if (input.loading[kKey]) {
+          result.push(...statusChildren(2, conn.id, db, kKey, true, undefined));
+          continue;
+        }
+        if (input.errors[kKey]) {
+          result.push(...statusChildren(2, conn.id, db, kKey, false, input.errors[kKey]));
+          continue;
+        }
+        pushKeysGroup(result, conn.id, db, dKey, input.keys[kKey], input);
+        continue;
+      }
 
       if (input.loading[dKey]) {
         result.push(...statusChildren(2, conn.id, db, dKey, true, undefined));
@@ -167,6 +203,49 @@ export function buildTree(input: TreeModelInput): TreeNode[] {
   }
 
   return result;
+}
+
+/**
+ * The "Keys" group node under a Redis/Valkey database, and its key children when expanded.
+ * The keys listing itself is fetched when the DATABASE node expands (see useExplorerTree), so by
+ * the time this runs it is either already cached or the database shows a loading/error placeholder
+ * instead of this group — same as the SQL Tables/Views groups need `dbTables` to be loaded first.
+ */
+function pushKeysGroup(
+  result: TreeNode[],
+  connectionId: string,
+  database: string,
+  dKey: string,
+  listing: KeyListing | undefined,
+  input: TreeModelInput,
+) {
+  const gKey = `${dKey}#group-keys`;
+  result.push({
+    key: gKey,
+    kind: "group-keys",
+    depth: 2,
+    connectionId,
+    database,
+    label: "Keys",
+    secondary: listing ? `${fmtCount(listing.keys.length)}${listing.truncated ? "+" : ""}` : undefined,
+    expandable: true,
+  });
+  if (!input.expanded[gKey] || !listing) return;
+
+  for (const k of listing.keys) {
+    result.push({
+      key: `${gKey}/${k.name}`,
+      kind: "key",
+      depth: 3,
+      connectionId,
+      database,
+      label: k.name,
+      secondary: k.length != null ? `${k.keyType} · ${fmtCount(k.length)}` : k.keyType,
+      title: k.ttl != null ? `TTL ${k.ttl} s` : undefined,
+      expandable: false,
+      keyType: k.keyType,
+    });
+  }
 }
 
 function pushTableGroup(

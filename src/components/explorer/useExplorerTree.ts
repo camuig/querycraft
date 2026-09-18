@@ -1,6 +1,8 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { dialectFor } from "../../lib/dialect";
+import { keyMatchPattern, keyPreviewCommand } from "../../lib/redisCommands";
 import { qualify } from "../../lib/sqlBuilder";
 import { type ConnectionStatus, useConnectionsStore } from "../../store/connectionsStore";
 import { dbKey, tableKey, useExplorerStore } from "../../store/explorerStore";
@@ -11,6 +13,9 @@ import { buildTree, type TreeNode } from "./treeModel";
 import { useExplorerKeyboard } from "./useExplorerKeyboard";
 
 export const ROW_HEIGHT = 22;
+
+/** Debounce for reloading Redis keys of expanded databases when the explorer filter changes. */
+const KEY_FILTER_DEBOUNCE_MS = 300;
 
 /** All explorer tree logic: data, visible nodes, virtualization, handlers. */
 export function useExplorerTree() {
@@ -24,6 +29,7 @@ export function useExplorerTree() {
   const openConsole = useTabsStore((s) => s.openConsole);
   const openTableData = useTabsStore((s) => s.openTableData);
   const openDdl = useTabsStore((s) => s.openDdl);
+  const openKeyData = useTabsStore((s) => s.openKeyData);
   const closeTabsForConnection = useTabsStore((s) => s.closeTabsForConnection);
 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; node: TreeNode } | null>(null);
@@ -44,6 +50,7 @@ export function useExplorerTree() {
         columns: explorer.columns,
         indexes: explorer.indexes,
         foreignKeys: explorer.foreignKeys,
+        keys: explorer.keys,
         loading: explorer.loading,
         errors: explorer.errors,
         expanded: explorer.expanded,
@@ -57,6 +64,7 @@ export function useExplorerTree() {
       explorer.columns,
       explorer.indexes,
       explorer.foreignKeys,
+      explorer.keys,
       explorer.loading,
       explorer.errors,
       explorer.expanded,
@@ -71,6 +79,14 @@ export function useExplorerTree() {
     estimateSize: () => ROW_HEIGHT,
     overscan: 20,
   });
+
+  const isRedisConnection = useCallback(
+    (connectionId: string) => {
+      const kind = connections.find((c) => c.id === connectionId)?.kind;
+      return !!kind && dialectFor(kind).queryLanguage === "redis";
+    },
+    [connections],
+  );
 
   const handleSelect = useCallback(
     (node: TreeNode) => explorer.selectNode(node.key, node.connectionId, node.database ?? null),
@@ -94,7 +110,14 @@ export function useExplorerTree() {
             break;
           }
           case "database":
-            await explorer.loadTables(node.connectionId, node.database!);
+            if (isRedisConnection(node.connectionId)) {
+              await explorer.loadKeys(node.connectionId, node.database!, keyMatchPattern(explorer.filter));
+            } else {
+              await explorer.loadTables(node.connectionId, node.database!);
+            }
+            break;
+          case "group-keys":
+            await explorer.loadKeys(node.connectionId, node.database!, keyMatchPattern(explorer.filter));
             break;
           case "table":
           case "view":
@@ -113,8 +136,33 @@ export function useExplorerTree() {
         // the error is already stored in explorerStore.errors and will render in the tree
       }
     },
-    [connect, explorer, runtimeStatus],
+    [connect, explorer, runtimeStatus, isRedisConnection],
   );
+
+  // Reload keys of every expanded Redis database when the explorer filter changes (server-side MATCH).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only re-runs when the filter text changes, not on every expand/collapse
+  useEffect(() => {
+    // A bare "database" node key is exactly `${connectionId}/${database}` (no further "/" or "#" —
+    // that would be a table or a group-keys node key instead).
+    const expandedRedisDatabases = Object.keys(explorer.expanded).filter((key) => {
+      if (!explorer.expanded[key] || key.includes("#")) return false;
+      const slashIdx = key.indexOf("/");
+      if (slashIdx < 0 || key.indexOf("/", slashIdx + 1) >= 0) return false;
+      return isRedisConnection(key.slice(0, slashIdx));
+    });
+    if (expandedRedisDatabases.length === 0) return;
+
+    const timer = window.setTimeout(() => {
+      const pattern = keyMatchPattern(explorer.filter);
+      for (const key of expandedRedisDatabases) {
+        const slashIdx = key.indexOf("/");
+        const connectionId = key.slice(0, slashIdx);
+        const database = key.slice(slashIdx + 1);
+        void explorer.loadKeys(connectionId, database, pattern, true).catch(() => undefined);
+      }
+    }, KEY_FILTER_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [explorer.filter]);
 
   const handleToggleExpand = useCallback(
     (node: TreeNode) => {
@@ -132,19 +180,23 @@ export function useExplorerTree() {
         case "view":
           openTableData(node.connectionId, node.database!, node.table!);
           break;
+        case "key":
+          openKeyData(node.connectionId, node.database!, node.label, node.keyType ?? "");
+          break;
         case "connection":
         case "database":
         case "group-tables":
         case "group-views":
         case "group-indexes":
         case "group-fks":
+        case "group-keys":
           handleToggleExpand(node);
           break;
         default:
           break;
       }
     },
-    [openTableData, handleToggleExpand],
+    [openTableData, openKeyData, handleToggleExpand],
   );
 
   const handleRefreshNode = useCallback(
@@ -157,7 +209,18 @@ export function useExplorerTree() {
         case "database": {
           const key = dbKey(node.connectionId, node.database!);
           explorer.invalidate(key);
-          if (explorer.expanded[key]) void explorer.loadTables(node.connectionId, node.database!, true);
+          if (!explorer.expanded[key]) break;
+          if (isRedisConnection(node.connectionId)) {
+            void explorer.loadKeys(node.connectionId, node.database!, keyMatchPattern(explorer.filter), true);
+          } else {
+            void explorer.loadTables(node.connectionId, node.database!, true);
+          }
+          break;
+        }
+        case "group-keys": {
+          const key = dbKey(node.connectionId, node.database!);
+          explorer.invalidate(key);
+          void explorer.loadKeys(node.connectionId, node.database!, keyMatchPattern(explorer.filter), true);
           break;
         }
         case "table":
@@ -171,7 +234,7 @@ export function useExplorerTree() {
           break;
       }
     },
-    [explorer],
+    [explorer, isRedisConnection],
   );
 
   const handleRefreshSelected = useCallback(() => {
@@ -232,6 +295,21 @@ export function useExplorerTree() {
             { label: "Refresh", onClick: () => handleRefreshNode(node) },
             { label: "Copy name", onClick: () => copyName(node.database!) },
           ];
+        case "group-keys":
+          return [{ label: "Refresh", onClick: () => handleRefreshNode(node) }];
+        case "key":
+          return [
+            {
+              label: "Open",
+              onClick: () => openKeyData(node.connectionId, node.database!, node.label, node.keyType ?? ""),
+            },
+            {
+              label: "Open in console",
+              onClick: () =>
+                openConsole(node.connectionId, node.database!, keyPreviewCommand(node.label, node.keyType ?? "")),
+            },
+            { label: "Copy name", onClick: () => copyName(node.label) },
+          ];
         case "table":
         case "view": {
           const nodeKind = connections.find((c) => c.id === node.connectionId)?.kind ?? "mysql";
@@ -262,6 +340,7 @@ export function useExplorerTree() {
       handleDisconnect,
       handleConnect,
       openConsole,
+      openKeyData,
       openConnectionDialog,
       handleRefreshNode,
       copyName,

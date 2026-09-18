@@ -4,6 +4,8 @@ import { Group, Panel, Separator } from "react-resizable-panels";
 import * as api from "../../api/commands";
 import type { ExecuteRequest, StatementResult } from "../../api/types";
 import { registerCommand } from "../../lib/commandBus";
+import { commandAtCursor } from "../../lib/commandSplit";
+import { dialectFor } from "../../lib/dialect";
 import { newId } from "../../lib/ids";
 import { actionTitle } from "../../lib/keymap";
 import { statementAtCursor } from "../../lib/sqlSplit";
@@ -33,9 +35,11 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
   const editorFontSize = useSettingsStore((s) => s.editorFontSize);
   const theme = useSettingsStore(selectResolvedTheme);
   const setStatusMessage = useStatusStore((s) => s.setMessage);
+  const isRedis = dialectFor(kind).queryLanguage === "redis";
 
   const editorRef = useRef<EditorView | null>(null);
   const [localSql, setLocalSql] = useState(tab.sql);
+  const [redisKeys, setRedisKeys] = useState<string[]>([]);
   const [results, setResults] = useState<StatementResult[]>([]);
   const [running, setRunning] = useState(false);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
@@ -55,7 +59,7 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
 
   // Tables of the current database plus (when there are not too many) their columns for autocomplete.
   useEffect(() => {
-    if (!tab.database || runtimeStatus !== "connected") return;
+    if (!tab.database || runtimeStatus !== "connected" || isRedis) return;
     const db = tab.database;
     loadTables(tab.connectionId, db)
       .then((list) => {
@@ -64,10 +68,26 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
         }
       })
       .catch(() => undefined);
-  }, [tab.connectionId, tab.database, runtimeStatus, loadTables, loadColumns]);
+  }, [tab.connectionId, tab.database, runtimeStatus, isRedis, loadTables, loadColumns]);
+
+  // Redis/Valkey: key names of the current database for autocomplete (not cached in explorerStore —
+  // this list only feeds the editor and uses its own limit).
+  useEffect(() => {
+    if (!isRedis || !tab.database || runtimeStatus !== "connected") return;
+    const db = tab.database;
+    api
+      .listKeys(tab.connectionId, db, "*", 500)
+      .then((listing) => setRedisKeys(listing.keys.map((k) => k.name)))
+      .catch(() => undefined);
+  }, [isRedis, tab.connectionId, tab.database, runtimeStatus]);
 
   const schema = useMemo(() => {
     if (!tab.database) return undefined;
+    if (isRedis) {
+      const result: Record<string, string[]> = {};
+      for (const name of redisKeys) result[name] = [];
+      return result;
+    }
     const list = tables[`${tab.connectionId}/${tab.database}`] ?? [];
     const result: Record<string, string[]> = {};
     for (const t of list) {
@@ -75,7 +95,7 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
       result[t.name] = cols ? cols.map((c) => c.name) : [];
     }
     return result;
-  }, [tables, columnsCache, tab.connectionId, tab.database]);
+  }, [tables, columnsCache, tab.connectionId, tab.database, isRedis, redisKeys]);
 
   const ensureConnected = useCallback(async () => {
     if (useConnectionsStore.getState().runtime[tab.connectionId]?.status !== "connected") {
@@ -147,6 +167,10 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
         sqlToRun = text.slice(sel.from, sel.to);
       } else if (mode === "all") {
         sqlToRun = text;
+      } else if (isRedis) {
+        const pos = sel ? sel.head : text.length;
+        const cmd = commandAtCursor(text, pos);
+        sqlToRun = cmd ? cmd.sql : "";
       } else {
         const pos = sel ? sel.head : text.length;
         const stmt = statementAtCursor(text, pos, { dollarQuoting: kind === "postgres" });
@@ -154,7 +178,7 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
       }
       void runSql(sqlToRun, maxRows);
     },
-    [localSql, maxRows, runSql, kind],
+    [localSql, maxRows, runSql, kind, isRedis],
   );
 
   const handleCancel = useCallback(() => {
@@ -197,9 +221,10 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
   const handleDatabaseChange = useCallback(
     (db: string) => {
       updateConsole(tab.id, { database: db || null });
-      if (db) void runSql(`USE \`${db}\``, 1, null);
+      if (!db) return;
+      void runSql(isRedis ? `SELECT ${db}` : `USE \`${db}\``, 1, null);
     },
-    [tab.id, updateConsole, runSql],
+    [tab.id, updateConsole, runSql, isRedis],
   );
 
   return (

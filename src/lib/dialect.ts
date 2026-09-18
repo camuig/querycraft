@@ -2,12 +2,17 @@
 // literal escaping, defaults for the connection form and feature flags.
 // The single source of truth for "what differs between engines" in the UI.
 
-import type { DbKind } from "../api/types";
+import type { DbKind, QueryLanguage } from "../api/types";
 
 export interface Dialect {
   kind: DbKind;
   /** Product name shown in the UI ("MySQL", "PostgreSQL", ...). */
   label: string;
+  /**
+   * What the console speaks: SQL (statements split at `;`, schema-aware editor, tables in the explorer)
+   * or Redis commands (one per line, key listing in the explorer, no row editing).
+   */
+  queryLanguage: QueryLanguage;
   /** Character that wraps identifiers: backtick (MySQL family, ClickHouse) or double quote (PostgreSQL, SQLite). */
   identifierQuote: "`" | '"';
   /** Whether `\` escapes characters inside string literals (MySQL, ClickHouse) or only doubling the quote works. */
@@ -29,6 +34,7 @@ export const DIALECTS: Record<DbKind, Dialect> = {
   mysql: {
     kind: "mysql",
     label: "MySQL",
+    queryLanguage: "sql",
     identifierQuote: "`",
     backslashEscapes: true,
     namespaceLabel: "database",
@@ -42,6 +48,7 @@ export const DIALECTS: Record<DbKind, Dialect> = {
   mariadb: {
     kind: "mariadb",
     label: "MariaDB",
+    queryLanguage: "sql",
     identifierQuote: "`",
     backslashEscapes: true,
     namespaceLabel: "database",
@@ -55,6 +62,7 @@ export const DIALECTS: Record<DbKind, Dialect> = {
   postgres: {
     kind: "postgres",
     label: "PostgreSQL",
+    queryLanguage: "sql",
     identifierQuote: '"',
     backslashEscapes: false,
     namespaceLabel: "schema",
@@ -68,6 +76,7 @@ export const DIALECTS: Record<DbKind, Dialect> = {
   clickhouse: {
     kind: "clickhouse",
     label: "ClickHouse",
+    queryLanguage: "sql",
     identifierQuote: "`",
     backslashEscapes: true,
     namespaceLabel: "database",
@@ -81,6 +90,7 @@ export const DIALECTS: Record<DbKind, Dialect> = {
   sqlite: {
     kind: "sqlite",
     label: "SQLite",
+    queryLanguage: "sql",
     identifierQuote: '"',
     backslashEscapes: false,
     namespaceLabel: "database",
@@ -91,10 +101,38 @@ export const DIALECTS: Record<DbKind, Dialect> = {
     defaultUser: "",
     defaultDatabase: "",
   },
+  redis: {
+    kind: "redis",
+    label: "Redis",
+    queryLanguage: "redis",
+    identifierQuote: '"',
+    backslashEscapes: true,
+    namespaceLabel: "database",
+    supportsEditing: false,
+    fileBased: false,
+    requiresDatabase: false,
+    defaultPort: 6379,
+    defaultUser: "",
+    defaultDatabase: "0",
+  },
+  valkey: {
+    kind: "valkey",
+    label: "Valkey",
+    queryLanguage: "redis",
+    identifierQuote: '"',
+    backslashEscapes: true,
+    namespaceLabel: "database",
+    supportsEditing: false,
+    fileBased: false,
+    requiresDatabase: false,
+    defaultPort: 6379,
+    defaultUser: "",
+    defaultDatabase: "0",
+  },
 };
 
 /** Engines in the order they are offered in the connection dialog. */
-export const DB_KINDS: DbKind[] = ["mysql", "mariadb", "postgres", "clickhouse", "sqlite"];
+export const DB_KINDS: DbKind[] = ["mysql", "mariadb", "postgres", "clickhouse", "sqlite", "redis", "valkey"];
 
 export function dialectFor(kind: DbKind): Dialect {
   return DIALECTS[kind];

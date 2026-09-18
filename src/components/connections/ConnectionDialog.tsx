@@ -66,6 +66,8 @@ export function ConnectionDialog() {
   }, [closeDialog]);
 
   const dialect = dialectFor(form.kind);
+  // The redis crate's native-TLS backend cannot load an extra CA file (see README, Redis/Valkey console).
+  const caFileSupported = dialect.queryLanguage !== "redis";
 
   function handleKindChange(kind: DbKind) {
     setForm((f) => applyKindChange(f, kind));
@@ -257,6 +259,7 @@ export function ConnectionDialog() {
                     <input
                       id="conn-user"
                       {...NO_AUTOCORRECT}
+                      placeholder={dialect.queryLanguage === "redis" ? "default (optional)" : undefined}
                       value={form.user}
                       onChange={(e) => setForm((f) => ({ ...f, user: e.target.value }))}
                     />
@@ -283,11 +286,15 @@ export function ConnectionDialog() {
                       </label>
                     </div>
 
-                    <label htmlFor="conn-database">Database</label>
+                    <label htmlFor="conn-database">
+                      {dialect.queryLanguage === "redis" ? "Database index" : "Database"}
+                    </label>
                     <input
                       id="conn-database"
                       {...NO_AUTOCORRECT}
-                      placeholder={dialect.requiresDatabase ? undefined : "optional"}
+                      placeholder={
+                        dialect.queryLanguage === "redis" ? "0" : dialect.requiresDatabase ? undefined : "optional"
+                      }
                       value={form.database}
                       onChange={(e) => setForm((f) => ({ ...f, database: e.target.value }))}
                     />
@@ -364,16 +371,18 @@ export function ConnectionDialog() {
                     {...NO_AUTOCORRECT}
                     style={{ flex: 1 }}
                     placeholder="optional, PEM file"
-                    disabled={!form.ssl}
+                    disabled={!form.ssl || !caFileSupported}
                     value={form.sslCaPath}
                     onChange={(e) => setForm((f) => ({ ...f, sslCaPath: e.target.value }))}
                   />
-                  <button type="button" disabled={!form.ssl} onClick={handleBrowseCa}>
+                  <button type="button" disabled={!form.ssl || !caFileSupported} onClick={handleBrowseCa}>
                     Browse…
                   </button>
                 </div>
                 <span className="form-hint">
-                  Used in addition to the system trust store to verify the server certificate.
+                  {caFileSupported
+                    ? "Used in addition to the system trust store to verify the server certificate."
+                    : `${dialect.label} verifies against the system trust store only; add a private CA there instead.`}
                 </span>
 
                 <span className="form-section">SSH tunnel</span>

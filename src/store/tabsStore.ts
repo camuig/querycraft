@@ -35,7 +35,20 @@ export interface DdlTab {
   table: string;
 }
 
-export type Tab = ConsoleTab | TableDataTab | DdlTab;
+/** Redis/Valkey key data tab (viewing + editing one key's value) — the key-value counterpart of TableDataTab. */
+export interface KeyDataTab {
+  kind: "key";
+  id: string;
+  title: string;
+  connectionId: string;
+  database: string;
+  key: string;
+  /** Redis `TYPE` of the key at the time the tab was opened; drives which edit commands are offered. */
+  keyType: string;
+  sessionId: string;
+}
+
+export type Tab = ConsoleTab | TableDataTab | DdlTab | KeyDataTab;
 
 interface TabsState {
   tabs: Tab[];
@@ -44,6 +57,7 @@ interface TabsState {
   openConsole: (connectionId: string, database: string | null, initialSql?: string) => string;
   openTableData: (connectionId: string, database: string, table: string) => string;
   openDdl: (connectionId: string, database: string, table: string) => string;
+  openKeyData: (connectionId: string, database: string, key: string, keyType: string) => string;
   closeTab: (id: string) => void;
   closeTabsForConnection: (connectionId: string) => void;
   setActive: (id: string) => void;
@@ -102,12 +116,26 @@ export const useTabsStore = create<TabsState>()((set, get) => ({
     return id;
   },
 
+  openKeyData: (connectionId, database, key, keyType) => {
+    const existing = get().tabs.find(
+      (t) => t.kind === "key" && t.connectionId === connectionId && t.database === database && t.key === key,
+    );
+    if (existing) {
+      set({ activeTabId: existing.id });
+      return existing.id;
+    }
+    const id = newId();
+    const tab: KeyDataTab = { kind: "key", id, title: key, connectionId, database, key, keyType, sessionId: id };
+    set((s) => ({ tabs: [...s.tabs, tab], activeTabId: id }));
+    return id;
+  },
+
   closeTab: (id) => {
     const { tabs, activeTabId } = get();
     const idx = tabs.findIndex((t) => t.id === id);
     if (idx < 0) return;
     const tab = tabs[idx];
-    if (tab.kind === "console" || tab.kind === "table") {
+    if (tab.kind === "console" || tab.kind === "table" || tab.kind === "key") {
       void api.closeSession(tab.connectionId, tab.sessionId).catch(() => undefined);
     }
     const next = tabs.filter((t) => t.id !== id);

@@ -141,7 +141,8 @@ export function buildInput(form: FormState, id: string | null): BuildInputResult
   const host = form.host.trim();
   const user = form.user.trim();
   const port = Number(form.port);
-  if (!name || !host || !user) {
+  // Redis/Valkey: the user is an optional ACL username (empty means the default user).
+  if (!name || !host || (!user && dialect.queryLanguage !== "redis")) {
     return { ok: false, error: "Fill in name, host and user", tab: "general" };
   }
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -150,6 +151,9 @@ export function buildInput(form: FormState, id: string | null): BuildInputResult
   const database = form.database.trim();
   if (dialect.requiresDatabase && !database) {
     return { ok: false, error: "PostgreSQL needs a database name", tab: "general" };
+  }
+  if (dialect.queryLanguage === "redis" && database && !/^\d+$/.test(database)) {
+    return { ok: false, error: "Database index must be a number", tab: "general" };
   }
 
   let ssh: ConnectionInput["ssh"] = null;

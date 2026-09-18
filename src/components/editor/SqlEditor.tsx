@@ -9,14 +9,7 @@ import {
   moveLineUp,
 } from "@codemirror/commands";
 import { type SQLNamespace, sql } from "@codemirror/lang-sql";
-import {
-  bracketMatching,
-  HighlightStyle,
-  indentOnInput,
-  indentUnit,
-  type LanguageSupport,
-  syntaxHighlighting,
-} from "@codemirror/language";
+import { bracketMatching, HighlightStyle, indentOnInput, indentUnit, syntaxHighlighting } from "@codemirror/language";
 import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
 import { Compartment, EditorState, type Extension, Prec } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
@@ -34,7 +27,9 @@ import {
 import { tags } from "@lezer/highlight";
 import { useEffect, useRef } from "react";
 import type { DbKind } from "../../api/types";
+import { dialectFor } from "../../lib/dialect";
 import { duplicateLineOrSelection } from "./editorCommands";
+import { redisLanguage } from "./redisLanguage";
 import { editorDialect } from "./sqlDialects";
 import "../../styles/editor.css";
 
@@ -46,6 +41,7 @@ export interface SqlEditorProps {
   onExecute: (mode: "current" | "all") => void;
   /** Engine of the connection — selects the SQL dialect for highlighting and completion. */
   kind: DbKind;
+  /** SQL: table name -> column names. Redis/Valkey: key name -> [] (only the keys matter). */
   schema?: Record<string, string[]>;
   defaultTable?: string;
   fontSize: number;
@@ -108,7 +104,10 @@ function buildLanguageExtension(
   kind: DbKind,
   schema: Record<string, string[]> | undefined,
   defaultTable: string | undefined,
-): LanguageSupport {
+): Extension {
+  if (dialectFor(kind).queryLanguage === "redis") {
+    return redisLanguage(Object.keys(schema ?? {}));
+  }
   return sql({
     dialect: editorDialect(kind),
     schema: (schema ?? {}) as SQLNamespace,
