@@ -52,6 +52,7 @@ pub fn run() {
             commands::disconnect,
             commands::list_databases,
             commands::list_tables,
+            commands::list_keys,
             commands::list_columns,
             commands::list_indexes,
             commands::list_foreign_keys,

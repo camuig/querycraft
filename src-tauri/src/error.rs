@@ -69,6 +69,12 @@ impl From<rusqlite::Error> for AppError {
     }
 }
 
+impl From<redis::RedisError> for AppError {
+    fn from(err: redis::RedisError) -> Self {
+        AppError::Database(err.to_string())
+    }
+}
+
 impl From<reqwest::Error> for AppError {
     fn from(err: reqwest::Error) -> Self {
         // reqwest includes the full URL (with query text) in its Display output, and the

@@ -11,7 +11,11 @@ use crate::history::History;
 use crate::sql_split::split_statements;
 
 use super::export::{self, ExportFormat, ExportSummary};
-use super::{ApplyResult, CellValue, ConnectionManager, DbKind, ParamStatement, StatementResult, StatementResultKind};
+use super::redis::command::split_commands;
+use super::{
+    ApplyResult, CellValue, ConnectionManager, DbKind, ParamStatement, QueryLanguage, StatementResult,
+    StatementResultKind,
+};
 
 const DEFAULT_MAX_ROWS: usize = 500;
 /// Row limit for exports: effectively unlimited, yet finite so that engines
@@ -53,7 +57,10 @@ pub async fn execute(
         .get_session(&request.connection_id, &request.session_id, request.database.as_deref())
         .await?;
 
-    let statements = split_statements(&request.sql, kind == DbKind::Postgres);
+    let statements = match kind.query_language() {
+        QueryLanguage::Sql => split_statements(&request.sql, kind == DbKind::Postgres),
+        QueryLanguage::Redis => split_commands(&request.sql),
+    };
     let max_rows = if request.max_rows == 0 {
         DEFAULT_MAX_ROWS
     } else {
@@ -168,6 +175,13 @@ pub fn count_sql(sql: &str) -> String {
 /// in the footer is clicked. Runs on the tab's session and is not recorded in
 /// the history.
 pub async fn count(manager: &ConnectionManager, request: CountRequest) -> AppResult<u64> {
+    let kind = manager.driver(&request.connection_id)?.kind();
+    if kind.query_language() != QueryLanguage::Sql {
+        return Err(AppError::Other(format!(
+            "Counting rows is not supported for {}",
+            kind.label()
+        )));
+    }
     let session = manager
         .get_session(&request.connection_id, &request.session_id, request.database.as_deref())
         .await?;

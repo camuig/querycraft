@@ -29,3 +29,13 @@ services:
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: secret
       CLICKHOUSE_DB: shop
+
+  redis:
+    image: redis:7
+    ports: ["33076:6379"]
+    command: ["redis-server", "--requirepass", "secret"]
+
+  valkey:
+    image: valkey/valkey:8
+    ports: ["33077:6379"]
+    command: ["valkey-server", "--requirepass", "secret"]

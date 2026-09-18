@@ -6,8 +6,8 @@ use crate::connections::{ConnectionConfig, ConnectionInput, ConnectionStore};
 use crate::db::execute::{self, CountRequest, ExecuteRequest, ExportRequest};
 use crate::db::export::{self, ExportSummary, RowsExportRequest};
 use crate::db::{
-    ApplyResult, ColumnInfo, ConnectionManager, ForeignKeyInfo, IndexInfo, ParamStatement, ServerInfo, StatementResult,
-    TableInfo,
+    ApplyResult, ColumnInfo, ConnectionManager, ForeignKeyInfo, IndexInfo, KeyListing, ParamStatement, ServerInfo,
+    StatementResult, TableInfo,
 };
 use crate::error::AppResult;
 use crate::history::{History, QueryHistoryEntry};
@@ -60,6 +60,21 @@ pub async fn disconnect(state: State<'_, AppState>, connection_id: String) -> Ap
 #[tauri::command]
 pub async fn list_databases(state: State<'_, AppState>, connection_id: String) -> AppResult<Vec<String>> {
     state.manager.driver(&connection_id)?.list_databases().await
+}
+
+#[tauri::command]
+pub async fn list_keys(
+    state: State<'_, AppState>,
+    connection_id: String,
+    database: String,
+    pattern: String,
+    limit: u32,
+) -> AppResult<KeyListing> {
+    state
+        .manager
+        .driver(&connection_id)?
+        .list_keys(&database, &pattern, limit as usize)
+        .await
 }
 
 #[tauri::command]

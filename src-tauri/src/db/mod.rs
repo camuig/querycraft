@@ -13,6 +13,7 @@ pub mod json;
 pub mod manager;
 pub mod mysql;
 pub mod postgres;
+pub mod redis;
 pub mod schema;
 pub mod sqlite;
 pub mod ssh;
@@ -24,7 +25,7 @@ use crate::connections::{Credentials, StoredConnectionView};
 use crate::error::{AppError, AppResult};
 
 pub use manager::ConnectionManager;
-pub use schema::{ColumnInfo, ForeignKeyInfo, IndexInfo, TableInfo, TableKind};
+pub use schema::{ColumnInfo, ForeignKeyInfo, IndexInfo, KeyInfo, KeyListing, TableInfo, TableKind};
 
 /// Supported database engines. Serialized in lowercase — the same strings the
 /// frontend uses (`src/api/types.ts`, `DbKind`).
@@ -37,9 +38,28 @@ pub enum DbKind {
     Postgres,
     Clickhouse,
     Sqlite,
+    Redis,
+    Valkey,
+}
+
+/// What a console sends to the engine: SQL statements or key-value commands
+/// (one per line, redis-cli syntax).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum QueryLanguage {
+    Sql,
+    Redis,
 }
 
 impl DbKind {
+    /// The language the console speaks to this engine.
+    pub fn query_language(self) -> QueryLanguage {
+        match self {
+            DbKind::Redis | DbKind::Valkey => QueryLanguage::Redis,
+            _ => QueryLanguage::Sql,
+        }
+    }
+
     /// Human-readable product name.
     pub fn label(self) -> &'static str {
         match self {
@@ -48,6 +68,8 @@ impl DbKind {
             DbKind::Postgres => "PostgreSQL",
             DbKind::Clickhouse => "ClickHouse",
             DbKind::Sqlite => "SQLite",
+            DbKind::Redis => "Redis",
+            DbKind::Valkey => "Valkey",
         }
     }
 }
@@ -164,6 +186,16 @@ impl StatementResult {
 
 /// A statement with positional `?` placeholders (the frontend's data-editing contract).
 /// Backends whose native placeholder syntax differs (PostgreSQL `$n`) rewrite it.
+///
+/// Redis/Valkey sessions read this differently, since they have no placeholder
+/// syntax to rewrite: `sql` is a single command name (e.g. `"HSET"`, `"ZADD"`,
+/// `"SELECT"`, `"EXPIRE"`, `"DEL"`), case-insensitive and with no arguments
+/// inside it — whitespace or an empty string is rejected. `params` are that
+/// command's arguments, in order: a string is sent as its raw UTF-8 bytes, a
+/// number as its decimal text, a boolean as `"1"`/`"0"`; `null` is rejected
+/// (Redis arguments are always scalars). The same commands `Session::run`
+/// refuses are refused here too. All statements of one `apply` call run in a
+/// single `MULTI`/`EXEC` transaction on the session's connection.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ParamStatement {
@@ -193,6 +225,8 @@ pub enum CancelHandle {
     ClickhouseQuery(String),
     /// `sqlite3_interrupt` on the session's connection.
     Sqlite(std::sync::Arc<rusqlite::InterruptHandle>),
+    /// `CLIENT KILL ID <client id>` on the driver's connection.
+    RedisClient(i64),
 }
 
 /// A dedicated connection owned by one console / data tab. Statements on a
@@ -243,6 +277,13 @@ pub trait Driver: Send + Sync {
     async fn list_indexes(&self, database: &str, table: &str) -> AppResult<Vec<IndexInfo>>;
     async fn list_foreign_keys(&self, database: &str, table: &str) -> AppResult<Vec<ForeignKeyInfo>>;
     async fn table_ddl(&self, database: &str, table: &str) -> AppResult<String>;
+
+    /// Keys of a key-value engine matching a glob `pattern` (`*` for all),
+    /// at most `limit` of them. SQL engines have no keys and keep the default.
+    async fn list_keys(&self, database: &str, pattern: &str, limit: usize) -> AppResult<KeyListing> {
+        let _ = (database, pattern, limit);
+        Err(AppError::Other(format!("{} has no keys to list", self.kind().label())))
+    }
 
     /// Releases the metadata connection / pool. Sessions are dropped by the manager.
     async fn close(&self);
@@ -341,6 +382,7 @@ pub async fn open_driver_with(
             DbKind::Postgres => Box::new(postgres::PostgresDriver::connect(config, &endpoint, password).await?),
             DbKind::Clickhouse => Box::new(clickhouse::ClickhouseDriver::connect(config, &endpoint, password).await?),
             DbKind::Sqlite => Box::new(sqlite::SqliteDriver::connect(config).await?),
+            DbKind::Redis | DbKind::Valkey => Box::new(redis::RedisDriver::connect(config, &endpoint, password).await?),
         })
     }
     .await;
@@ -385,6 +427,14 @@ mod tests {
             serde_json::from_str::<DbKind>("\"clickhouse\"").unwrap(),
             DbKind::Clickhouse
         );
+    }
+
+    #[test]
+    fn query_language_by_kind() {
+        use super::QueryLanguage;
+        assert_eq!(DbKind::Redis.query_language(), QueryLanguage::Redis);
+        assert_eq!(DbKind::Valkey.query_language(), QueryLanguage::Redis);
+        assert_eq!(DbKind::Clickhouse.query_language(), QueryLanguage::Sql);
     }
 
     #[test]

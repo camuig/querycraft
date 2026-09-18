@@ -61,3 +61,24 @@ pub struct ForeignKeyInfo {
     pub on_update: String,
     pub on_delete: String,
 }
+
+/// One key of a key-value engine (Redis, Valkey) — the explorer's counterpart of `TableInfo`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyInfo {
+    pub name: String,
+    /// Redis `TYPE` reply: "string" | "hash" | "list" | "set" | "zset" | "stream" | ...
+    pub key_type: String,
+    /// Number of elements (hash fields, list items, set members, stream entries) or the string length.
+    pub length: Option<u64>,
+    /// Seconds until expiry; `None` when the key does not expire.
+    pub ttl: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyListing {
+    pub keys: Vec<KeyInfo>,
+    /// More keys match the pattern than the requested limit.
+    pub truncated: bool,
+}
