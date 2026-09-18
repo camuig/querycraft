@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file. Entries are gen
 [release-please](https://github.com/googleapis/release-please) from the Conventional Commits history, and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0](https://github.com/camuig/querycraft/compare/v0.3.0...v0.4.0) (2026-09-18)
+
+
+### Features
+
+* **db:** add redis and valkey backend ([cca5339](https://github.com/camuig/querycraft/commit/cca5339abc7d1856514db143ed54f436193c4a89))
+* **db:** add sql server backend ([1092d79](https://github.com/camuig/querycraft/commit/1092d79e398d3f7b65063739db5f3352b051457b))
+* **ui:** add redis console and key explorer ([cd75af8](https://github.com/camuig/querycraft/commit/cd75af895366a07450b27aa22b3482d2f79e8d54))
+* **ui:** add redis key editor tab ([f7de4fd](https://github.com/camuig/querycraft/commit/f7de4fda52ec5646cd8d1ba2d98eebf605d51d1e))
+* **ui:** replace the engine picker with a dropdown ([28b8656](https://github.com/camuig/querycraft/commit/28b8656ed6b2663c02a302099632cd25ab9623fd))
+* **ui:** support sql server engine ([eba4aa8](https://github.com/camuig/querycraft/commit/eba4aa888358d61340ad0179405bcb5c39093339))
+
+
+### Bug Fixes
+
+* **db:** time out clickhouse connections instead of hanging ([b89239a](https://github.com/camuig/querycraft/commit/b89239ad1b66583cbe8c33a5e0cb5e4a049c9e2d))
+
 ## [0.3.0](https://github.com/camuig/querycraft/compare/v0.2.0...v0.3.0) (2026-09-16)
 
 
