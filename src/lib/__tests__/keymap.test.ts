@@ -4,6 +4,7 @@ import {
   actionsSharingShortcut,
   detectPlatform,
   formatShortcut,
+  gridActionsForEvent,
   type KeyLike,
   shortcutLabel,
 } from "../keymap";
@@ -35,6 +36,18 @@ describe("keymap", () => {
   it("requires exact modifiers", () => {
     expect(actionsForEvent(key("KeyR", { metaKey: true, shiftKey: true }), "mac")).toEqual([]);
     expect(actionsForEvent(key("KeyR"), "mac")).toEqual([]);
+  });
+
+  it("resolves plain Delete / Backspace to deleteRow only inside the grid", () => {
+    for (const platform of ["mac", "other"] as const) {
+      expect(actionsForEvent(key("Backspace"), platform)).toEqual([]);
+      expect(actionsForEvent(key("Delete"), platform)).toEqual([]);
+      expect(gridActionsForEvent(key("Backspace"), platform)).toEqual(["deleteRow"]);
+      expect(gridActionsForEvent(key("Delete"), platform)).toEqual(["deleteRow"]);
+      expect(gridActionsForEvent(key("Backspace", { shiftKey: true }), platform)).toEqual([]);
+    }
+    expect(gridActionsForEvent(key("Backspace", { metaKey: true }), "mac")).toEqual(["deleteRow"]);
+    expect(gridActionsForEvent(key("KeyN", { metaKey: true }), "mac")).toEqual(["addRow"]);
   });
 
   it("knows which actions share a shortcut", () => {

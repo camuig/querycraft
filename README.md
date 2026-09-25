@@ -73,7 +73,7 @@ Shortcuts follow the DataGrip defaults for each platform.
 | Submit changes | ⌘⏎ | Ctrl+Enter |
 | Revert changes | ⌥⌘Z | Ctrl+Alt+Z |
 | Add row | ⌘N | Alt+Insert |
-| Delete / restore row | ⌘⌫ | Ctrl+Y |
+| Delete / restore selected rows | ⌘⌫, or ⌫ / Delete in the grid | Ctrl+Y, or Delete / Backspace in the grid |
 | Set NULL | ⌥⌘N | Ctrl+Alt+N |
 | Next / previous page | ⌥⌘↓ / ⌥⌘↑ | Ctrl+Alt+↓ / Ctrl+Alt+↑ |
 | Open table data (explorer) | F4 | F4 |

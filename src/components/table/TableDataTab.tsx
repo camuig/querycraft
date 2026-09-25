@@ -6,7 +6,7 @@ import { ChangeTracker, countChanges } from "../../lib/changeTracker";
 import { registerCommand } from "../../lib/commandBus";
 import { dialectFor } from "../../lib/dialect";
 import { newId } from "../../lib/ids";
-import { type AppAction, actionsForEvent, actionTitle, detectPlatform } from "../../lib/keymap";
+import { type AppAction, actionTitle, detectPlatform, gridActionsForEvent, shortcutLabel } from "../../lib/keymap";
 import { buildSelect, type OrderBySpec, qualify, sqlLiteral } from "../../lib/sqlBuilder";
 import { selectConnectionKind, useConnectionsStore } from "../../store/connectionsStore";
 import { useExplorerStore } from "../../store/explorerStore";
@@ -14,8 +14,8 @@ import { selectResolvedTheme, useSettingsStore } from "../../store/settingsStore
 import type { TableDataTab as TableDataTabModel } from "../../store/tabsStore";
 import { toast } from "../../store/toastStore";
 import { SqlEditor } from "../editor/SqlEditor";
-import { DataGrid } from "../grid/DataGrid";
-import type { GridCellPos } from "../grid/useGridSelection";
+import { DataGrid, type GridMenuItem } from "../grid/DataGrid";
+import type { GridCellPos, GridRange } from "../grid/useGridSelection";
 import { WhereInput } from "./WhereInput";
 
 /** Table data: pagination, WHERE filter, sorting, editing with deferred commit. */
@@ -39,6 +39,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
   const [whereApplied, setWhereApplied] = useState("");
   const [orderBy, setOrderBy] = useState<OrderBySpec[]>([]);
   const [selectedCell, setSelectedCell] = useState<GridCellPos | null>(null);
+  const [selectedRange, setSelectedRange] = useState<GridRange | null>(null);
   const [showSql, setShowSql] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
 
@@ -243,11 +244,49 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
     [tracker, resultColumns],
   );
 
-  const handleToggleDeleteSelected = useCallback(() => {
-    if (!tracker || !selectedCell) return;
-    const r = selectedCell.row;
-    setTracker(tracker.isDeleted(r) ? tracker.undeleteRow(r) : tracker.deleteRow(r));
-  }, [tracker, selectedCell]);
+  /** Rows covered by the grid selection (the focused cell's row when there is no range). */
+  const selectedRows = useMemo(() => {
+    if (selectedRange) {
+      const result: number[] = [];
+      for (let r = selectedRange.minRow; r <= selectedRange.maxRow; r++) result.push(r);
+      return result;
+    }
+    return selectedCell ? [selectedCell.row] : [];
+  }, [selectedRange, selectedCell]);
+
+  const toggleDeleteRows = useCallback(
+    (rowIndices: number[]) => {
+      if (!tracker || rowIndices.length === 0) return;
+      const restoring = rowIndices.every((r) => tracker.isDeleted(r));
+      setTracker(tracker.toggleDeleteRows(rowIndices));
+      if (!restoring) {
+        const n = rowIndices.length;
+        const submit = shortcutLabel("submitChanges");
+        toast.info(
+          `${n === 1 ? "Row" : `${n} rows`} marked for deletion. Submit${submit ? ` (${submit})` : ""} to apply.`,
+        );
+      }
+    },
+    [tracker],
+  );
+
+  const handleToggleDeleteSelected = useCallback(
+    () => toggleDeleteRows(selectedRows),
+    [toggleDeleteRows, selectedRows],
+  );
+
+  const gridMenuItems = useCallback(
+    (range: GridRange): GridMenuItem[] => {
+      if (!editable || !tracker) return [];
+      const rowIndices: number[] = [];
+      for (let r = range.minRow; r <= range.maxRow; r++) rowIndices.push(r);
+      const restoring = rowIndices.every((r) => tracker.isDeleted(r));
+      const n = rowIndices.length;
+      const noun = n === 1 ? "row" : `${n} rows`;
+      return [{ label: restoring ? `Restore ${noun}` : `Delete ${noun}`, action: () => toggleDeleteRows(rowIndices) }];
+    },
+    [editable, tracker, toggleDeleteRows],
+  );
 
   const handleRevert = useCallback(() => {
     setTracker((t) => t?.revertAll() ?? t);
@@ -296,7 +335,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
           handleAddRow();
           return true;
         case "deleteRow":
-          if (!editable || !selectedCell) return false;
+          if (!editable || selectedRows.length === 0) return false;
           handleToggleDeleteSelected();
           return true;
         case "refresh":
@@ -320,7 +359,7 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
       handleRevert,
       editable,
       handleAddRow,
-      selectedCell,
+      selectedRows,
       handleToggleDeleteSelected,
       reload,
       canNext,
@@ -354,7 +393,9 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
 
   const handleGridKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {
-      for (const action of actionsForEvent(e, detectPlatform())) {
+      // Keys typed into a cell editor belong to it (⌘⌫ there deletes text, not the row).
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      for (const action of gridActionsForEvent(e, detectPlatform())) {
         if (runAction(action)) {
           e.preventDefault();
           return;
@@ -428,8 +469,8 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
           type="button"
           className="icon"
           onClick={handleToggleDeleteSelected}
-          disabled={!editable || !selectedCell}
-          title={actionTitle("deleteRow", "Delete / restore row")}
+          disabled={!editable || selectedRows.length === 0}
+          title={actionTitle("deleteRow", "Delete / restore selected rows")}
         >
           −
         </button>
@@ -462,6 +503,8 @@ export function TableDataTab({ tab, active }: { tab: TableDataTabModel; active: 
           cellClass={cellClass}
           selectedCell={selectedCell}
           onSelectCell={setSelectedCell}
+          onRangeChange={setSelectedRange}
+          contextMenuItems={editable ? gridMenuItems : undefined}
           sort={sort}
           onSort={handleSort}
           onKeyDown={handleGridKeyDown}

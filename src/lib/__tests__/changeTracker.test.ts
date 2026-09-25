@@ -81,6 +81,33 @@ describe("deleteRow / undeleteRow", () => {
   });
 });
 
+describe("toggleDeleteRows", () => {
+  it("marks every row of the selection as deleted", () => {
+    const t = new ChangeTracker(rows, columns, pk, "mysql").toggleDeleteRows([0, 1]);
+    expect(t.isDeleted(0)).toBe(true);
+    expect(t.isDeleted(1)).toBe(true);
+    expect(t.buildStatements("db", "t")).toHaveLength(2);
+  });
+
+  it("deletes the rest when only part of the selection is deleted", () => {
+    const t = new ChangeTracker(rows, columns, pk, "mysql").deleteRow(0).toggleDeleteRows([0, 1]);
+    expect(t.isDeleted(0)).toBe(true);
+    expect(t.isDeleted(1)).toBe(true);
+  });
+
+  it("restores the rows when all of them are already deleted", () => {
+    const t = new ChangeTracker(rows, columns, pk, "mysql").toggleDeleteRows([0, 1]).toggleDeleteRows([0, 1]);
+    expect(t.isDeleted(0)).toBe(false);
+    expect(t.isDeleted(1)).toBe(false);
+    expect(t.hasChanges).toBe(false);
+  });
+
+  it("returns the same instance for an empty selection", () => {
+    const t = new ChangeTracker(rows, columns, pk, "mysql");
+    expect(t.toggleDeleteRows([])).toBe(t);
+  });
+});
+
 describe("insertRow", () => {
   it("appends a row at the end with all nulls and marks it inserted", () => {
     const t = new ChangeTracker(rows, columns, pk, "mysql");

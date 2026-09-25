@@ -121,6 +121,15 @@ export const KEYMAP: Record<AppAction, ActionSpec> = {
   },
 };
 
+/**
+ * Extra shortcuts that apply only while the data grid has the focus: plain keys that would be
+ * unsafe application-wide (Backspace in the explorer must not delete table rows). The grid
+ * resolves them together with KEYMAP; the global handler never sees them.
+ */
+export const GRID_KEYMAP: Partial<Record<AppAction, Shortcut[]>> = {
+  deleteRow: [sc("Delete"), sc("Backspace")],
+};
+
 export function detectPlatform(
   nav: { platform?: string; userAgent?: string } | undefined = globalThis.navigator,
 ): Platform {
@@ -152,6 +161,15 @@ export function actionsForEvent(e: KeyLike, platform: Platform): AppAction[] {
   const result: AppAction[] = [];
   for (const action of Object.keys(KEYMAP) as AppAction[]) {
     if (KEYMAP[action][platform].some((s) => matchesShortcut(e, s))) result.push(action);
+  }
+  return result;
+}
+
+/** Actions for a key pressed inside the data grid: KEYMAP matches plus the grid-only shortcuts. */
+export function gridActionsForEvent(e: KeyLike, platform: Platform): AppAction[] {
+  const result = actionsForEvent(e, platform);
+  for (const action of Object.keys(GRID_KEYMAP) as AppAction[]) {
+    if (!result.includes(action) && GRID_KEYMAP[action]?.some((s) => matchesShortcut(e, s))) result.push(action);
   }
   return result;
 }

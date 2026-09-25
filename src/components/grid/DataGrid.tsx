@@ -1,7 +1,7 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { CellValue, ColumnMeta } from "../../api/types";
 import { type CopyFormat, formatCell, rowsToClipboardText } from "../../lib/format";
 import { expandToRange, parseClipboardTable } from "../../lib/pasteParser";
@@ -38,6 +38,16 @@ export interface DataGridProps {
    */
   onPaste?: (row: number, col: number, values: CellValue[][]) => void;
   onKeyDown?: (e: KeyboardEvent<HTMLDivElement>) => void;
+  /** Reports the selected range (null when nothing is selected) whenever it changes. */
+  onRangeChange?: (range: GridRange | null) => void;
+  /** Extra context-menu items for the selected range, shown after the editing items. */
+  contextMenuItems?: (range: GridRange) => GridMenuItem[];
+}
+
+export interface GridMenuItem {
+  label: string;
+  action: () => void;
+  disabled?: boolean;
 }
 
 async function readClipboardText(): Promise<string> {
@@ -91,6 +101,8 @@ export function DataGrid(props: DataGridProps) {
     editable,
     onEditCell,
     onPaste,
+    onRangeChange,
+    contextMenuItems,
   } = props;
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -167,6 +179,13 @@ export function DataGrid(props: DataGridProps) {
     onCopy: handleCopyRange,
     onSetNull: handleSetNullRange,
   });
+
+  const onRangeChangeRef = useRef(onRangeChange);
+  onRangeChangeRef.current = onRangeChange;
+  const { minRow, maxRow, minCol, maxCol } = sel.range ?? { minRow: -1, maxRow: -1, minCol: -1, maxCol: -1 };
+  useEffect(() => {
+    onRangeChangeRef.current?.(minRow < 0 ? null : { minRow, maxRow, minCol, maxCol });
+  }, [minRow, maxRow, minCol, maxCol]);
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
@@ -424,6 +443,7 @@ export function DataGrid(props: DataGridProps) {
               <div
                 className={`item ${disabled ? "disabled" : ""}`}
                 onClick={() => {
+                  if (disabled) return;
                   setContextMenu(null);
                   action();
                 }}
@@ -447,6 +467,14 @@ export function DataGrid(props: DataGridProps) {
                           .catch((err) => toast.error(err)),
                       )}
                     {item("Set NULL", () => handleSetNullRange(range))}
+                  </>
+                )}
+                {contextMenuItems && (
+                  <>
+                    <div className="divider" />
+                    {contextMenuItems(range).map((extra) => (
+                      <Fragment key={extra.label}>{item(extra.label, extra.action, extra.disabled)}</Fragment>
+                    ))}
                   </>
                 )}
                 <div className="divider" />

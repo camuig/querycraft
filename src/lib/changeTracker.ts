@@ -102,6 +102,21 @@ export class ChangeTracker {
     return this.withChanges({ deletedRowIndices: s });
   }
 
+  /**
+   * Delete / restore for a selection (like DataGrip's "Delete Row"): restores the rows when every
+   * one of them is already marked deleted, otherwise marks them all deleted.
+   */
+  toggleDeleteRows(rowIndices: number[]): ChangeTracker {
+    if (rowIndices.length === 0) return this;
+    const s = new Set(this.deletedRowIndices);
+    if (rowIndices.every((r) => s.has(r))) {
+      for (const r of rowIndices) s.delete(r);
+    } else {
+      for (const r of rowIndices) s.add(r);
+    }
+    return this.withChanges({ deletedRowIndices: s });
+  }
+
   /** Appends a new row at the end (all cells null), marked as inserted. */
   insertRow(): { tracker: ChangeTracker; rowIndex: number } {
     const rowIndex = this.totalRowCount;
