@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file. Entries are gen
 [release-please](https://github.com/googleapis/release-please) from the Conventional Commits history, and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/camuig/querycraft/compare/v0.4.0...v0.5.0) (2026-09-25)
+
+
+### Features
+
+* **ai:** add llm provider backend with key storage and streaming ([584dbfd](https://github.com/camuig/querycraft/commit/584dbfdc03c3a5f51313ba10989b84f7e488cf29))
+* **ui:** add ai assistant for sql generation and error fixing ([7ab7872](https://github.com/camuig/querycraft/commit/7ab7872cd8818a49a04f7a996d942796a392f98f))
+* **ui:** add ai chat panel with explain and optimize actions ([5fb3809](https://github.com/camuig/querycraft/commit/5fb3809dc69fba8f0095a27fbd0400678592f4cf))
+* **ui:** add inline ai completion in the sql editor ([8694cb4](https://github.com/camuig/querycraft/commit/8694cb4603f28709c565715a1b344a2a3ba9a965))
+
+
+### Bug Fixes
+
+* **grid:** delete and restore all selected rows ([ec7254a](https://github.com/camuig/querycraft/commit/ec7254aa77e45218b5bf664dcf604406bcb456a3))
+
 ## [0.4.0](https://github.com/camuig/querycraft/compare/v0.3.0...v0.4.0) (2026-09-18)
 
 
