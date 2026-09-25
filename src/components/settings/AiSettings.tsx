@@ -30,6 +30,10 @@ export function AiSettings() {
   const setAiModel = useSettingsStore((s) => s.setAiModel);
   const aiBaseUrls = useSettingsStore((s) => s.aiBaseUrls);
   const setAiBaseUrl = useSettingsStore((s) => s.setAiBaseUrl);
+  const aiInlineEnabled = useSettingsStore((s) => s.aiInlineEnabled);
+  const setAiInlineEnabled = useSettingsStore((s) => s.setAiInlineEnabled);
+  const aiInlineModels = useSettingsStore((s) => s.aiInlineModels);
+  const setAiInlineModel = useSettingsStore((s) => s.setAiInlineModel);
 
   const keyStatus = useAiStore((s) => s.keyStatus);
   const modelsByProvider = useAiStore((s) => s.models);
@@ -316,6 +320,42 @@ export function AiSettings() {
                 ↻
               </button>
             </div>
+          </div>
+
+          <div className="form-grid" style={{ marginTop: 20 }}>
+            <span className="form-label">Inline suggestions</span>
+            <div className="form-row">
+              <label style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 6 }}>
+                <input
+                  type="checkbox"
+                  checked={aiInlineEnabled}
+                  onChange={(e) => setAiInlineEnabled(e.target.checked)}
+                />
+                Suggest completions while typing
+              </label>
+            </div>
+            {aiInlineEnabled && (
+              <>
+                <label htmlFor="ai-inline-model">Inline model</label>
+                <select
+                  id="ai-inline-model"
+                  value={aiInlineModels[preset.id] ?? ""}
+                  onChange={(e) => setAiInlineModel(preset.id, e.target.value)}
+                >
+                  <option value="">Same as main model</option>
+                  {chatModels.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name ?? m.id}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+            <span className="form-label" />
+            <span className="form-hint" style={{ marginTop: 0 }}>
+              Each pause in typing sends the text around the cursor (and the schema, per connection settings) to the
+              provider. Pick a small, fast model — e.g. Claude Haiku for Anthropic.
+            </span>
           </div>
 
           {preset.baseUrlEditable ? (

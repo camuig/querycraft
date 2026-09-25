@@ -300,8 +300,40 @@ function fakeAiModels(protocol: AiProtocol): AiModel[] {
   return [...models].sort((a, b) => a.id.localeCompare(b.id));
 }
 
+/**
+ * A short, plausible inline-completion suggestion for the browser demo: looks at the keyword right
+ * before the `<CURSOR>` marker in the request and continues with something that keyword would
+ * plausibly be followed by. Good enough to show ghost text moving as you type; not a real model.
+ */
+function fakeInlineCompletion(userMessage: string): string {
+  const cursorIndex = userMessage.indexOf("<CURSOR>");
+  const before = (cursorIndex === -1 ? userMessage : userMessage.slice(0, cursorIndex)).trimEnd();
+  const keyword = /\b(SELECT|FROM|WHERE|JOIN|ORDER BY|GROUP BY|AND|OR)\s*$/i.exec(before)?.[1]?.toUpperCase();
+  switch (keyword) {
+    case "SELECT":
+      return "id, name, email";
+    case "FROM":
+      return "customers";
+    case "WHERE":
+    case "AND":
+    case "OR":
+      return "id = 1";
+    case "JOIN":
+      return "orders o ON o.customer_id = c.id";
+    case "ORDER BY":
+      return "id DESC";
+    case "GROUP BY":
+      return "id";
+    default:
+      return before.endsWith(",") ? "name" : "";
+  }
+}
+
 /** A plausible answer for the console's "Generate SQL" / "Fix with AI" actions. */
 function fakeAiAnswer(request: AiChatRequest): string {
+  if (/SQL autocomplete engine/.test(request.system)) {
+    return fakeInlineCompletion(request.messages[request.messages.length - 1]?.content ?? "");
+  }
   if (/```redis|redis assistant/i.test(request.system)) {
     return "```redis\nGET user:1001\n```";
   }

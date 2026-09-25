@@ -3,12 +3,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Group, Panel, Separator } from "react-resizable-panels";
 import * as api from "../../api/commands";
 import type { ExecuteRequest, StatementResult } from "../../api/types";
+import { gatherSchemaContext } from "../../lib/ai/gather";
+import { buildInlineSystemPrompt, buildInlineUserMessage, cleanCompletion } from "../../lib/ai/inline";
 import { registerCommand } from "../../lib/commandBus";
 import { commandAtCursor } from "../../lib/commandSplit";
 import { dialectFor } from "../../lib/dialect";
 import { newId } from "../../lib/ids";
 import { actionTitle } from "../../lib/keymap";
 import { statementAtCursor } from "../../lib/sqlSplit";
+import { getInlineAiConfig, useAiStore } from "../../store/aiStore";
 import { selectConnectionAiAccess, selectConnectionKind, useConnectionsStore } from "../../store/connectionsStore";
 import { useExplorerStore } from "../../store/explorerStore";
 import { selectResolvedTheme, useSettingsStore } from "../../store/settingsStore";
@@ -18,6 +21,7 @@ import { useTabsStore } from "../../store/tabsStore";
 import { toast } from "../../store/toastStore";
 import { ResultsPanel } from "../grid/ResultsPanel";
 import { AiAssistBar } from "./AiAssistBar";
+import type { InlineCompletionSource } from "./inlineCompletion";
 import { SqlEditor } from "./SqlEditor";
 import { useAiAssist } from "./useAiAssist";
 
@@ -40,6 +44,11 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
   const setStatusMessage = useStatusStore((s) => s.setMessage);
   const isRedis = dialectFor(kind).queryLanguage === "redis";
   const serverVersion = useConnectionsStore((s) => s.runtime[tab.connectionId]?.serverInfo?.serverVersion);
+  const aiInlineEnabled = useSettingsStore((s) => s.aiInlineEnabled);
+  const aiProviderId = useSettingsStore((s) => s.aiProviderId);
+  const aiModels = useSettingsStore((s) => s.aiModels);
+  const aiInlineModels = useSettingsStore((s) => s.aiInlineModels);
+  const aiKeyStatus = useAiStore((s) => s.keyStatus);
 
   const editorRef = useRef<EditorView | null>(null);
   const [localSql, setLocalSql] = useState(tab.sql);
@@ -109,6 +118,98 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
     }
     return result;
   }, [tables, columnsCache, tab.connectionId, tab.database, isRedis, redisKeys]);
+
+  // Schema context for inline completion (aiAccess "schema" only): computed once per console and
+  // recomputed only when the set of table names for the current database actually changes, so the
+  // inline system prompt stays identical between requests (the provider can cache it).
+  const tableNamesKey = useMemo(() => {
+    if (!tab.database) return "";
+    const list = tables[`${tab.connectionId}/${tab.database}`];
+    return list ? list.map((t) => t.name).join(",") : "";
+  }, [tables, tab.connectionId, tab.database]);
+
+  const [inlineSchema, setInlineSchema] = useState("");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tableNamesKey is a recompute trigger, not read in the body
+  useEffect(() => {
+    if (aiAccess !== "schema" || isRedis || !tab.database) {
+      setInlineSchema("");
+      return;
+    }
+    let cancelled = false;
+    gatherSchemaContext(tab.connectionId, tab.database, "")
+      .then((ctx) => {
+        if (!cancelled) setInlineSchema(ctx);
+      })
+      .catch(() => {
+        if (!cancelled) setInlineSchema("");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [aiAccess, isRedis, tab.connectionId, tab.database, tableNamesKey]);
+  const inlineSchemaRef = useRef(inlineSchema);
+  inlineSchemaRef.current = inlineSchema;
+
+  const warnedInlineErrors = useRef<Set<string>>(new Set());
+
+  const inlineRequest = useCallback(
+    async (prefix: string, suffix: string, signal: AbortSignal): Promise<string> => {
+      const config = getInlineAiConfig();
+      if ("error" in config) return "";
+
+      const dialect = dialectFor(kind);
+      const system = buildInlineSystemPrompt({
+        dialectLabel: dialect.label,
+        serverVersion,
+        database: tab.database,
+        schema: aiAccess === "schema" ? inlineSchemaRef.current : undefined,
+      });
+      const message = buildInlineUserMessage(prefix, suffix);
+      const requestId = newId();
+      const onAbort = () => {
+        api.aiCancel(requestId).catch(() => undefined);
+      };
+      signal.addEventListener("abort", onAbort);
+
+      try {
+        const full = await api.aiChat(
+          {
+            requestId,
+            endpoint: config.endpoint,
+            model: config.model,
+            system,
+            messages: [{ role: "user", content: message }],
+            maxTokens: 256,
+          },
+          () => undefined,
+        );
+        return cleanCompletion(full, prefix, suffix);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        if (message !== "Cancelled" && !warnedInlineErrors.current.has(message)) {
+          warnedInlineErrors.current.add(message);
+          console.warn("Inline completion request failed:", message);
+        }
+        return "";
+      } finally {
+        signal.removeEventListener("abort", onAbort);
+      }
+    },
+    [kind, serverVersion, tab.database, aiAccess],
+  );
+
+  // Reactive mirror of getInlineAiConfig()'s "is anything usable configured" check, so the source is
+  // only wired up (and the extension armed) once a provider/key/model are actually in place.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally keyed on the settings/key-status slices it reads via getState(), not referenced directly
+  const aiConfigured = useMemo(
+    () => !("error" in getInlineAiConfig()),
+    [aiProviderId, aiModels, aiInlineModels, aiKeyStatus],
+  );
+
+  const inlineSource: InlineCompletionSource | null = useMemo(() => {
+    if (!aiInlineEnabled || isRedis || aiAccess === "off" || !aiConfigured) return null;
+    return { request: inlineRequest };
+  }, [aiInlineEnabled, isRedis, aiAccess, aiConfigured, inlineRequest]);
 
   const ensureConnected = useCallback(async () => {
     if (useConnectionsStore.getState().runtime[tab.connectionId]?.status !== "connected") {
@@ -322,6 +423,7 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
               fontSize={editorFontSize}
               theme={theme}
               editorRef={editorRef}
+              inlineSource={inlineSource}
             />
           </Panel>
           <Separator className="resize-handle horizontal" />

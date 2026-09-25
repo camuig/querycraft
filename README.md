@@ -169,6 +169,13 @@ the schema of the tables involved (names, columns, types, keys, comments — nev
 only* sends just the query/error text with no schema; *Off* disables the assistant entirely for that
 connection.
 
+**Inline suggestions** — off by default, since every pause while typing sends a request to the
+provider. Turn it on in *Settings → AI* ("Suggest completions while typing") and, optionally, pick a
+separate (ideally smaller and faster) model just for it. While enabled, pausing in a SQL console shows
+a completion as dimmed ghost text at the cursor: `Tab` accepts it, `Esc` dismisses it, and typing
+anything just clears it. It respects the connection's access level the same way as the rest of the
+assistant, and is unavailable for Redis/Valkey consoles and where the assistant is off.
+
 ## Installation
 
 Download the installer for your platform from the

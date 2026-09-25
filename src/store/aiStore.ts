@@ -53,12 +53,8 @@ export const useAiStore = create<AiState>()((set) => ({
 
 export type ActiveAiConfig = { endpoint: AiEndpoint; model: string; preset: AiProviderPreset };
 
-/**
- * Resolves the provider/model/endpoint the console should use right now, or the reason it can't:
- * no provider chosen yet, a required key missing, or no model chosen yet. UI actions (Generate SQL,
- * Fix with AI) call this first and show the `error` instead of attempting a request.
- */
-export function getActiveAiConfig(): ActiveAiConfig | { error: string } {
+/** Shared by `getActiveAiConfig`/`getInlineAiConfig`: everything but which model to use. */
+function resolveConfig(model: string | undefined): ActiveAiConfig | { error: string } {
   const settings = useSettingsStore.getState();
   const providerId = settings.aiProviderId;
   const preset = providerId ? providerById(providerId) : undefined;
@@ -70,10 +66,29 @@ export function getActiveAiConfig(): ActiveAiConfig | { error: string } {
     return { error: `Add an API key for ${preset.label} in Settings` };
   }
 
-  const model = settings.aiModels[providerId];
   if (!model) {
     return { error: "Choose a model in Settings" };
   }
 
   return { endpoint: resolveEndpoint(preset, settings.aiBaseUrls[providerId]), model, preset };
+}
+
+/**
+ * Resolves the provider/model/endpoint the console should use right now, or the reason it can't:
+ * no provider chosen yet, a required key missing, or no model chosen yet. UI actions (Generate SQL,
+ * Fix with AI) call this first and show the `error` instead of attempting a request.
+ */
+export function getActiveAiConfig(): ActiveAiConfig | { error: string } {
+  const { aiProviderId, aiModels } = useSettingsStore.getState();
+  return resolveConfig(aiProviderId ? aiModels[aiProviderId] : undefined);
+}
+
+/**
+ * Same as `getActiveAiConfig`, but for inline completion: uses the provider's inline model
+ * (`aiInlineModels`) when one is set, falling back to its main model otherwise.
+ */
+export function getInlineAiConfig(): ActiveAiConfig | { error: string } {
+  const { aiProviderId, aiModels, aiInlineModels } = useSettingsStore.getState();
+  const model = aiProviderId ? aiInlineModels[aiProviderId] || aiModels[aiProviderId] : undefined;
+  return resolveConfig(model);
 }

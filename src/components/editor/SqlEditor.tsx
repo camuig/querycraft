@@ -29,6 +29,7 @@ import { useEffect, useRef } from "react";
 import type { DbKind } from "../../api/types";
 import { dialectFor } from "../../lib/dialect";
 import { duplicateLineOrSelection } from "./editorCommands";
+import { type InlineCompletionSource, inlineCompletion } from "./inlineCompletion";
 import { redisLanguage } from "./redisLanguage";
 import { editorDialect } from "./sqlDialects";
 import "../../styles/editor.css";
@@ -48,6 +49,8 @@ export interface SqlEditorProps {
   theme: EditorTheme;
   readOnly?: boolean;
   editorRef?: React.MutableRefObject<EditorView | null>;
+  /** Enables inline AI completion ("ghost text") when set; omit/null to disable. */
+  inlineSource?: InlineCompletionSource | null;
 }
 
 const MONO_FONT = '"JetBrains Mono", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
@@ -137,6 +140,7 @@ export function SqlEditor(props: SqlEditorProps) {
   const themeCompartment = useRef(new Compartment()).current;
   const fontSizeCompartment = useRef(new Compartment()).current;
   const readOnlyCompartment = useRef(new Compartment()).current;
+  const inlineCompartment = useRef(new Compartment()).current;
 
   // Create the editor once on mount.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the editor is created once, later prop changes go through compartments
@@ -190,6 +194,7 @@ export function SqlEditor(props: SqlEditorProps) {
         themeCompartment.of(buildThemeExtension(props.theme)),
         fontSizeCompartment.of(buildFontSizeExtension(props.fontSize)),
         readOnlyCompartment.of(EditorState.readOnly.of(!!props.readOnly)),
+        inlineCompartment.of(props.inlineSource ? inlineCompletion(props.inlineSource) : []),
         execKeymap,
         keymap.of([
           ...closeBracketsKeymap,
@@ -246,6 +251,12 @@ export function SqlEditor(props: SqlEditorProps) {
       effects: readOnlyCompartment.reconfigure(EditorState.readOnly.of(!!props.readOnly)),
     });
   }, [props.readOnly, readOnlyCompartment]);
+
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: inlineCompartment.reconfigure(props.inlineSource ? inlineCompletion(props.inlineSource) : []),
+    });
+  }, [props.inlineSource, inlineCompartment]);
 
   return <div className="sql-editor" ref={containerRef} />;
 }

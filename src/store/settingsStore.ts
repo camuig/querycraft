@@ -32,6 +32,11 @@ interface SettingsState {
   aiModels: Record<string, string>;
   /** Base URL override per provider id (local runtimes, and the custom OpenAI-compatible preset). */
   aiBaseUrls: Record<string, string>;
+  /** Whether the editor suggests inline completions ("ghost text") while typing. Off by default: it
+   * sends a request to the provider on every typing pause. */
+  aiInlineEnabled: boolean;
+  /** Chosen inline-completion model per provider id; empty/absent falls back to `aiModels`. */
+  aiInlineModels: Record<string, string>;
   setTheme: (theme: ThemePreference) => void;
   setSystemDark: (dark: boolean) => void;
   setMaxRows: (n: number) => void;
@@ -43,6 +48,8 @@ interface SettingsState {
   setAiProvider: (providerId: string | null) => void;
   setAiModel: (providerId: string, model: string) => void;
   setAiBaseUrl: (providerId: string, url: string) => void;
+  setAiInlineEnabled: (enabled: boolean) => void;
+  setAiInlineModel: (providerId: string, model: string) => void;
 }
 
 function readSystemDark(): boolean {
@@ -64,6 +71,8 @@ export const useSettingsStore = create<SettingsState>()(
       aiProviderId: null,
       aiModels: {},
       aiBaseUrls: {},
+      aiInlineEnabled: false,
+      aiInlineModels: {},
       setTheme: (theme) => set({ theme }),
       setSystemDark: (systemDark) => set({ systemDark }),
       setMaxRows: (maxRows) => set({ maxRows }),
@@ -77,6 +86,9 @@ export const useSettingsStore = create<SettingsState>()(
       setAiProvider: (aiProviderId) => set({ aiProviderId }),
       setAiModel: (providerId, model) => set((s) => ({ aiModels: { ...s.aiModels, [providerId]: model } })),
       setAiBaseUrl: (providerId, url) => set((s) => ({ aiBaseUrls: { ...s.aiBaseUrls, [providerId]: url } })),
+      setAiInlineEnabled: (aiInlineEnabled) => set({ aiInlineEnabled }),
+      setAiInlineModel: (providerId, model) =>
+        set((s) => ({ aiInlineModels: { ...s.aiInlineModels, [providerId]: model } })),
     }),
     {
       name: "querycraft-settings",
@@ -88,6 +100,8 @@ export const useSettingsStore = create<SettingsState>()(
         aiProviderId: s.aiProviderId,
         aiModels: s.aiModels,
         aiBaseUrls: s.aiBaseUrls,
+        aiInlineEnabled: s.aiInlineEnabled,
+        aiInlineModels: s.aiInlineModels,
       }),
     },
   ),
