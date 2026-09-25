@@ -20,6 +20,7 @@ function conn(id: string, name: string, kind: ConnectionConfig["kind"]): Connect
     ssh: null,
     hasPassword: false,
     hasSshSecret: false,
+    aiAccess: "schema",
   };
 }
 

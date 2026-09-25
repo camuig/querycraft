@@ -1,7 +1,11 @@
 // Typed wrappers over Tauri invoke(). The only place where the frontend knows command names.
-import { invoke as tauriInvoke } from "@tauri-apps/api/core";
-import { mockInvoke } from "./mock";
+import { Channel, invoke as tauriInvoke } from "@tauri-apps/api/core";
+import { mockAiChat, mockInvoke } from "./mock";
 import type {
+  AiChatRequest,
+  AiEndpoint,
+  AiEvent,
+  AiModel,
   ApplyResult,
   ColumnInfo,
   ConnectionConfig,
@@ -98,3 +102,32 @@ export const closeSession = (connectionId: string, sessionId: string) =>
 export const listHistory = (limit = 200) => invoke<QueryHistoryEntry[]>("list_history", { limit });
 
 export const clearHistory = () => invoke<void>("clear_history");
+
+// --- AI assistant ------------------------------------------------------------
+
+/** Which of the given provider ids have a saved API key in the backend's SecretStore. */
+export const aiKeyStatus = (providerIds: string[]) => invoke<Record<string, boolean>>("ai_key_status", { providerIds });
+
+/** Saves an API key for a provider; an empty string deletes it. */
+export const aiSetKey = (providerId: string, apiKey: string) => invoke<void>("ai_set_key", { providerId, apiKey });
+
+export const aiDeleteKey = (providerId: string) => invoke<void>("ai_delete_key", { providerId });
+
+/** Lists a provider's models; also doubles as "verify this API key" for the Settings dialog. */
+export const aiListModels = (endpoint: AiEndpoint) => invoke<AiModel[]>("ai_list_models", { endpoint });
+
+/**
+ * Streams a chat completion, calling `onEvent` for every delta/done event and resolving with the
+ * full response text once the model finishes (or rejecting, e.g. with "Cancelled" after `aiCancel`).
+ * In the browser mock (no Tauri runtime) a fake streamer is used instead of `Channel`, which needs
+ * the real Tauri IPC internals and cannot be constructed outside a Tauri webview.
+ */
+export const aiChat = (request: AiChatRequest, onEvent: (event: AiEvent) => void): Promise<string> => {
+  if (!isTauri) return mockAiChat(request, onEvent);
+  const channel = new Channel<AiEvent>();
+  channel.onmessage = onEvent;
+  return tauriInvoke<string>("ai_chat", { request, onEvent: channel });
+};
+
+/** Aborts a running `aiChat` by its requestId; no error if it is already finished or unknown. */
+export const aiCancel = (requestId: string) => invoke<void>("ai_cancel", { requestId });

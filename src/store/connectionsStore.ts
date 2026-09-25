@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import * as api from "../api/commands";
-import type { ConnectionConfig, ConnectionInput, DbKind, ServerInfo } from "../api/types";
+import type { AiAccess, ConnectionConfig, ConnectionInput, DbKind, ServerInfo } from "../api/types";
 
 export type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
 
@@ -91,4 +91,9 @@ export function connectionStatus(id: string): ConnectionRuntime {
 /** Engine of a saved connection; falls back to MySQL for an unknown id so callers always get a dialect. */
 export function selectConnectionKind(id: string) {
   return (s: ConnectionsState): DbKind => s.configs.find((c) => c.id === id)?.kind ?? "mysql";
+}
+
+/** How much a connection may share with the AI assistant; falls back to "off" for an unknown id. */
+export function selectConnectionAiAccess(id: string) {
+  return (s: ConnectionsState): AiAccess => s.configs.find((c) => c.id === id)?.aiAccess ?? "off";
 }

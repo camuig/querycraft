@@ -1,7 +1,7 @@
 // Pure form <-> ConnectionInput conversion and validation for the connection dialog.
 // Kept separate from the React component so the logic can be unit-tested without rendering.
 
-import type { ConnectionConfig, ConnectionInput, DbKind, SshAuth } from "../api/types";
+import type { AiAccess, ConnectionConfig, ConnectionInput, DbKind, SshAuth } from "../api/types";
 import { dialectFor } from "./dialect";
 
 /** Which tab of the connection dialog a validation error belongs to. */
@@ -28,6 +28,7 @@ export interface FormState {
   sshAuth: SshAuth;
   sshKeyPath: string;
   sshSecret: string;
+  aiAccess: AiAccess;
 }
 
 const MYSQL_DEFAULTS = dialectFor("mysql");
@@ -54,6 +55,7 @@ export const EMPTY_FORM: FormState = {
   sshAuth: "password",
   sshKeyPath: "",
   sshSecret: "",
+  aiAccess: "schema",
 };
 
 /** Builds the form state for editing an existing connection. */
@@ -80,6 +82,7 @@ export function formFromConfig(config: ConnectionConfig): FormState {
     sshAuth: ssh?.auth ?? "password",
     sshKeyPath: ssh?.keyPath ?? "",
     sshSecret: "",
+    aiAccess: config.aiAccess,
   };
 }
 
@@ -134,6 +137,7 @@ export function buildInput(form: FormState, id: string | null): BuildInputResult
         path,
         ssh: null,
         sshSecret: null,
+        aiAccess: form.aiAccess,
       },
     };
   }
@@ -199,6 +203,7 @@ export function buildInput(form: FormState, id: string | null): BuildInputResult
       path: null,
       ssh,
       sshSecret: form.sshSecret.length > 0 ? form.sshSecret : null,
+      aiAccess: form.aiAccess,
     },
   };
 }

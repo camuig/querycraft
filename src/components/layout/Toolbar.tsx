@@ -53,7 +53,7 @@ export function Toolbar() {
           ))}
         </select>
       </label>
-      <button type="button" className="icon" onClick={openSettings} title={actionTitle("openSettings")}>
+      <button type="button" className="icon" onClick={() => openSettings()} title={actionTitle("openSettings")}>
         ⚙
       </button>
     </div>

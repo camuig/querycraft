@@ -1,7 +1,7 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
 import * as api from "../../api/commands";
-import type { DbKind, SshAuth } from "../../api/types";
+import type { AiAccess, DbKind, SshAuth } from "../../api/types";
 import {
   applyKindChange,
   buildInput,
@@ -24,6 +24,18 @@ const SSH_AUTH_OPTIONS: { value: SshAuth; label: string }[] = [
   { value: "key", label: "Key pair" },
   { value: "agent", label: "OpenSSH agent" },
 ];
+
+const AI_ACCESS_OPTIONS: { value: AiAccess; label: string }[] = [
+  { value: "schema", label: "Query and schema" },
+  { value: "query", label: "Query only" },
+  { value: "off", label: "Off" },
+];
+
+const AI_ACCESS_HINTS: Record<AiAccess, string> = {
+  schema: "The assistant may see the query text and the schema (table/column names, types, keys).",
+  query: "The assistant may see the query text and error, never the schema.",
+  off: "The AI assistant is disabled for this connection.",
+};
 
 /** Modal for creating/editing a connection. */
 export function ConnectionDialog() {
@@ -324,6 +336,23 @@ export function ConnectionDialog() {
                     />
                   ))}
                 </div>
+
+                <label htmlFor="conn-ai-access">AI assistant</label>
+                <select
+                  id="conn-ai-access"
+                  value={form.aiAccess}
+                  onChange={(e) => setForm((f) => ({ ...f, aiAccess: e.target.value as AiAccess }))}
+                >
+                  {AI_ACCESS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="form-label" />
+                <span className="form-hint" style={{ marginTop: 0 }}>
+                  {AI_ACCESS_HINTS[form.aiAccess]}
+                </span>
               </div>
             ) : (
               <div className="form-grid">

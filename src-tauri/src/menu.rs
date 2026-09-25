@@ -142,6 +142,8 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &item(app, "executeStatement", "Execute", Some("CmdOrCtrl+Enter"))?,
             &item(app, "executeScript", "Execute Script", Some("CmdOrCtrl+Shift+Enter"))?,
             &item(app, "cancelQuery", "Cancel Running Query", Some("CmdOrCtrl+F2"))?,
+            &sep(app)?,
+            &item(app, "aiGenerate", "Generate SQL with AI…", Some("CmdOrCtrl+\\"))?,
         ],
     )?;
     menu.append(&run)?;

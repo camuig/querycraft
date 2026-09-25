@@ -19,6 +19,7 @@ function config(overrides: Partial<ConnectionConfig> = {}): ConnectionConfig {
     ssh: { host: "bastion.example.com", port: 2222, user: "deploy", auth: "key", keyPath: "~/.ssh/id_ed25519" },
     hasPassword: true,
     hasSshSecret: true,
+    aiAccess: "schema",
     ...overrides,
   };
 }
@@ -36,6 +37,12 @@ describe("formFromConfig", () => {
     expect(form.sslCaPath).toBe("/etc/ca.pem");
     // The saved password/secret is never sent back to the form.
     expect(form.password).toBe("");
+    expect(form.aiAccess).toBe("schema");
+  });
+
+  it("carries the connection's AI access level into the form", () => {
+    const form = formFromConfig(config({ aiAccess: "off" }));
+    expect(form.aiAccess).toBe("off");
   });
 
   it("defaults SSH fields when the config has no tunnel", () => {
@@ -107,6 +114,16 @@ describe("buildInput", () => {
     expect(result.input.sslCaPath).toBeNull();
     expect(result.input.ssh).toBeNull();
     expect(result.input.sshSecret).toBeNull();
+  });
+
+  it("defaults aiAccess to schema and carries an explicit choice through", () => {
+    expect(buildInput({ ...EMPTY_FORM, name: "n" }, null)).toMatchObject({ input: { aiAccess: "schema" } });
+    expect(buildInput({ ...EMPTY_FORM, name: "n", aiAccess: "off" }, null)).toMatchObject({
+      input: { aiAccess: "off" },
+    });
+    expect(
+      buildInput({ ...EMPTY_FORM, kind: "sqlite", name: "n", path: "/tmp/db.sqlite", aiAccess: "query" }, null),
+    ).toMatchObject({ input: { aiAccess: "query" } });
   });
 
   it("nulls out the CA path when SSL is off even if one was typed", () => {

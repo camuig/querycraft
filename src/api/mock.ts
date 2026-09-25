@@ -2,6 +2,11 @@
 // Activated only when window.__TAURI_INTERNALS__ is absent. Not used in the application build.
 import { applyRedisMockChanges, mockRedisKeys, runRedisMockQuery } from "./mockRedis";
 import type {
+  AiChatRequest,
+  AiEndpoint,
+  AiEvent,
+  AiModel,
+  AiProtocol,
   ColumnInfo,
   ColumnMeta,
   ConnectionConfig,
@@ -31,6 +36,7 @@ let connections: ConnectionConfig[] = [
     ssh: null,
     hasPassword: true,
     hasSshSecret: false,
+    aiAccess: "schema",
   },
   {
     id: "mock-2",
@@ -48,6 +54,7 @@ let connections: ConnectionConfig[] = [
     ssh: { host: "bastion.example.com", port: 22, user: "deploy", auth: "key", keyPath: "~/.ssh/id_ed25519" },
     hasPassword: false,
     hasSshSecret: true,
+    aiAccess: "schema",
   },
   {
     id: "mock-3",
@@ -65,6 +72,7 @@ let connections: ConnectionConfig[] = [
     ssh: null,
     hasPassword: false,
     hasSshSecret: false,
+    aiAccess: "schema",
   },
   {
     id: "mock-4",
@@ -82,6 +90,7 @@ let connections: ConnectionConfig[] = [
     ssh: null,
     hasPassword: true,
     hasSshSecret: false,
+    aiAccess: "schema",
   },
 ];
 
@@ -267,6 +276,70 @@ function runStatement(sql: string, maxRows: number): StatementResult {
   );
 }
 
+// --- AI assistant ------------------------------------------------------------
+// In-memory key store and a fake streaming answer, realistic enough to demo the AI assistant UI
+// in `pnpm dev` without a real backend. Resets on reload; not used in the application build.
+
+const aiKeys = new Map<string, string>();
+const aiCancelled = new Set<string>();
+
+function fakeAiModels(protocol: AiProtocol): AiModel[] {
+  const models: AiModel[] =
+    protocol === "anthropic"
+      ? [
+          { id: "claude-haiku-4-5", name: "Claude Haiku 4.5" },
+          { id: "claude-opus-5", name: "Claude Opus 5" },
+          { id: "claude-sonnet-5", name: "Claude Sonnet 5" },
+        ]
+      : [
+          { id: "gpt-4o", name: null },
+          { id: "gpt-5", name: null },
+          { id: "gpt-5-mini", name: null },
+          { id: "text-embedding-3-small", name: null },
+        ];
+  return [...models].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+/** A plausible answer for the console's "Generate SQL" / "Fix with AI" actions. */
+function fakeAiAnswer(request: AiChatRequest): string {
+  if (/```redis|redis assistant/i.test(request.system)) {
+    return "```redis\nGET user:1001\n```";
+  }
+  return [
+    "```sql",
+    "SELECT c.id, c.name, SUM(o.total) AS total_spent",
+    "FROM customers c",
+    "JOIN orders o ON o.customer_id = c.id",
+    "GROUP BY c.id, c.name",
+    "ORDER BY total_spent DESC",
+    "LIMIT 5;",
+    "```",
+  ].join("\n");
+}
+
+/**
+ * Mock streamer used instead of the real Channel-based `ai_chat` in the browser: streams the fake
+ * answer a few characters at a time, honoring `aiCancel` the same way the backend does (an
+ * in-flight request rejects with "Cancelled").
+ */
+export async function mockAiChat(request: AiChatRequest, onEvent: (event: AiEvent) => void): Promise<string> {
+  aiCancelled.delete(request.requestId);
+  const text = fakeAiAnswer(request);
+  const chunkSize = 4;
+  let sent = "";
+  for (let i = 0; i < text.length; i += chunkSize) {
+    await delay(30);
+    if (aiCancelled.delete(request.requestId)) {
+      throw new Error("Cancelled");
+    }
+    const chunk = text.slice(i, i + chunkSize);
+    sent += chunk;
+    onEvent({ kind: "delta", text: chunk });
+  }
+  onEvent({ kind: "done", stopReason: "end_turn" });
+  return sent;
+}
+
 export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
   await delay(cmd === "connect" ? 400 : 60);
   const a = args as Record<string, string>;
@@ -291,6 +364,7 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
         ssh: input.ssh,
         hasPassword: input.savePassword && !!input.password,
         hasSshSecret: input.savePassword && !!input.sshSecret,
+        aiAccess: input.aiAccess,
       };
       connections = connections.some((c) => c.id === saved.id)
         ? connections.map((c) => (c.id === saved.id ? saved : c))
@@ -386,6 +460,30 @@ export async function mockInvoke<T>(cmd: string, args: Record<string, unknown> =
     }
     case "list_history":
       return [] as T;
+    case "ai_key_status": {
+      const providerIds = args.providerIds as string[];
+      return Object.fromEntries(providerIds.map((id) => [id, aiKeys.has(id)])) as T;
+    }
+    case "ai_set_key": {
+      const apiKey = String(args.apiKey ?? "").trim();
+      if (apiKey) aiKeys.set(a.providerId, apiKey);
+      else aiKeys.delete(a.providerId);
+      return undefined as T;
+    }
+    case "ai_delete_key":
+      aiKeys.delete(a.providerId);
+      return undefined as T;
+    case "ai_list_models": {
+      const endpoint = args.endpoint as AiEndpoint;
+      await delay(300);
+      if (endpoint.apiKey !== null && endpoint.apiKey.trim() === "") {
+        throw new Error("401 Unauthorized: invalid API key");
+      }
+      return fakeAiModels(endpoint.protocol) as T;
+    }
+    case "ai_cancel":
+      aiCancelled.add(a.requestId);
+      return undefined as T;
     default:
       throw new Error(`mock: unknown command ${cmd}`);
   }

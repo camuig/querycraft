@@ -20,6 +20,45 @@ export interface SshConfig {
   keyPath: string | null;
 }
 
+/** Wire protocol spoken by an AI provider (see `src/lib/ai/providers.ts` for the presets built on top of it). */
+export type AiProtocol = "anthropic" | "openai";
+
+/** What a connection may share with the AI assistant: schema + query, query only, or nothing. */
+export type AiAccess = "schema" | "query" | "off";
+
+/** Where and how to reach an AI provider. `apiKey` is only set when verifying an unsaved key; otherwise the
+ * backend loads the saved key (if any) from the SecretStore under `ai/<providerId>`. */
+export interface AiEndpoint {
+  providerId: string;
+  protocol: AiProtocol;
+  baseUrl: string;
+  apiKey: string | null;
+}
+
+export interface AiMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AiChatRequest {
+  requestId: string;
+  endpoint: AiEndpoint;
+  model: string;
+  system: string;
+  messages: AiMessage[];
+  /** Defaults to 16000 on the backend when omitted. */
+  maxTokens: number | null;
+}
+
+/** A model reported by `ai_list_models`. `name` is the provider's display name, when it has one. */
+export interface AiModel {
+  id: string;
+  name: string | null;
+}
+
+/** Streamed over the `ai_chat` channel. */
+export type AiEvent = { kind: "delta"; text: string } | { kind: "done"; stopReason: string | null };
+
 export interface ConnectionConfig {
   id: string;
   name: string;
@@ -44,6 +83,8 @@ export interface ConnectionConfig {
   hasPassword: boolean;
   /** Whether the SSH password / key passphrase is saved in the keyring. */
   hasSshSecret: boolean;
+  /** How much this connection may share with the AI assistant. */
+  aiAccess: AiAccess;
 }
 
 /** What the frontend sends when saving/testing a connection. */
@@ -65,6 +106,8 @@ export interface ConnectionInput {
   ssh: SshConfig | null;
   /** SSH password (auth "password") or key passphrase (auth "key"); stored under the same "save password" policy. */
   sshSecret: string | null;
+  /** How much this connection may share with the AI assistant. */
+  aiAccess: AiAccess;
 }
 
 export interface ServerInfo {

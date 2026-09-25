@@ -9,7 +9,7 @@ import { dialectFor } from "../../lib/dialect";
 import { newId } from "../../lib/ids";
 import { actionTitle } from "../../lib/keymap";
 import { statementAtCursor } from "../../lib/sqlSplit";
-import { selectConnectionKind, useConnectionsStore } from "../../store/connectionsStore";
+import { selectConnectionAiAccess, selectConnectionKind, useConnectionsStore } from "../../store/connectionsStore";
 import { useExplorerStore } from "../../store/explorerStore";
 import { selectResolvedTheme, useSettingsStore } from "../../store/settingsStore";
 import { useStatusStore } from "../../store/statusStore";
@@ -17,13 +17,16 @@ import type { ConsoleTab as ConsoleTabModel } from "../../store/tabsStore";
 import { useTabsStore } from "../../store/tabsStore";
 import { toast } from "../../store/toastStore";
 import { ResultsPanel } from "../grid/ResultsPanel";
+import { AiAssistBar } from "./AiAssistBar";
 import { SqlEditor } from "./SqlEditor";
+import { useAiAssist } from "./useAiAssist";
 
 /** SQL console tab: toolbar (run / cancel / database), editor on top, results below. */
 export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: boolean }) {
   const updateConsole = useTabsStore((s) => s.updateConsole);
   const connect = useConnectionsStore((s) => s.connect);
   const kind = useConnectionsStore(selectConnectionKind(tab.connectionId));
+  const aiAccess = useConnectionsStore(selectConnectionAiAccess(tab.connectionId));
   const runtimeStatus = useConnectionsStore((s) => s.runtime[tab.connectionId]?.status ?? "disconnected");
   const databases = useExplorerStore((s) => s.databases[tab.connectionId]);
   const loadDatabases = useExplorerStore((s) => s.loadDatabases);
@@ -36,6 +39,7 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
   const theme = useSettingsStore(selectResolvedTheme);
   const setStatusMessage = useStatusStore((s) => s.setMessage);
   const isRedis = dialectFor(kind).queryLanguage === "redis";
+  const serverVersion = useConnectionsStore((s) => s.runtime[tab.connectionId]?.serverInfo?.serverVersion);
 
   const editorRef = useRef<EditorView | null>(null);
   const [localSql, setLocalSql] = useState(tab.sql);
@@ -45,6 +49,15 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
   const currentQueryId = useRef<string | null>(null);
   const saveTimer = useRef<number | undefined>(undefined);
+
+  const aiAssist = useAiAssist({
+    connectionId: tab.connectionId,
+    database: tab.database,
+    kind,
+    aiAccess,
+    serverVersion,
+    editorRef,
+  });
 
   // Persist the editor text to tabsStore with a delay so the store is not updated on every keystroke.
   useEffect(() => {
@@ -203,11 +216,15 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
         if (!running) return false;
         handleCancel();
       }),
+      registerCommand("aiGenerate", () => {
+        if (aiAccess === "off") return false;
+        aiAssist.openGenerate();
+      }),
     ];
     return () => {
       for (const off of offs) off();
     };
-  }, [active, running, handleExecute, handleCancel]);
+  }, [active, running, handleExecute, handleCancel, aiAccess, aiAssist.openGenerate]);
 
   const handleLoadMore = useCallback(
     (index: number) => {
@@ -225,6 +242,15 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
       void runSql(isRedis ? `SELECT ${db}` : `USE \`${db}\``, 1, null);
     },
     [tab.id, updateConsole, runSql, isRedis],
+  );
+
+  const handleFixError = useCallback(
+    (index: number) => {
+      const r = results[index];
+      if (r?.kind !== "error") return;
+      aiAssist.openFix({ sql: r.sql, error: r.error ?? "Unknown error" });
+    },
+    [results, aiAssist.openFix],
   );
 
   return (
@@ -264,12 +290,26 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          className="ai-toolbar-button"
+          onClick={aiAssist.openGenerate}
+          disabled={aiAccess === "off"}
+          title={
+            aiAccess === "off"
+              ? "AI assistant is off for this connection"
+              : actionTitle("aiGenerate", "Generate SQL with AI")
+          }
+        >
+          ✦ AI
+        </button>
         <div className="spacer" />
         <div className="status">
           {running && <span className="spinner" />}
           <span>{running ? "Running…" : elapsedMs !== null ? `${elapsedMs} ms` : ""}</span>
         </div>
       </div>
+      <AiAssistBar api={aiAssist} />
       <div className="console-split">
         <Group orientation="vertical" id="console-split">
           <Panel defaultSize="60%" minSize="15%">
@@ -291,6 +331,7 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
               kind={kind}
               onLoadMore={handleLoadMore}
               session={{ connectionId: tab.connectionId, sessionId: tab.sessionId, database: tab.database }}
+              onFixError={aiAccess === "off" || isRedis ? undefined : handleFixError}
             />
           </Panel>
         </Group>

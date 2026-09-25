@@ -427,6 +427,65 @@
   color: var(--accent-fg);
 }
 
+/* AI settings page */
+.ai-settings {
+  display: flex;
+  flex-direction: column;
+}
+.ai-provider-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.ai-provider-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-input);
+  text-align: left;
+}
+.ai-provider-tile:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+.ai-provider-tile.selected {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.ai-provider-tile-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.ai-provider-tile-label {
+  font-weight: 600;
+  flex: 1;
+}
+.ai-provider-tile-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  flex-shrink: 0;
+}
+.ai-provider-tile-dot.on {
+  background: var(--success);
+  border-color: var(--success);
+}
+.ai-provider-tile-hint {
+  font-size: 11px;
+  line-height: 1.3;
+}
+.ai-privacy-note {
+  grid-column: unset;
+  margin-top: 16px;
+}
+
 /* Logo */
 .toolbar .brand {
   display: flex;

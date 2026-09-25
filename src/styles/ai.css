@@ -1,0 +1,86 @@
+/* Console AI assist bar (src/components/editor/AiAssistBar.tsx). */
+.ai-assist-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ai-assist-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ai-assist-title {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--fg-muted);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-assist-close {
+  color: var(--fg-muted);
+}
+
+.ai-assist-input-row {
+  display: flex;
+  gap: 6px;
+}
+.ai-assist-input-row input {
+  flex: 1;
+}
+
+.ai-assist-preview {
+  margin: 0;
+  padding: 8px 10px;
+  max-height: 40vh;
+  overflow: auto;
+  background: var(--bg-editor);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ai-assist-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ai-assist-actions .spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  animation: spin 0.7s linear infinite;
+}
+.ai-assist-warning {
+  font-size: 12px;
+}
+.ai-assist-error-text {
+  font-size: 12px;
+  flex: 1;
+}
+
+/* Console toolbar "AI" button */
+.console-toolbar .ai-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* "Fix with AI" button above/next to an error result */
+.results-error-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}

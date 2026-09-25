@@ -25,6 +25,8 @@ export interface ResultsPanelProps {
   kind: DbKind;
   /** Called when clicking "More" on a truncated result — the caller re-runs with a higher limit. */
   onLoadMore?: (index: number) => void;
+  /** Shows a "Fix with AI" button above an error result; omitted when the AI assistant is unavailable. */
+  onFixError?: (index: number) => void;
   /**
    * Session the results came from; lets file exports of truncated results fetch every row and
    * makes the "N+ rows" count clickable (runs SELECT COUNT(*) over the statement, like DataGrip).
@@ -52,7 +54,7 @@ function titleFor(r: StatementResult, i: number): string {
 
 /** List of execution results (tabs, if there are several) with a grid, sorting, and export. */
 export function ResultsPanel(props: ResultsPanelProps) {
-  const { results, kind, onLoadMore, session } = props;
+  const { results, kind, onLoadMore, onFixError, session } = props;
   const [activeIndex, setActiveIndex] = useState(0);
   const [sortByResult, setSortByResult] = useState<Record<number, SortState | null>>({});
   const [counts, setCounts] = useState<Counts>({ results, byIndex: {} });
@@ -130,7 +132,18 @@ export function ResultsPanel(props: ResultsPanelProps) {
         </div>
       )}
 
-      {active.kind === "error" && <div className="results-error text-select">{active.error ?? "Unknown error"}</div>}
+      {active.kind === "error" && (
+        <div>
+          {onFixError && (
+            <div className="results-error-actions">
+              <button type="button" onClick={() => onFixError(safeIndex)}>
+                ✦ Fix with AI
+              </button>
+            </div>
+          )}
+          <div className="results-error text-select">{active.error ?? "Unknown error"}</div>
+        </div>
+      )}
 
       {active.kind === "affected" && (
         <div className="results-affected">

@@ -56,6 +56,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
   and updates.
 - **Automatic updates** — new releases are downloaded from GitHub at startup and applied after a restart
   (see [Updates](#updates)).
+- **AI assistant** — bring your own API key to generate SQL from a description or fix a failing
+  statement, right from the console (see [AI assistant](#ai-assistant)).
 
 ## Keyboard shortcuts
 
@@ -80,6 +82,7 @@ Shortcuts follow the DataGrip defaults for each platform.
 | Close tab | ⌘W | Ctrl+F4 |
 | Next / previous tab | ⇧⌘] / ⇧⌘[ | Alt+→ / Alt+← |
 | Settings | ⌘, | Ctrl+Alt+S |
+| Generate SQL with AI | ⌘\ | Ctrl+\ |
 | Copy selection (TSV) | ⌘C | Ctrl+C |
 | Paste into grid | ⌘V | Ctrl+V |
 | Select all cells | ⌘A | Ctrl+A |
@@ -135,6 +138,36 @@ runs the same type-based preview command as a plain query instead, for a quick r
 TLS connections to Redis/Valkey verify the server certificate against the system trust store only: the
 `redis` crate's native-TLS backend cannot load an extra CA certificate file, so for a private CA either
 add it to the system trust store or turn certificate verification off for that connection.
+
+## AI assistant
+
+QueryCraft ships a bring-your-own-key (BYOK) AI assistant for two things: generating a SQL statement
+from a plain-language description, and fixing a statement that just failed. There is no bundled
+service and no telemetry — every request goes straight from your machine to the provider you chose,
+using your own API key.
+
+**Providers** — Anthropic, OpenAI, Google Gemini, OpenRouter, DeepSeek, Mistral, a local Ollama or LM
+Studio server (no key needed), or any other OpenAI-compatible endpoint. Configure one in *Settings →
+AI* (`Cmd+,` / `Ctrl+Alt+S`): pick a provider, paste an API key (pasting a recognized key format
+switches to the matching provider automatically), choose a model and, for local/custom providers, a
+base URL. API keys are stored in the system keyring (Keychain, Credential Manager, Secret Service),
+never in a plain-text file, and never sent anywhere except the provider's own API.
+
+**Generate SQL** — in a SQL console, click **✦ AI** in the toolbar or press `Cmd+\` / `Ctrl+\` to open
+the assist bar. With no selection, describe the query you need and it is inserted at the cursor; with
+a SQL selection, describe how it should change and the selection is rewritten. The answer streams in
+as a read-only preview; **Accept** applies it as a single undoable edit, **Copy** copies it, **Regenerate**
+asks again, and the input stays open for a follow-up refinement. A statement that would `DROP`,
+`TRUNCATE`, or `DELETE`/`UPDATE` without a `WHERE` clause is flagged before you accept it.
+
+**Fix with AI** — a failed statement's result shows a **✦ Fix with AI** button that opens the same bar
+already working on a fix, using the statement and the error message.
+
+**Per-connection access level** — each connection's *AI assistant* setting (in its General tab)
+controls what the assistant may see for that connection: *Query and schema* sends the query text and
+the schema of the tables involved (names, columns, types, keys, comments — never row data); *Query
+only* sends just the query/error text with no schema; *Off* disables the assistant entirely for that
+connection.
 
 ## Installation
 

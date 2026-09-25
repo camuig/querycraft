@@ -27,7 +27,8 @@ export type AppAction =
   | "openTableData"
   | "goToDdl"
   | "openSettings"
-  | "checkForUpdates";
+  | "checkForUpdates"
+  | "aiGenerate";
 
 export type Platform = "mac" | "other";
 
@@ -113,6 +114,11 @@ export const KEYMAP: Record<AppAction, ActionSpec> = {
     other: [sc("KeyS", { ctrl: true, alt: true })],
   },
   checkForUpdates: { label: "Check for updates", mac: [], other: [] },
+  aiGenerate: {
+    label: "Generate SQL with AI",
+    mac: [sc("Backslash", { meta: true })],
+    other: [sc("Backslash", { ctrl: true })],
+  },
 };
 
 export function detectPlatform(
@@ -177,6 +183,7 @@ const CODE_LABELS: Record<string, string> = {
   Backspace: "Backspace",
   Insert: "Insert",
   Comma: ",",
+  Backslash: "\\",
   BracketLeft: "[",
   BracketRight: "]",
   ArrowUp: "↑",

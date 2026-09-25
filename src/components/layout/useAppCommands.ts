@@ -25,6 +25,7 @@ const ALLOWED_IN_TEXT_FIELDS = new Set<AppAction>([
   "prevTab",
   "focusExplorer",
   "openSettings",
+  "aiGenerate",
 ]);
 
 function isTextField(target: EventTarget | null): boolean {

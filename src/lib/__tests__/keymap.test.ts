@@ -20,6 +20,7 @@ describe("keymap", () => {
     expect(actionsForEvent(key("Backspace", { metaKey: true }), "mac")).toEqual(["deleteRow"]);
     expect(actionsForEvent(key("F4"), "mac")).toEqual(["openTableData"]);
     expect(actionsForEvent(key("Comma", { metaKey: true }), "mac")).toEqual(["openSettings"]);
+    expect(actionsForEvent(key("Backslash", { metaKey: true }), "mac")).toEqual(["aiGenerate"]);
   });
 
   it("matches DataGrip shortcuts on Windows/Linux", () => {
@@ -28,6 +29,7 @@ describe("keymap", () => {
     expect(actionsForEvent(key("KeyY", { ctrlKey: true }), "other")).toEqual(["deleteRow"]);
     expect(actionsForEvent(key("F4", { ctrlKey: true }), "other")).toEqual(["closeTab"]);
     expect(actionsForEvent(key("KeyS", { ctrlKey: true, altKey: true }), "other")).toEqual(["openSettings"]);
+    expect(actionsForEvent(key("Backslash", { ctrlKey: true }), "other")).toEqual(["aiGenerate"]);
   });
 
   it("requires exact modifiers", () => {
@@ -46,6 +48,8 @@ describe("keymap", () => {
     expect(shortcutLabel("nextTab", "mac")).toBe("⇧⌘]");
     expect(shortcutLabel("nextTab", "other")).toBe("Alt+→");
     expect(shortcutLabel("newConnection", "mac")).toBe("");
+    expect(shortcutLabel("aiGenerate", "mac")).toBe("⌘\\");
+    expect(shortcutLabel("aiGenerate", "other")).toBe("Ctrl+\\");
     expect(formatShortcut({ code: "KeyQ", ctrl: true, shift: true }, "mac")).toBe("⌃⇧Q");
   });
 
