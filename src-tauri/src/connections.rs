@@ -104,10 +104,27 @@ struct StoredConnection {
     path: Option<String>,
     #[serde(default)]
     ssh: Option<SshConfig>,
+    /// Missing in configs written before the AI assistant existed; defaults to
+    /// the fullest access (query, error and schema metadata).
+    #[serde(default)]
+    ai_access: AiAccess,
 }
 
 fn default_true() -> bool {
     true
+}
+
+/// How much of this connection the AI assistant may see.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AiAccess {
+    /// Query text, errors, and schema metadata (table/column names, DDL).
+    #[default]
+    Schema,
+    /// Only the query text and its error — no schema metadata.
+    Query,
+    /// The AI assistant is disabled for this connection.
+    Off,
 }
 
 /// Public connection configuration (contract with the frontend).
@@ -130,6 +147,7 @@ pub struct ConnectionConfig {
     pub has_password: bool,
     /// Whether the SSH password / passphrase is saved in the keyring.
     pub has_ssh_secret: bool,
+    pub ai_access: AiAccess,
 }
 
 /// What the frontend sends when saving/testing a connection.
@@ -159,6 +177,8 @@ pub struct ConnectionInput {
     /// SSH password or key passphrase; follows the `save_password` policy like the database password.
     #[serde(default)]
     pub ssh_secret: Option<String>,
+    #[serde(default)]
+    pub ai_access: AiAccess,
 }
 
 impl ConnectionInput {
@@ -274,6 +294,7 @@ impl ConnectionStore {
             ssh: stored.ssh.clone(),
             has_password: self.secrets.get(&Secret::Password.account(&stored.id)).is_some(),
             has_ssh_secret: stored.ssh.is_some() && self.secrets.get(&Secret::Ssh.account(&stored.id)).is_some(),
+            ai_access: stored.ai_access,
         }
     }
 
@@ -329,6 +350,7 @@ impl ConnectionStore {
             color: input.color,
             path: input.path,
             ssh: input.ssh,
+            ai_access: input.ai_access,
         };
 
         {
@@ -383,6 +405,13 @@ impl ConnectionStore {
             ssh_secret: self.get_secret(id, Secret::Ssh),
         }
     }
+
+    /// The secret store backing this connection store. Reused by the AI
+    /// assistant module for provider API keys (account `ai/<providerId>`) so
+    /// there is only ever one writer of the dev-build secrets file.
+    pub fn secrets(&self) -> &SecretStore {
+        &self.secrets
+    }
 }
 
 /// Internal representation of a connection without the serializable `hasPassword` —
@@ -407,7 +436,7 @@ pub struct StoredConnectionView {
 
 #[cfg(test)]
 mod tests {
-    use super::{Secret, SshAuth, StoredConnection};
+    use super::{AiAccess, Secret, SshAuth, StoredConnection};
     use crate::db::DbKind;
 
     #[test]
@@ -464,5 +493,47 @@ mod tests {
         let json = r#"{"id":"a","name":"n","host":"h","port":3306,"user":"u","ssl":true,"ssl_verify":false}"#;
         let stored: StoredConnection = serde_json::from_str(json).unwrap();
         assert!(!stored.ssl_verify);
+    }
+
+    #[test]
+    fn stored_connection_without_ai_access_defaults_to_schema() {
+        let json = r#"{"id":"a","name":"n","host":"h","port":3306,"user":"u"}"#;
+        let stored: StoredConnection = serde_json::from_str(json).unwrap();
+        assert_eq!(stored.ai_access, AiAccess::Schema);
+    }
+
+    #[test]
+    fn stored_connection_keeps_an_explicit_ai_access() {
+        let json = r#"{"id":"a","name":"n","host":"h","port":3306,"user":"u","ai_access":"off"}"#;
+        let stored: StoredConnection = serde_json::from_str(json).unwrap();
+        assert_eq!(stored.ai_access, AiAccess::Off);
+    }
+
+    #[test]
+    fn ai_access_serializes_to_lowercase_json_values() {
+        assert_eq!(serde_json::to_string(&AiAccess::Schema).unwrap(), "\"schema\"");
+        assert_eq!(serde_json::to_string(&AiAccess::Query).unwrap(), "\"query\"");
+        assert_eq!(serde_json::to_string(&AiAccess::Off).unwrap(), "\"off\"");
+    }
+
+    #[test]
+    fn ai_access_default_is_schema() {
+        assert_eq!(AiAccess::default(), AiAccess::Schema);
+    }
+
+    #[test]
+    fn connection_input_without_ai_access_defaults_to_schema() {
+        let json = r#"{"name":"n","host":"h","port":3306,"user":"u","password":null,
+            "savePassword":false,"database":null,"ssl":false,"color":null}"#;
+        let input: super::ConnectionInput = serde_json::from_str(json).unwrap();
+        assert_eq!(input.ai_access, AiAccess::Schema);
+    }
+
+    #[test]
+    fn connection_input_keeps_an_explicit_camel_case_ai_access() {
+        let json = r#"{"name":"n","host":"h","port":3306,"user":"u","password":null,
+            "savePassword":false,"database":null,"ssl":false,"color":null,"aiAccess":"query"}"#;
+        let input: super::ConnectionInput = serde_json::from_str(json).unwrap();
+        assert_eq!(input.ai_access, AiAccess::Query);
     }
 }

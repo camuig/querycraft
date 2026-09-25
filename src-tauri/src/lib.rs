@@ -1,5 +1,6 @@
 //! Tauri application assembly: plugins, native menu, state and command registration.
 
+pub mod ai;
 pub mod commands;
 pub mod connections;
 pub mod db;
@@ -12,6 +13,7 @@ pub mod updates;
 
 use tauri::Manager;
 
+use ai::AiState;
 use commands::AppState;
 use connections::ConnectionStore;
 use db::ConnectionManager;
@@ -39,11 +41,18 @@ pub fn run() {
                 manager,
                 history,
             });
+            app.manage(AiState::new());
             app.set_menu(menu::build(handle)?)?;
             app.on_menu_event(menu::handle_event);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            ai::commands::ai_key_status,
+            ai::commands::ai_set_key,
+            ai::commands::ai_delete_key,
+            ai::commands::ai_list_models,
+            ai::commands::ai_chat,
+            ai::commands::ai_cancel,
             commands::list_connections,
             commands::save_connection,
             commands::delete_connection,
