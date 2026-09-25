@@ -2,7 +2,7 @@
 // only: no store or IPC access here (see `gather.ts` for the store-aware layer that loads the
 // metadata and calls into this module).
 
-import type { ColumnInfo, ForeignKeyInfo, TableKind } from "../../api/types";
+import type { ColumnInfo, ForeignKeyInfo, IndexInfo, TableKind } from "../../api/types";
 
 /** What `buildSchemaContext`/`renderTable` need to know about one table or view. */
 export interface RenderableTable {
@@ -12,6 +12,8 @@ export interface RenderableTable {
   /** Undefined when the columns have not been loaded yet (only the table list is known). */
   columns?: ColumnInfo[];
   foreignKeys?: ForeignKeyInfo[];
+  /** Undefined when indexes have not been loaded (or were not requested — see `gatherSchemaContext`). */
+  indexes?: IndexInfo[];
 }
 
 /** Default values that read fine unquoted in a DDL snippet; everything else is a string literal. */
@@ -34,6 +36,23 @@ function renderForeignKeyDefinition(fk: ForeignKeyInfo): string {
   return `FOREIGN KEY (${fk.columns.join(", ")}) REFERENCES ${fk.refTable}(${fk.refColumns.join(", ")})`;
 }
 
+function renderIndexDefinition(index: IndexInfo): string {
+  return `${index.unique ? "UNIQUE INDEX" : "INDEX"} ${index.name} (${index.columns.join(", ")})`;
+}
+
+/**
+ * An index that is really just the primary key: named "PRIMARY" (MySQL's convention), or a unique
+ * index whose column set is exactly the primary key's. Either way it adds nothing over the
+ * `PRIMARY KEY` marker `renderColumnDefinition` already put on the column(s), so it is skipped.
+ */
+function isPrimaryKeyIndex(index: IndexInfo, pkColumns: string[]): boolean {
+  if (index.name.toUpperCase() === "PRIMARY") return true;
+  if (!index.unique || index.columns.length !== pkColumns.length) return false;
+  const sortedIndex = [...index.columns].sort();
+  const sortedPk = [...pkColumns].sort();
+  return sortedIndex.every((col, i) => col === sortedPk[i]);
+}
+
 /**
  * Renders a table/view as a compact CREATE statement: just enough of the DDL for the model to
  * write correct SQL against it (types, nullability, keys, defaults, comments, foreign keys) without
@@ -51,6 +70,17 @@ export function renderTable(table: RenderableTable): string {
 
   for (const fk of table.foreignKeys ?? []) {
     lines.push({ code: renderForeignKeyDefinition(fk) });
+  }
+
+  if (table.indexes?.length) {
+    const pkColumns = [...table.columns]
+      .filter((col) => col.key === "PRI")
+      .sort((a, b) => a.ordinal - b.ordinal)
+      .map((col) => col.name);
+    for (const index of table.indexes) {
+      if (isPrimaryKeyIndex(index, pkColumns)) continue;
+      lines.push({ code: renderIndexDefinition(index) });
+    }
   }
 
   const body = lines

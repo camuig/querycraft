@@ -207,9 +207,26 @@ function rowsResult(
   };
 }
 
+/** A plausible execution plan for "Optimize query": exercises `formatResultAsText`'s single-column path. */
+function explainResult(sql: string): StatementResult {
+  const lines = [
+    "-> Nested loop inner join  (cost=2.75 rows=3)",
+    "    -> Table scan on c  (cost=0.75 rows=3)",
+    "    -> Index lookup on o using idx_customer (customer_id=c.id)  (cost=0.55 rows=1)",
+  ];
+  return rowsResult(
+    sql,
+    [meta("EXPLAIN", "TEXT", { nullable: false })],
+    lines.map((line) => [line]),
+  );
+}
+
 function runStatement(sql: string, maxRows: number): StatementResult {
   const s = sql.trim().replace(/;$/, "");
   const lower = s.toLowerCase();
+  if (lower.startsWith("explain")) {
+    return explainResult(sql);
+  }
   if (lower.includes("nope")) {
     return {
       sql,
@@ -329,10 +346,52 @@ function fakeInlineCompletion(userMessage: string): string {
   }
 }
 
+/**
+ * A realistic side-chat answer for the browser demo: prose plus a fenced code block and, for SQL
+ * connections, a small Markdown table — exercises MarkdownView's code block (Copy/Insert) and table
+ * rendering. `system` is the chat system prompt (`buildChatSystemPrompt`), which fences SQL in the
+ * connection's query language, so a Redis chat gets a `redis` block instead of `sql` + a table.
+ */
+function fakeChatAnswer(system: string): string {
+  if (system.includes("```redis")) {
+    return [
+      "That reads the value stored for that key. For example:",
+      "",
+      "```redis",
+      "GET user:1001",
+      "```",
+      "",
+      "If the key holds a hash instead, use `HGETALL user:1001` to see all its fields.",
+    ].join("\n");
+  }
+  return [
+    "Here's a query for that, along with the tables it touches:",
+    "",
+    "```sql",
+    "SELECT c.id, c.name, SUM(o.total) AS total_spent",
+    "FROM customers c",
+    "JOIN orders o ON o.customer_id = c.id",
+    "GROUP BY c.id, c.name",
+    "ORDER BY total_spent DESC",
+    "LIMIT 5;",
+    "```",
+    "",
+    "| Table | Rows | Notes |",
+    "|---|---:|---|",
+    "| `customers` | 3 | primary key `id` |",
+    "| `orders` | 3 | indexed on `customer_id, status` |",
+    "",
+    "Let me know if you'd like it filtered to a date range.",
+  ].join("\n");
+}
+
 /** A plausible answer for the console's "Generate SQL" / "Fix with AI" actions. */
 function fakeAiAnswer(request: AiChatRequest): string {
   if (/SQL autocomplete engine/.test(request.system)) {
     return fakeInlineCompletion(request.messages[request.messages.length - 1]?.content ?? "");
+  }
+  if (request.system.includes("chatting with a developer")) {
+    return fakeChatAnswer(request.system);
   }
   if (/```redis|redis assistant/i.test(request.system)) {
     return "```redis\nGET user:1001\n```";

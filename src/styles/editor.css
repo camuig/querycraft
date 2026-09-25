@@ -31,6 +31,16 @@
 }
 .console-toolbar select {
   max-width: 220px;
+  min-width: 90px;
+  flex-shrink: 1;
+}
+/* A narrow console (e.g. next to the AI chat) clips the toolbar instead of wrapping button labels. */
+.console-toolbar {
+  overflow: hidden;
+}
+.console-toolbar button {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .console-toolbar .status {
   font-size: 12px;

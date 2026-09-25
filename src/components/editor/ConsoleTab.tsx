@@ -8,6 +8,7 @@ import { buildInlineSystemPrompt, buildInlineUserMessage, cleanCompletion } from
 import { registerCommand } from "../../lib/commandBus";
 import { commandAtCursor } from "../../lib/commandSplit";
 import { dialectFor } from "../../lib/dialect";
+import { registerConsoleEditor } from "../../lib/editorRegistry";
 import { newId } from "../../lib/ids";
 import { actionTitle } from "../../lib/keymap";
 import { statementAtCursor } from "../../lib/sqlSplit";
@@ -21,9 +22,11 @@ import { useTabsStore } from "../../store/tabsStore";
 import { toast } from "../../store/toastStore";
 import { ResultsPanel } from "../grid/ResultsPanel";
 import { AiAssistBar } from "./AiAssistBar";
+import { AiMenuButton } from "./AiMenuButton";
 import type { InlineCompletionSource } from "./inlineCompletion";
 import { SqlEditor } from "./SqlEditor";
 import { useAiAssist } from "./useAiAssist";
+import { useAiChatActions } from "./useAiChatActions";
 
 /** SQL console tab: toolbar (run / cancel / database), editor on top, results below. */
 export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: boolean }) {
@@ -67,6 +70,24 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
     serverVersion,
     editorRef,
   });
+
+  const aiChatActions = useAiChatActions({
+    connectionId: tab.connectionId,
+    database: tab.database,
+    sessionId: tab.sessionId,
+    kind,
+    aiAccess,
+    serverVersion,
+    editorRef,
+  });
+
+  // Makes this console's editor reachable from outside the tab tree (the AI chat panel's
+  // "Insert into console") without prop-drilling the view through the whole tab hierarchy.
+  useEffect(() => {
+    const view = editorRef.current;
+    if (!view) return;
+    return registerConsoleEditor(tab.id, view);
+  }, [tab.id]);
 
   // Persist the editor text to tabsStore with a delay so the store is not updated on every keystroke.
   useEffect(() => {
@@ -321,11 +342,28 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
         if (aiAccess === "off") return false;
         aiAssist.openGenerate();
       }),
+      registerCommand("aiExplain", () => {
+        if (aiAccess === "off") return false;
+        aiChatActions.explain();
+      }),
+      registerCommand("aiOptimize", () => {
+        if (aiAccess === "off") return false;
+        aiChatActions.optimize();
+      }),
     ];
     return () => {
       for (const off of offs) off();
     };
-  }, [active, running, handleExecute, handleCancel, aiAccess, aiAssist.openGenerate]);
+  }, [
+    active,
+    running,
+    handleExecute,
+    handleCancel,
+    aiAccess,
+    aiAssist.openGenerate,
+    aiChatActions.explain,
+    aiChatActions.optimize,
+  ]);
 
   const handleLoadMore = useCallback(
     (index: number) => {
@@ -391,19 +429,16 @@ export function ConsoleTab({ tab, active }: { tab: ConsoleTabModel; active: bool
             </option>
           ))}
         </select>
-        <button
-          type="button"
-          className="ai-toolbar-button"
-          onClick={aiAssist.openGenerate}
+        <AiMenuButton
           disabled={aiAccess === "off"}
-          title={
-            aiAccess === "off"
-              ? "AI assistant is off for this connection"
-              : actionTitle("aiGenerate", "Generate SQL with AI")
-          }
-        >
-          ✦ AI
-        </button>
+          disabledReason="AI assistant is off for this connection"
+          mainButtonTitle={actionTitle("aiGenerate", "Generate SQL with AI")}
+          onGenerate={aiAssist.openGenerate}
+          onExplain={aiChatActions.explain}
+          onOptimize={aiChatActions.optimize}
+          onOpenChat={() => useSettingsStore.getState().setAiChatOpen(true)}
+          optimizing={aiChatActions.optimizing}
+        />
         <div className="spacer" />
         <div className="status">
           {running && <span className="spinner" />}

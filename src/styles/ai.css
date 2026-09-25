@@ -76,6 +76,26 @@
   gap: 4px;
 }
 
+/* Console toolbar "✦ AI ▾" split button (src/components/editor/AiMenuButton.tsx) */
+.ai-menu-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+.ai-menu-button .ai-toolbar-button {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.ai-menu-caret {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 5px;
+  align-self: stretch;
+  color: var(--fg-muted);
+}
+
 /* "Fix with AI" button above/next to an error result */
 .results-error-actions {
   display: flex;

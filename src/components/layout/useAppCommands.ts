@@ -26,6 +26,7 @@ const ALLOWED_IN_TEXT_FIELDS = new Set<AppAction>([
   "focusExplorer",
   "openSettings",
   "aiGenerate",
+  "toggleAiChat",
 ]);
 
 function isTextField(target: EventTarget | null): boolean {
@@ -64,6 +65,10 @@ export function useAppCommands() {
       }),
       registerCommand("nextTab", () => useTabsStore.getState().activateSibling(1)),
       registerCommand("prevTab", () => useTabsStore.getState().activateSibling(-1)),
+      registerCommand("toggleAiChat", () => {
+        const s = useSettingsStore.getState();
+        s.setAiChatOpen(!s.aiChatOpen);
+      }),
     ];
     return () => {
       for (const off of offs) off();

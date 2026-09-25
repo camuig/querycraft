@@ -28,7 +28,10 @@ export type AppAction =
   | "goToDdl"
   | "openSettings"
   | "checkForUpdates"
-  | "aiGenerate";
+  | "aiGenerate"
+  | "aiExplain"
+  | "aiOptimize"
+  | "toggleAiChat";
 
 export type Platform = "mac" | "other";
 
@@ -118,6 +121,14 @@ export const KEYMAP: Record<AppAction, ActionSpec> = {
     label: "Generate SQL with AI",
     mac: [sc("Backslash", { meta: true })],
     other: [sc("Backslash", { ctrl: true })],
+  },
+  // DataGrip has no default shortcut for either action.
+  aiExplain: { label: "Explain query", mac: [], other: [] },
+  aiOptimize: { label: "Optimize query", mac: [], other: [] },
+  toggleAiChat: {
+    label: "AI chat",
+    mac: [sc("KeyI", { meta: true, shift: true })],
+    other: [sc("KeyI", { ctrl: true, shift: true })],
   },
 };
 

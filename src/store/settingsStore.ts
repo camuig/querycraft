@@ -37,6 +37,10 @@ interface SettingsState {
   aiInlineEnabled: boolean;
   /** Chosen inline-completion model per provider id; empty/absent falls back to `aiModels`. */
   aiInlineModels: Record<string, string>;
+  /** Whether the AI chat side panel is open. */
+  aiChatOpen: boolean;
+  /** Width of the AI chat panel, as a percentage of the main layout. */
+  aiChatWidth: number;
   setTheme: (theme: ThemePreference) => void;
   setSystemDark: (dark: boolean) => void;
   setMaxRows: (n: number) => void;
@@ -50,6 +54,8 @@ interface SettingsState {
   setAiBaseUrl: (providerId: string, url: string) => void;
   setAiInlineEnabled: (enabled: boolean) => void;
   setAiInlineModel: (providerId: string, model: string) => void;
+  setAiChatOpen: (open: boolean) => void;
+  setAiChatWidth: (percent: number) => void;
 }
 
 function readSystemDark(): boolean {
@@ -73,6 +79,8 @@ export const useSettingsStore = create<SettingsState>()(
       aiBaseUrls: {},
       aiInlineEnabled: false,
       aiInlineModels: {},
+      aiChatOpen: false,
+      aiChatWidth: 28,
       setTheme: (theme) => set({ theme }),
       setSystemDark: (systemDark) => set({ systemDark }),
       setMaxRows: (maxRows) => set({ maxRows }),
@@ -89,6 +97,8 @@ export const useSettingsStore = create<SettingsState>()(
       setAiInlineEnabled: (aiInlineEnabled) => set({ aiInlineEnabled }),
       setAiInlineModel: (providerId, model) =>
         set((s) => ({ aiInlineModels: { ...s.aiInlineModels, [providerId]: model } })),
+      setAiChatOpen: (aiChatOpen) => set({ aiChatOpen }),
+      setAiChatWidth: (percent) => set({ aiChatWidth: Math.min(50, Math.max(18, percent)) }),
     }),
     {
       name: "querycraft-settings",
@@ -102,6 +112,8 @@ export const useSettingsStore = create<SettingsState>()(
         aiBaseUrls: s.aiBaseUrls,
         aiInlineEnabled: s.aiInlineEnabled,
         aiInlineModels: s.aiInlineModels,
+        aiChatOpen: s.aiChatOpen,
+        aiChatWidth: s.aiChatWidth,
       }),
     },
   ),

@@ -18,6 +18,8 @@ export function Toolbar() {
   const maxRows = useSettingsStore((s) => s.maxRows);
   const setMaxRows = useSettingsStore((s) => s.setMaxRows);
   const openSettings = useSettingsStore((s) => s.openDialog);
+  const aiChatOpen = useSettingsStore((s) => s.aiChatOpen);
+  const setAiChatOpen = useSettingsStore((s) => s.setAiChatOpen);
 
   const canOpenConsole = selectedConnectionId !== null && connectionStatus === "connected";
 
@@ -53,6 +55,14 @@ export function Toolbar() {
           ))}
         </select>
       </label>
+      <button
+        type="button"
+        className={`ai-chat-toggle${aiChatOpen ? " active" : ""}`}
+        onClick={() => setAiChatOpen(!aiChatOpen)}
+        title={actionTitle("toggleAiChat", "AI chat")}
+      >
+        ✦ Chat
+      </button>
       <button type="button" className="icon" onClick={() => openSettings()} title={actionTitle("openSettings")}>
         ⚙
       </button>

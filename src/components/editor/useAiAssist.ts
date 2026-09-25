@@ -278,6 +278,7 @@ export function useAiAssist(opts: UseAiAssistOptions): AiAssistApi {
     view.dispatch({
       changes: { from: edit.from, to: edit.to, insert: edit.insert },
       selection: { anchor: edit.selectionFrom, head: edit.selectionTo },
+      scrollIntoView: true,
       userEvent: "input",
     });
     view.focus();

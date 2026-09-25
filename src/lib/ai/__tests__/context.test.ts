@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ColumnInfo, ForeignKeyInfo } from "../../../api/types";
+import type { ColumnInfo, ForeignKeyInfo, IndexInfo } from "../../../api/types";
 import { buildSchemaContext, type RenderableTable, renderTable, selectRelevantTables } from "../context";
 
 function col(overrides: Partial<ColumnInfo> & { name: string; ordinal: number }): ColumnInfo {
@@ -26,6 +26,10 @@ function fk(overrides: Partial<ForeignKeyInfo> = {}): ForeignKeyInfo {
     onDelete: "RESTRICT",
     ...overrides,
   };
+}
+
+function idx(overrides: Partial<IndexInfo> & { name: string; columns: string[] }): IndexInfo {
+  return { unique: false, indexType: "BTREE", ...overrides };
 }
 
 describe("renderTable", () => {
@@ -97,6 +101,72 @@ describe("renderTable", () => {
     const rendered = renderTable(table);
     expect(rendered).toContain("DEFAULT 0");
     expect(rendered).toContain("DEFAULT CURRENT_TIMESTAMP");
+  });
+
+  it("keeps output byte-identical when indexes are absent", () => {
+    const table: RenderableTable = {
+      name: "orders",
+      kind: "table",
+      columns: [col({ name: "id", ordinal: 1, key: "PRI" })],
+    };
+    const withoutField = renderTable(table);
+    const withEmptyArray = renderTable({ ...table, indexes: [] });
+    expect(withEmptyArray).toBe(withoutField);
+  });
+
+  it("renders a non-PK index as an INDEX line", () => {
+    const table: RenderableTable = {
+      name: "orders",
+      kind: "table",
+      columns: [col({ name: "id", ordinal: 1, key: "PRI" }), col({ name: "user_id", ordinal: 2 })],
+      indexes: [idx({ name: "idx_user_id", columns: ["user_id"] })],
+    };
+    expect(renderTable(table)).toContain("  INDEX idx_user_id (user_id)");
+  });
+
+  it("renders a unique index as UNIQUE INDEX", () => {
+    const table: RenderableTable = {
+      name: "users",
+      kind: "table",
+      columns: [col({ name: "id", ordinal: 1, key: "PRI" }), col({ name: "email", ordinal: 2 })],
+      indexes: [idx({ name: "uniq_email", columns: ["email"], unique: true })],
+    };
+    expect(renderTable(table)).toContain("UNIQUE INDEX uniq_email (email)");
+  });
+
+  it("skips an index named PRIMARY regardless of case", () => {
+    const table: RenderableTable = {
+      name: "orders",
+      kind: "table",
+      columns: [col({ name: "id", ordinal: 1, key: "PRI" })],
+      indexes: [
+        idx({ name: "PRIMARY", columns: ["id"], unique: true }),
+        idx({ name: "primary", columns: ["id"], unique: true }),
+      ],
+    };
+    const rendered = renderTable(table);
+    expect(rendered).not.toContain("PRIMARY (");
+    expect(rendered).not.toContain("INDEX primary");
+  });
+
+  it("skips a unique index whose columns equal the primary key's", () => {
+    const table: RenderableTable = {
+      name: "orders",
+      kind: "table",
+      columns: [col({ name: "a", ordinal: 1, key: "PRI" }), col({ name: "b", ordinal: 2, key: "PRI" })],
+      indexes: [idx({ name: "pk_shadow", columns: ["b", "a"], unique: true })],
+    };
+    expect(renderTable(table)).not.toContain("pk_shadow");
+  });
+
+  it("keeps a non-unique index over the same columns as the primary key", () => {
+    const table: RenderableTable = {
+      name: "orders",
+      kind: "table",
+      columns: [col({ name: "id", ordinal: 1, key: "PRI" })],
+      indexes: [idx({ name: "idx_id_lookup", columns: ["id"], unique: false })],
+    };
+    expect(renderTable(table)).toContain("INDEX idx_id_lookup (id)");
   });
 });
 

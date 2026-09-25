@@ -142,8 +142,6 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
             &item(app, "executeStatement", "Execute", Some("CmdOrCtrl+Enter"))?,
             &item(app, "executeScript", "Execute Script", Some("CmdOrCtrl+Shift+Enter"))?,
             &item(app, "cancelQuery", "Cancel Running Query", Some("CmdOrCtrl+F2"))?,
-            &sep(app)?,
-            &item(app, "aiGenerate", "Generate SQL with AI…", Some("CmdOrCtrl+\\"))?,
         ],
     )?;
     menu.append(&run)?;
@@ -167,6 +165,20 @@ pub fn build(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
         ],
     )?;
     menu.append(&data)?;
+
+    let ai = Submenu::with_items(
+        app,
+        "AI",
+        true,
+        &[
+            &item(app, "aiGenerate", "Generate SQL…", Some("CmdOrCtrl+\\"))?,
+            &item(app, "aiExplain", "Explain Query", None)?,
+            &item(app, "aiOptimize", "Optimize Query", None)?,
+            &sep(app)?,
+            &item(app, "toggleAiChat", "AI Chat", Some("CmdOrCtrl+Shift+I"))?,
+        ],
+    )?;
+    menu.append(&ai)?;
 
     #[cfg(target_os = "macos")]
     {

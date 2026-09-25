@@ -56,8 +56,9 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
   and updates.
 - **Automatic updates** — new releases are downloaded from GitHub at startup and applied after a restart
   (see [Updates](#updates)).
-- **AI assistant** — bring your own API key to generate SQL from a description or fix a failing
-  statement, right from the console (see [AI assistant](#ai-assistant)).
+- **AI assistant** — bring your own API key to generate SQL from a description, fix a failing
+  statement, explain or optimize a query, or chat about the current database, right from the console
+  (see [AI assistant](#ai-assistant)).
 
 ## Keyboard shortcuts
 
@@ -83,6 +84,7 @@ Shortcuts follow the DataGrip defaults for each platform.
 | Next / previous tab | ⇧⌘] / ⇧⌘[ | Alt+→ / Alt+← |
 | Settings | ⌘, | Ctrl+Alt+S |
 | Generate SQL with AI | ⌘\ | Ctrl+\ |
+| AI chat | ⇧⌘I | Ctrl+Shift+I |
 | Copy selection (TSV) | ⌘C | Ctrl+C |
 | Paste into grid | ⌘V | Ctrl+V |
 | Select all cells | ⌘A | Ctrl+A |
@@ -141,10 +143,11 @@ add it to the system trust store or turn certificate verification off for that c
 
 ## AI assistant
 
-QueryCraft ships a bring-your-own-key (BYOK) AI assistant for two things: generating a SQL statement
-from a plain-language description, and fixing a statement that just failed. There is no bundled
-service and no telemetry — every request goes straight from your machine to the provider you chose,
-using your own API key.
+QueryCraft ships a bring-your-own-key (BYOK) AI assistant: generating a SQL statement from a
+plain-language description, fixing a statement that just failed, explaining or optimizing a query, and
+a side chat for open-ended questions about the current database. There is no bundled service and no
+telemetry — every request goes straight from your machine to the provider you chose, using your own
+API key.
 
 **Providers** — Anthropic, OpenAI, Google Gemini, OpenRouter, DeepSeek, Mistral, a local Ollama or LM
 Studio server (no key needed), or any other OpenAI-compatible endpoint. Configure one in *Settings →
@@ -163,11 +166,31 @@ asks again, and the input stays open for a follow-up refinement. A statement tha
 **Fix with AI** — a failed statement's result shows a **✦ Fix with AI** button that opens the same bar
 already working on a fix, using the statement and the error message.
 
+**Explain / Optimize query** — the **✦ AI** toolbar button is a split button: its caret opens **Explain
+query** and **Optimize query** alongside Generate SQL and Open AI chat. Both act on the current
+selection, or the statement at the cursor, and answer in the AI chat panel (they produce prose plus
+SQL, which does not fit the single-statement assist bar). **Explain query** asks for a plain-language
+walkthrough of what the statement does. **Optimize query** first runs the dialect's `EXPLAIN` for the
+statement — never `EXPLAIN ANALYZE` and never the statement itself — then asks for a performance review
+grounded in that plan, including index suggestions; a busy indicator shows on the menu item while
+`EXPLAIN` runs. Engines with no usable `EXPLAIN` (SQL Server, Redis, Valkey) get a review without a
+plan instead.
+
+**AI chat** — a side panel for open-ended questions about the current connection: toggle it with the
+**✦ Chat** toolbar button, `Shift+Cmd+I` / `Ctrl+Shift+I`, or *AI → AI Chat*. Its context (and its own
+conversation) follows the active tab's connection and database, or the explorer selection when no tab
+is open; **New chat** clears the current context's conversation. Answers render as Markdown — code
+blocks get **Copy** and, for SQL/Redis, **Insert** (into the active console at the cursor, or a new
+console if none is open for that connection). The "Include current query" chip attaches the active
+console's statement at the cursor/selection to your message. Conversations are kept in memory only —
+never written to disk, and gone when you close the app.
+
 **Per-connection access level** — each connection's *AI assistant* setting (in its General tab)
 controls what the assistant may see for that connection: *Query and schema* sends the query text and
 the schema of the tables involved (names, columns, types, keys, comments — never row data); *Query
 only* sends just the query/error text with no schema; *Off* disables the assistant entirely for that
-connection.
+connection. Optimize query's `EXPLAIN` plan is sent even at *Query only* — it describes how the engine
+would run the statement, not row data.
 
 **Inline suggestions** — off by default, since every pause while typing sends a request to the
 provider. Turn it on in *Settings → AI* ("Suggest completions while typing") and, optionally, pick a

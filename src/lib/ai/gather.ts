@@ -2,7 +2,7 @@
 // pure schema-context builder. Kept separate from context.ts so that module stays pure and easy to
 // unit-test without a store.
 
-import type { DbKind, ForeignKeyInfo, TableInfo } from "../../api/types";
+import type { DbKind, ForeignKeyInfo, IndexInfo, TableInfo } from "../../api/types";
 import { selectConnectionKind, useConnectionsStore } from "../../store/connectionsStore";
 import { useExplorerStore } from "../../store/explorerStore";
 import { buildSchemaContext, type RenderableTable, selectRelevantTables } from "./context";
@@ -20,9 +20,17 @@ const NO_SCHEMA_KINDS: DbKind[] = ["redis", "valkey"];
  *
  * Per-table load failures are swallowed: a table whose foreign keys failed to load simply
  * contributes no FK neighbors and no FK lines, and one whose columns failed to load renders as
- * "columns not loaded" instead of failing the whole request.
+ * "columns not loaded" instead of failing the whole request. Same for indexes when
+ * `opts.includeIndexes` is set (used by the "Optimize query" feature, which wants index
+ * definitions alongside the execution plan) — a table whose indexes failed to load simply renders
+ * without an indexes section.
  */
-export async function gatherSchemaContext(connectionId: string, database: string, text: string): Promise<string> {
+export async function gatherSchemaContext(
+  connectionId: string,
+  database: string,
+  text: string,
+  opts?: { includeIndexes?: boolean },
+): Promise<string> {
   const kind = selectConnectionKind(connectionId)(useConnectionsStore.getState());
   if (NO_SCHEMA_KINDS.includes(kind)) return "";
 
@@ -70,6 +78,19 @@ export async function gatherSchemaContext(connectionId: string, database: string
     }),
   );
 
+  const indexesByTable = new Map<string, IndexInfo[]>();
+  if (opts?.includeIndexes) {
+    await Promise.all(
+      expanded.map(async (name) => {
+        try {
+          indexesByTable.set(name, await explorer.loadIndexes(connectionId, database, name));
+        } catch {
+          // No index info for this table: it simply renders without an indexes section.
+        }
+      }),
+    );
+  }
+
   // buildSchemaContext re-derives the same selection from `text` and each table's own
   // (possibly absent) foreignKeys, so it renders exactly the tables loaded above and lists the
   // rest by name only.
@@ -79,6 +100,7 @@ export async function gatherSchemaContext(connectionId: string, database: string
     comment: table.comment,
     columns: columnsByTable.get(table.name),
     foreignKeys: foreignKeysByTable.get(table.name),
+    indexes: indexesByTable.get(table.name),
   }));
 
   return buildSchemaContext(renderable, text, { limit: SCHEMA_CONTEXT_LIMIT });
