@@ -4,7 +4,7 @@
 
 use std::time::Duration;
 
-use reqwest::{Client, Response, Url};
+use reqwest::{Client, Response, StatusCode, Url};
 
 use crate::error::{AppError, AppResult};
 
@@ -54,10 +54,22 @@ pub(crate) async fn request(
     let body = read_body(response).await?;
 
     if !status.is_success() {
-        return Err(AppError::Database(body.trim().to_string()));
+        return Err(AppError::Database(error_message(status, &body)));
     }
 
     Ok(HttpResult { body, written_rows })
+}
+
+/// The error text for a non-success response: ClickHouse's exception from the
+/// body, or the HTTP status when the body is empty (e.g. a 503 from something
+/// between the client and the server), so the error is never blank.
+fn error_message(status: StatusCode, body: &str) -> String {
+    let body = body.trim();
+    if body.is_empty() {
+        format!("The server responded with HTTP {status} and an empty body; check the host and port")
+    } else {
+        body.to_string()
+    }
 }
 
 /// Appends the fixed output-format settings and the caller's `params` to `base_url`'s query string.
@@ -97,7 +109,24 @@ pub(crate) fn parse_written_rows(summary_header: &str) -> Option<u64> {
 
 #[cfg(test)]
 mod tests {
-    use super::{build_url, parse_written_rows};
+    use reqwest::StatusCode;
+
+    use super::{build_url, error_message, parse_written_rows};
+
+    #[test]
+    fn error_message_keeps_the_clickhouse_exception() {
+        let body = "Code: 516. DB::Exception: user1: Authentication failed. (AUTHENTICATION_FAILED)\n";
+        assert_eq!(
+            error_message(StatusCode::UNAUTHORIZED, body),
+            "Code: 516. DB::Exception: user1: Authentication failed. (AUTHENTICATION_FAILED)"
+        );
+    }
+
+    #[test]
+    fn error_message_falls_back_to_the_status_for_an_empty_body() {
+        let message = error_message(StatusCode::SERVICE_UNAVAILABLE, " \n");
+        assert!(message.contains("HTTP 503 Service Unavailable"), "{message}");
+    }
 
     #[test]
     fn build_url_sets_plain_text_exceptions_and_keeps_params() {
