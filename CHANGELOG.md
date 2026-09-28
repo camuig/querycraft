@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. Entries are gen
 [release-please](https://github.com/googleapis/release-please) from the Conventional Commits history, and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1](https://github.com/camuig/querycraft/compare/v0.5.0...v0.5.1) (2026-09-28)
+
+
+### Bug Fixes
+
+* **release:** let every user start the linux appimage ([d1bfd8b](https://github.com/camuig/querycraft/commit/d1bfd8bb5c6bcc2210efff0ea278f043eb728162))
+
 ## [0.5.0](https://github.com/camuig/querycraft/compare/v0.4.0...v0.5.0) (2026-09-25)
 
 
