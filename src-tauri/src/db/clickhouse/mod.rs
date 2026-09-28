@@ -44,7 +44,11 @@ impl ClickhouseDriver {
         endpoint: &Endpoint,
         password: Option<String>,
     ) -> AppResult<Self> {
-        let mut builder = Client::builder().connect_timeout(CONNECT_TIMEOUT);
+        // Connect directly, like every other driver: the system proxy is meant for web
+        // traffic, and on macOS reqwest ignores its bypass list, so a server on a private
+        // network (e.g. reached over a VPN) would be sent to a proxy that cannot reach it.
+        // An SSH tunnel is the supported way to route a database connection.
+        let mut builder = Client::builder().connect_timeout(CONNECT_TIMEOUT).no_proxy();
         if config.ssl {
             if let Some(pem) = read_ca_certificate(config)? {
                 let certificate = reqwest::Certificate::from_pem(&pem)
