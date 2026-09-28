@@ -66,6 +66,18 @@ jobs:
         with:
           workspaces: src-tauri
       - run: pnpm install --frozen-lockfile
+      # The bundler downloads the AppImage launcher (AppRun) with mode 0770 and copies it into the image
+      # as AppRun.wrapped, so the AppImage fails with "Permission denied" when root mounts it and another
+      # user starts it (firejail, the AppImage catalog tests). The bundler reuses a launcher that is already
+      # in its cache, so seed one that everybody may run. Upstream: tauri-apps/tauri#16155.
+      - name: Seed an AppImage launcher runnable by every user
+        if: runner.os == 'Linux'
+        run: |
+          dir="${XDG_CACHE_HOME:-$HOME/.cache}/tauri"
+          mkdir -p "$dir"
+          curl -fsSL -o "$dir/AppRun-$(uname -m)" \
+            "https://github.com/tauri-apps/binary-releases/releases/download/apprun-old/AppRun-$(uname -m)"
+          chmod 755 "$dir/AppRun-$(uname -m)"
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -81,3 +93,19 @@ jobs:
           includeUpdaterJson: true
           updaterJsonPreferNsis: true
           args: ${{ matrix.args }}
+      # The AppImage is already attached to the draft by now; failing here keeps the draft from being
+      # published with an AppImage that other users cannot start.
+      - name: Check that every user can start the AppImage
+        if: runner.os == 'Linux'
+        run: |
+          cd "$RUNNER_TEMP"
+          for image in "$GITHUB_WORKSPACE"/src-tauri/target/release/bundle/appimage/*.AppImage; do
+            rm -rf squashfs-root
+            "$image" --appimage-extract > /dev/null
+            bad="$(find squashfs-root ! -type l \( ! -perm -o+r -o -perm -u+x ! -perm -o+x \))"
+            if [ -n "$bad" ]; then
+              echo "::error::$(basename "$image") has files that only their owner may use:"
+              echo "$bad" | xargs ls -ld
+              exit 1
+            fi
+          done
