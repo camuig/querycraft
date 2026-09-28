@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file. Entries are gen
 [release-please](https://github.com/googleapis/release-please) from the Conventional Commits history, and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2](https://github.com/camuig/querycraft/compare/v0.5.1...v0.5.2) (2026-09-28)
+
+
+### Bug Fixes
+
+* **clickhouse:** connect directly instead of through the system proxy ([470fa63](https://github.com/camuig/querycraft/commit/470fa637c4eb8f4250ea2a90091031302e9b790c))
+* **clickhouse:** report the http status when the error body is empty ([1321312](https://github.com/camuig/querycraft/commit/13213122022e56ca57840a69f0e2ce6ea4b99660))
+
 ## [0.5.1](https://github.com/camuig/querycraft/compare/v0.5.0...v0.5.1) (2026-09-28)
 
 
