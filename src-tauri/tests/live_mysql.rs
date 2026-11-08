@@ -97,6 +97,29 @@ async fn types_are_converted_by_column_type() {
 }
 
 #[tokio::test]
+async fn only_byte_columns_are_binary() {
+    // MySQL reports the binary charset for dates, times and numbers too; those must stay editable.
+    let Some((m, h)) = setup().await else { return };
+    let sql = "SELECT CAST('2024-01-02' AS DATE) d, TIMESTAMP('2024-01-02 03:04:05') dt, \
+               CAST('03:04:05' AS TIME) t, 1 i, 1.5 n, CAST('a' AS BINARY) b, 'x' s";
+    let r = execute::execute(&m, &h, req(sql, "s1", 500)).await.unwrap();
+    let binary: Vec<(&str, bool)> = r[0].columns.iter().map(|c| (c.name.as_str(), c.binary)).collect();
+    assert_eq!(
+        binary,
+        [
+            ("d", false),
+            ("dt", false),
+            ("t", false),
+            ("i", false),
+            ("n", false),
+            ("b", true),
+            ("s", false)
+        ]
+    );
+    assert_eq!(r[0].rows[0][1], json!("2024-01-02 03:04:05"));
+}
+
+#[tokio::test]
 async fn multiple_statements_truncation_and_errors() {
     let Some((m, h)) = setup().await else { return };
     let sql =

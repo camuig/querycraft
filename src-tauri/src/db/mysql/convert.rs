@@ -35,10 +35,28 @@ fn non_empty(s: std::borrow::Cow<'_, str>) -> Option<String> {
     }
 }
 
+/// Whether the column holds raw bytes (BINARY, VARBINARY, BLOB, GEOMETRY) rather than text.
+///
+/// MySQL reports the `binary` character set (63) and `BINARY_FLAG` for every non-string column
+/// as well (numbers, DATE/DATETIME/TIMESTAMP/TIME, JSON, BIT), so the flags alone would mark those
+/// columns as binary and make them read-only in the grid; only string and blob types qualify.
 fn is_binary(col: &Column) -> bool {
-    // charset 63 == "binary"
-    col.flags().contains(ColumnFlags::BINARY_FLAG) && col.character_set() == 63
+    use ColumnType::*;
+    match col.column_type() {
+        MYSQL_TYPE_GEOMETRY => true,
+        MYSQL_TYPE_STRING
+        | MYSQL_TYPE_VAR_STRING
+        | MYSQL_TYPE_VARCHAR
+        | MYSQL_TYPE_TINY_BLOB
+        | MYSQL_TYPE_MEDIUM_BLOB
+        | MYSQL_TYPE_LONG_BLOB
+        | MYSQL_TYPE_BLOB => col.character_set() == BINARY_CHARSET,
+        _ => false,
+    }
 }
+
+/// Character set id of MySQL's `binary` pseudo-charset.
+const BINARY_CHARSET: u16 = 63;
 
 fn type_name(ct: ColumnType, binary: bool) -> String {
     use ColumnType::*;
@@ -217,6 +235,47 @@ pub fn json_to_value(v: &serde_json::Value) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn column(ty: ColumnType, charset: u16) -> Column {
+        Column::new(ty)
+            .with_character_set(charset)
+            .with_flags(ColumnFlags::BINARY_FLAG)
+    }
+
+    #[test]
+    fn temporal_and_numeric_columns_are_not_binary() {
+        for ty in [
+            ColumnType::MYSQL_TYPE_DATE,
+            ColumnType::MYSQL_TYPE_DATETIME,
+            ColumnType::MYSQL_TYPE_TIMESTAMP,
+            ColumnType::MYSQL_TYPE_TIME,
+            ColumnType::MYSQL_TYPE_YEAR,
+            ColumnType::MYSQL_TYPE_LONGLONG,
+            ColumnType::MYSQL_TYPE_NEWDECIMAL,
+            ColumnType::MYSQL_TYPE_JSON,
+            ColumnType::MYSQL_TYPE_BIT,
+        ] {
+            let meta = column_meta(&column(ty, BINARY_CHARSET));
+            assert!(!meta.binary, "{ty:?} must not be binary");
+        }
+    }
+
+    #[test]
+    fn binary_strings_and_blobs_are_binary() {
+        assert!(column_meta(&column(ColumnType::MYSQL_TYPE_VAR_STRING, BINARY_CHARSET)).binary);
+        let blob = column_meta(&column(ColumnType::MYSQL_TYPE_BLOB, BINARY_CHARSET));
+        assert!(blob.binary);
+        assert_eq!(blob.type_name, "BLOB");
+        assert!(column_meta(&column(ColumnType::MYSQL_TYPE_GEOMETRY, BINARY_CHARSET)).binary);
+    }
+
+    #[test]
+    fn text_columns_are_not_binary() {
+        let text = column_meta(&column(ColumnType::MYSQL_TYPE_BLOB, 255));
+        assert!(!text.binary);
+        assert_eq!(text.type_name, "TEXT");
+        assert!(!column_meta(&column(ColumnType::MYSQL_TYPE_VAR_STRING, 255)).binary);
+    }
 
     #[test]
     fn format_date_date_only_type_with_zero_time() {
