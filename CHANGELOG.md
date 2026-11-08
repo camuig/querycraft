@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file. Entries are gen
 [release-please](https://github.com/googleapis/release-please) from the Conventional Commits history, and the
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0](https://github.com/camuig/querycraft/compare/v0.5.2...v0.6.0) (2026-11-08)
+
+
+### Features
+
+* **grid:** add calendar picker for date and time cells ([d6f2f4a](https://github.com/camuig/querycraft/commit/d6f2f4ac29cdf5a12b56b2b7266dbcf55eb8775b))
+
+
+### Bug Fixes
+
+* **mysql:** stop treating dates and numbers as binary columns ([de35c2b](https://github.com/camuig/querycraft/commit/de35c2bf354a0722d67ba6724c88b0664599b459))
+
 ## [0.5.2](https://github.com/camuig/querycraft/compare/v0.5.1...v0.5.2) (2026-09-28)
 
 
