@@ -291,3 +291,115 @@
   position: relative;
   display: inline-block;
 }
+
+/* Date/time cell editor popup */
+.temporal-picker {
+  position: fixed;
+  z-index: 200;
+  padding: 8px;
+  background: var(--bg-tooltip);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  user-select: none;
+}
+.temporal-picker button {
+  font: inherit;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.temporal-picker button:hover {
+  background: var(--bg-hover);
+}
+.tp-header {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+.tp-header button {
+  width: 24px;
+  height: 22px;
+  padding: 0;
+}
+.tp-title {
+  flex: 1;
+  text-align: center;
+  font-weight: 600;
+}
+.tp-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 28px);
+  gap: 2px;
+}
+.tp-weekday {
+  text-align: center;
+  color: var(--fg-muted);
+  padding-bottom: 2px;
+}
+.temporal-picker .tp-day {
+  height: 24px;
+  padding: 0;
+  font-variant-numeric: tabular-nums;
+}
+.temporal-picker .tp-outside {
+  color: var(--fg-dim);
+}
+.temporal-picker .tp-today {
+  border-color: var(--accent);
+}
+.temporal-picker .tp-selected,
+.temporal-picker .tp-selected:hover {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.tp-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+.tp-time .muted {
+  margin-right: 4px;
+}
+.tp-time-field {
+  width: 30px;
+  height: 22px;
+  padding: 0 4px;
+  text-align: center;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+}
+.tp-time-field:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.tp-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.tp-footer button {
+  padding: 2px 8px;
+  border-color: var(--border-strong);
+}
+.temporal-picker .tp-footer .primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+.tp-hint {
+  flex: 1;
+  font-size: 11px;
+  text-align: center;
+  white-space: nowrap;
+}

@@ -48,6 +48,9 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design.
   clicking the `500+ rows` count in the footer runs `SELECT COUNT(*)` over the statement to show the total.
 - **Table data editing** — `WHERE` filter with column and keyword suggestions, sorting, pagination, inline
   cell editing, add and delete rows, deferred Submit / Revert applied in a single transaction, SQL preview.
+- **Date and time editor** — date, datetime and time cells open a calendar popup next to the text field
+  (DataGrip style): pick a day, step months and years, set hours / minutes / seconds, *Today* / *Now*;
+  typing and pasting into the field work as usual, Enter applies, Esc cancels, an empty value saves NULL.
 - **Clipboard paste** into the grid: each line becomes a row, missing rows are added, tab / `;` / `,` / `|`
   split values across columns, `NULL` and empty cells become SQL NULL; a single value fills a selected range.
 - **DDL view** — `SHOW CREATE TABLE` (synthesized from the catalog for PostgreSQL) with highlighting.

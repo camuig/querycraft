@@ -1,8 +1,8 @@
-import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
-import { memo, useEffect, useRef } from "react";
+import type { CSSProperties, MouseEvent } from "react";
+import { memo } from "react";
 import type { CellValue, ColumnMeta } from "../../api/types";
 import { formatCell, isNumericType } from "../../lib/format";
-import { NO_AUTOCORRECT } from "../../lib/inputProps";
+import { CellEditor, type EditAdvance } from "./CellEditor";
 
 export interface GridCellProps {
   value: CellValue;
@@ -17,7 +17,7 @@ export interface GridCellProps {
   onMouseDown: (e: MouseEvent) => void;
   onMouseEnter: () => void;
   onDoubleClick: () => void;
-  onCommit: (value: CellValue, advance: "down" | "right" | "left" | "none") => void;
+  onCommit: (value: CellValue, advance: EditAdvance) => void;
   onCancel: () => void;
   onContextMenu: (e: MouseEvent) => void;
 }
@@ -27,39 +27,15 @@ function isNumeric(meta: ColumnMeta): boolean {
 }
 
 function GridCellImpl(props: GridCellProps) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (props.editing) {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    }
-  }, [props.editing]);
-
   if (props.editing) {
     return (
-      <div className="grid-cell grid-cell-editing" style={props.style}>
-        <input
-          ref={inputRef}
-          className="grid-cell-input"
-          {...NO_AUTOCORRECT}
-          defaultValue={props.editingInitialValue}
-          onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
-            e.stopPropagation();
-            if (e.key === "Enter") {
-              e.preventDefault();
-              props.onCommit(inputRef.current?.value ?? "", "down");
-            } else if (e.key === "Escape") {
-              e.preventDefault();
-              props.onCancel();
-            } else if (e.key === "Tab") {
-              e.preventDefault();
-              props.onCommit(inputRef.current?.value ?? "", e.shiftKey ? "left" : "right");
-            }
-          }}
-          onBlur={() => props.onCommit(inputRef.current?.value ?? "", "none")}
-        />
-      </div>
+      <CellEditor
+        meta={props.meta}
+        initialValue={props.editingInitialValue}
+        style={props.style}
+        onCommit={props.onCommit}
+        onCancel={props.onCancel}
+      />
     );
   }
 
