@@ -51,7 +51,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev squashfs-tools
       - uses: pnpm/action-setup@v4
         with:
           version: 10
@@ -94,14 +94,17 @@ jobs:
           updaterJsonPreferNsis: true
           args: ${{ matrix.args }}
       # The AppImage is already attached to the draft by now; failing here keeps the draft from being
-      # published with an AppImage that other users cannot start.
+      # published with an AppImage that other users cannot start. The image is unpacked with unsquashfs,
+      # which restores the stored modes: the runtime's own --appimage-extract creates every directory
+      # with mode 0700 since AppImage/type2-runtime@8f39b89, whatever the image says.
       - name: Check that every user can start the AppImage
         if: runner.os == 'Linux'
         run: |
           cd "$RUNNER_TEMP"
           for image in "$GITHUB_WORKSPACE"/src-tauri/target/release/bundle/appimage/*.AppImage; do
             rm -rf squashfs-root
-            "$image" --appimage-extract > /dev/null
+            offset="$("$image" --appimage-offset)"
+            (umask 0 && unsquashfs -q -n -o "$offset" -d squashfs-root "$image" > /dev/null)
             bad="$(find squashfs-root ! -type l \( ! -perm -o+r -o -perm -u+x ! -perm -o+x \))"
             if [ -n "$bad" ]; then
               echo "::error::$(basename "$image") has files that only their owner may use:"
